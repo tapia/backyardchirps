@@ -8,7 +8,6 @@ import django
 import requests
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SPECIES_DATA_DIR = REPO_ROOT / "backyardchirps" / "species_data"
 
 # A standalone script rather than a management command, because it needs an eBird key and
 # is never run on a station. So it configures Django itself, and has to do it before
@@ -17,6 +16,8 @@ sys.path.insert(0, str(REPO_ROOT))
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "backyardchirps.settings")
 os.environ.setdefault("SECRET_KEY", "not-used-by-this-tool")
 django.setup()
+
+from django.conf import settings
 
 from backyardchirps.features.species.maintenance import geomodel_is_available
 from backyardchirps.features.species.maintenance import plausible_species_names
@@ -127,7 +128,9 @@ def main() -> None:
     if not geomodel_is_available():
         raise SystemExit("GeoModel is not downloaded. Run: uv run python manage.py download_birdnet3_model")
 
-    output_dir = SPECIES_DATA_DIR / "assets" / "ebird_occurrence"
+    output_dir = Path(settings.EBIRD_DATA_DIR)
+    print(f"Downloading into {output_dir}")
+
     species_codes = species_codes_for(arguments.latitude, arguments.longitude)
 
     downloader = EbirdDownloader(access_key)
