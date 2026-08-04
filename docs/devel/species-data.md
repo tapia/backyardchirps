@@ -82,14 +82,18 @@ under `generated/`:
 uv run python manage.py update_species_data
 ```
 
-**4. Download occurrence rasters** for any species not already in `assets/ebird_occurrence/`.
-The downloader works out which species those are the same way the station does, by asking
-GeoModel about the coordinates, and takes their eBird codes from the taxonomy. So it needs the
-coordinates and an eBird Status & Trends access key, and nothing else:
+**4. Download occurrence rasters** for any species that has none yet. The downloader works out
+which species those are the same way the station does, by asking GeoModel about the
+coordinates, and takes their eBird codes from the taxonomy. So it needs the coordinates and an
+eBird Status & Trends access key, and nothing else:
 
 ```bash
 EBIRD_API_KEY=<your-key> uv run python tools/ebird_downloader.py --latitude <lat> --longitude <lon>
 ```
+
+It writes wherever `EBIRD_DATA_DIR` points, which is the same setting the seasonality timeline
+reads, and prints the path as it starts. That is `assets/ebird_occurrence/` in a plain checkout
+and `$BACKYARDCHIRPS_DATA_DIR/species/ebird_occurrence/` on a station with a data directory.
 
 Rasters are global, so any species you already have from another location is skipped.
 
