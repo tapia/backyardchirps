@@ -1,0 +1,163 @@
+name: Release
+
+# Publish a release when a version tag is pushed:
+#
+#   git tag v0.2.0 && git push origin v0.2.0
+#
+# The whole test suite runs first, so a broken tag cannot ship. What comes out
+# is one tarball plus a manifest.json, which is what install.sh downloads on a
+# fresh Pi and what the updater polls to find out a newer version exists.
+
+on:
+  push:
+    tags: ['v*']
+
+env:
+  # Oldest version that can upgrade straight to this one. Bump it only when a
+  # migration needs an intermediate release as a stepping stone.
+  MIN_UPGRADE_FROM: '0.0.0'
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      # The settings module reads SECRET_KEY at import time.
+      SECRET_KEY: ci-secret-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Check the tag matches the version in pyproject.toml
+        # VERSION is read from pyproject at runtime, so a mismatch here would
+        # ship a release that misreports itself and confuses the updater.
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          project_version="$(uv run python -c 'import tomllib; print(tomllib.load(open("pyproject.toml","rb"))["project"]["version"])')"
+          if [ "$tag_version" != "$project_version" ]; then
+            echo "Tag $GITHUB_REF_NAME says $tag_version, pyproject.toml says $project_version." >&2
+            exit 1
+          fi
+          echo "VERSION=$project_version" >> "$GITHUB_ENV"
+
+      - name: Ruff lint
+        run: uv run ruff check
+
+      - name: Ruff format
+        run: uv run ruff format --check
+
+      - name: Mypy
+        run: uv run mypy backyardchirps
+
+      - name: Pytest
+        run: uv run pytest
+
+      - name: Build the frontend
+        # Shipped prebuilt so the Pi never installs Node. apply.sh looks for the
+        # .prebuilt marker and skips the build when it finds one.
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+          touch dist/.prebuilt
+
+      - name: Lint the frontend
+        run: |
+          cd frontend
+          npx eslint src --quiet
+          npx prettier --check src
+
+      - name: Build the tarball
+        run: |
+          release_name="backyardchirps-${VERSION}"
+          staging="$(mktemp -d)/$release_name"
+          mkdir -p "$staging"
+
+          # An allowlist, deliberately, not a list of exclusions. Anything not
+          # named here stays out, so a file added to the repo root later can
+          # never leak into a public release by being forgotten. A .env sitting
+          # in a working copy is the case that matters.
+          cp -R \
+            backyardchirps \
+            deploy \
+            docs \
+            manage.py \
+            pyproject.toml \
+            uv.lock \
+            .env.example \
+            LICENSE \
+            NOTICE \
+            README.md \
+            "$staging/"
+
+          mkdir -p "$staging/frontend"
+          cp -R frontend/dist "$staging/frontend/dist"
+
+          # The species_data seeds travel with the code. Anything downloaded at
+          # runtime lives in the data directory and must not be in here.
+          rm -rf "$staging/backyardchirps/species_data/generated"
+          rm -rf "$staging/backyardchirps/species_data/assets/ebird_occurrence"
+          find "$staging" -name '__pycache__' -type d -prune -exec rm -rf {} +
+
+          # deploy.sh updates a git checkout, which a release install is not. It stays
+          # in the repository, where CI uses it to deploy, but shipping it here would
+          # only offer a user a script that cannot work for them. apply.sh, the one the
+          # installer and the updater actually call, is still in deploy/.
+          rm -f "$staging/deploy/deploy.sh"
+
+          # Refuse to publish anything carrying secrets or local state, however
+          # it got there. A release is public and permanent, so this fails the
+          # build rather than trusting the copy step above to be right.
+          for forbidden in .env .coverage CLAUDE.md coverage.xml db.sqlite3 detections.db; do
+            if [ -e "$staging/$forbidden" ]; then
+              echo "Refusing to publish: $forbidden is in the release." >&2
+              exit 1
+            fi
+          done
+          if find "$staging" -name '.env' -o -name '*.db' -o -name '.claude' | grep -q .; then
+            echo "Refusing to publish: found a .env, a database, or .claude in the tree." >&2
+            find "$staging" -name '.env' -o -name '*.db' -o -name '.claude' >&2
+            exit 1
+          fi
+
+          tarball="${release_name}.tar.zst"
+          tar --zstd -cf "$tarball" -C "$(dirname "$staging")" "$release_name"
+
+          echo "TARBALL=$tarball" >> "$GITHUB_ENV"
+          echo "SHA256=$(sha256sum "$tarball" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          ls -lh "$tarball"
+
+      - name: Write the manifest
+        run: |
+          repository_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          cat > manifest.json <<EOF
+          {
+            "version": "${VERSION}",
+            "released": "$(date -u +%Y-%m-%d)",
+            "sha256": "${SHA256}",
+            "url": "${repository_url}/releases/download/${GITHUB_REF_NAME}/${TARBALL}",
+            "min_upgrade_from": "${MIN_UPGRADE_FROM}",
+            "changelog_url": "${repository_url}/releases/tag/${GITHUB_REF_NAME}"
+          }
+          EOF
+          cat manifest.json
+
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.TARBALL }}
+            manifest.json
+          generate_release_notes: true

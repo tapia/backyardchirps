@@ -1,0 +1,298 @@
+/* ── Root font size — scales all rem values ──────────────────────── */
+html {
+  font-size: 17px;
+}
+
+/* ── Observatory Design System ──────────────────────────────────── */
+:root {
+  /* Core palette — old paper, limestone, graphite, lichen */
+  --paper: #f4f1eb;
+  --sheet: #fdfcfa;
+  --sheet-rgb: 253, 252, 250;
+  --limestone: #dad6ce;
+  --graphite: #252320;
+  --slate: #696560;
+  --dust: #b2ada6;
+  --lichen: #4a5940;
+  --lichen-dark: #3d4c35;
+  --lichen-pale: #edf0ea;
+  --lichen-rgb: 74, 89, 64;
+  --sand-pale: #ecdfc4;
+  --danger-muted: #8b3a3a;
+
+  /* Species hero stat accents — earthy jay-blue + ochre, tuned to the palette */
+  --jay-blue: #3f6188;
+  --jay-blue-rgb: 63, 97, 136;
+  --ochre: #8a6d38;
+  --ochre-rgb: 138, 109, 56;
+
+  /* Softer border for dashboard-style cards (lighter than --limestone) */
+  --border-soft: #e6e2da;
+
+  /* Confidence badge levels (ConfidenceBadge.vue) */
+  --confidence-high: #4a5940;
+  --confidence-medium: #8a7035;
+  --confidence-low: #8b3a3a;
+
+  /* Distribution-map seasonal ranges (SpeciesMapCard.vue legend). */
+  --range-breeding: #c68856;
+  --range-nonbreeding: #6795b1;
+  --range-migration: #d4bd5e;
+  --range-resident: #71ab6c;
+
+  /* Dark admin-panel theme (settings, login, and server-status cards) */
+  --admin-card-bg: #2c2416;
+  --admin-card-border: #4a4030;
+  --admin-input-bg: #1e1a10;
+  --admin-input-bg-disabled: #1a1608;
+  --admin-accent: #4a7c59;
+  --admin-accent-rgb: 74, 124, 89;
+  --admin-danger: #dc3545;
+  --admin-danger-rgb: 220, 53, 69;
+  --admin-danger-text: #ea868f;
+  --status-card-bg: #141414;
+  --status-card-border: #2e2e2e;
+  --status-card-alert-bg: #1e0a0a;
+
+  /* Legacy names remapped — components using these get updated automatically */
+  --forest: #4a5940;
+  --forest-dark: #3d4c35;
+  /* Day/night chart zones */
+  --night-violet: #796ecb;
+  --night-violet-rgb: 121, 110, 203;
+  --dawn-amber: #f5c45a;
+  --dawn-amber-rgb: 245, 196, 90;
+  --sun-gold: #f2a93b;
+  --moon-pale: #cfc9f0;
+  --brown: #252320;
+  --warm-muted: #696560;
+  --warm-card: #fdfcfa;
+  --warm-border: #dad6ce;
+  --spectrogram-dark: #0e0d0c;
+
+  /* "This week" marker on the seasonality band — dark neutral so it
+     stays legible over both the warm and the blue ends of the ramp */
+  --seasonality-marker: #252320;
+
+  /* Bootstrap 5 CSS-variable overrides */
+  --bs-primary: #4a5940;
+  --bs-primary-rgb: 74, 89, 64;
+  --bs-secondary: #696560;
+  --bs-secondary-rgb: 105, 101, 96;
+  --bs-body-bg: #f4f1eb;
+  --bs-body-color: #252320;
+  --bs-body-font-family: 'Source Sans 3', system-ui, sans-serif;
+  --bs-border-color: #dad6ce;
+  --bs-card-bg: #fdfcfa;
+  --bs-card-border-color: #dad6ce;
+  --bs-card-border-radius: 2px;
+  --bs-dropdown-bg: #fdfcfa;
+  --bs-dropdown-border-color: #dad6ce;
+  --bs-modal-bg: #fdfcfa;
+  --bs-modal-content-border-color: #dad6ce;
+}
+
+/* ── Typography ──────────────────────────────────────────────────── */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.modal-title {
+  font-family: 'Newsreader', Georgia, serif;
+  color: var(--graphite);
+  font-weight: 500;
+}
+
+/* ── Bootstrap Button overrides ──────────────────────────────────── */
+.btn-primary {
+  --bs-btn-bg: #4a5940;
+  --bs-btn-border-color: #4a5940;
+  --bs-btn-hover-bg: #3d4c35;
+  --bs-btn-hover-border-color: #3d4c35;
+  --bs-btn-active-bg: #313e2b;
+  --bs-btn-active-border-color: #313e2b;
+  --bs-btn-color: #fdfcfa;
+  --bs-btn-hover-color: #fdfcfa;
+  --bs-btn-active-color: #fdfcfa;
+  --bs-btn-focus-shadow-rgb: 74, 89, 64;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: #4a5940;
+  --bs-btn-border-color: #4a5940;
+  --bs-btn-hover-bg: #4a5940;
+  --bs-btn-hover-border-color: #4a5940;
+  --bs-btn-hover-color: #fdfcfa;
+  --bs-btn-active-bg: #3d4c35;
+  --bs-btn-active-border-color: #3d4c35;
+  --bs-btn-active-color: #fdfcfa;
+}
+
+.btn-secondary {
+  --bs-btn-bg: #696560;
+  --bs-btn-border-color: #696560;
+  --bs-btn-hover-bg: #5a5652;
+  --bs-btn-hover-border-color: #5a5652;
+  --bs-btn-color: #fdfcfa;
+  --bs-btn-hover-color: #fdfcfa;
+  --bs-btn-active-bg: #4e4b47;
+  --bs-btn-active-color: #fdfcfa;
+}
+
+.btn-outline-secondary {
+  --bs-btn-color: #696560;
+  --bs-btn-border-color: #dad6ce;
+  --bs-btn-hover-bg: #f4f1eb;
+  --bs-btn-hover-border-color: #b2ada6;
+  --bs-btn-hover-color: #252320;
+  --bs-btn-active-color: #252320;
+}
+
+/* ── Navbar ──────────────────────────────────────────────────────── */
+.navbar-brand {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--graphite) !important;
+}
+
+/* ── Cards ───────────────────────────────────────────────────────── */
+.card {
+  border-radius: 2px;
+  border-color: var(--limestone);
+}
+
+/* Remove default shadows — hierarchy comes from spacing and borders */
+.shadow-sm {
+  box-shadow: none !important;
+}
+
+/* ── Stat cards ──────────────────────────────────────────────────── */
+.stat-label {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--slate);
+}
+
+.stat-card-warm {
+  background-color: var(--sheet);
+  border: 1px solid var(--limestone);
+  border-radius: 2px;
+}
+
+/* ── Dashboard chart cards ───────────────────────────────────────── */
+.chart-card {
+  background-color: var(--sheet);
+  border: 1px solid var(--border-soft);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+/* ── Chart labels (shared across all chart components) ───────────── */
+.chart-label {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--slate);
+}
+.chart-axis-label {
+  display: block;
+  margin-bottom: 2px;
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 0.58rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--slate);
+}
+
+/* ── Spinner ─────────────────────────────────────────────────────── */
+.spinner-border {
+  color: var(--lichen);
+}
+
+/* ── Modal ───────────────────────────────────────────────────────── */
+.modal-content {
+  border-radius: 2px;
+  border-color: var(--limestone);
+}
+
+/* ── Dropdown active item ────────────────────────────────────────── */
+.dropdown-item.active,
+.dropdown-item:active {
+  background-color: var(--lichen);
+}
+
+/* ── Continuous species list ─────────────────────────────────────── */
+.species-list {
+  border: 1px solid var(--limestone);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--sheet);
+}
+.species-list > *:last-child {
+  border-bottom: none !important;
+}
+
+/* ── Text muted warm ─────────────────────────────────────────────── */
+.text-warm-muted {
+  color: var(--slate) !important;
+}
+
+/* ── Body scroll lock (mobile period sheet) ──────────────────────── */
+.prp-no-scroll {
+  overflow: hidden;
+}
+
+/* ── Text graphite ───────────────────────────────────────────────── */
+.text-graphite {
+  color: var(--graphite) !important;
+}
+
+/* ── Min-width reset ─────────────────────────────────────────────── */
+/* Lets a flex child shrink below its content size so text-truncate works. */
+.min-w-0 {
+  min-width: 0;
+}
+
+/* ── Nav tabs ────────────────────────────────────────────────────── */
+.nav-tabs {
+  border-bottom: 1px solid var(--limestone);
+  gap: 0;
+}
+.nav-tabs .nav-link {
+  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-size: 0.83rem;
+  color: var(--slate);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+  padding: 0.5rem 1.25rem;
+  letter-spacing: 0.01em;
+  transition: color 0.1s;
+}
+.nav-tabs .nav-link:hover,
+.nav-tabs .nav-link:focus {
+  color: var(--graphite);
+  border-bottom-color: var(--limestone);
+}
+.nav-tabs .nav-link.active {
+  color: var(--graphite);
+  font-weight: 600;
+  background: none;
+  border-color: transparent;
+  border-bottom-color: var(--lichen);
+}
+
+/* Wider tooltip variant for richer inline content (e.g. the seasonality
+   gradient legend). Opt in via the v-bs-tooltip `.wide` modifier. */
+.bs-tooltip-wide .tooltip-inner {
+  max-width: 320px;
+}

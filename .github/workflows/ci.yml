@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    name: Lint, type-check & test backend
+    runs-on: ubuntu-latest
+    env:
+      # The settings module reads SECRET_KEY at import time; provide a throwaway
+      # value so Django can start under CI (conftest also sets a default).
+      SECRET_KEY: ci-secret-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Ruff lint
+        run: uv run ruff check
+
+      - name: Ruff format
+        run: uv run ruff format --check
+
+      - name: Mypy
+        run: uv run mypy backyardchirps
+
+      - name: Pytest
+        run: uv run pytest

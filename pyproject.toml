@@ -1,0 +1,148 @@
+[project]
+name = "backyardchirps"
+version = "0.1.0"
+description = "Continuous bird species identification via BirdNET"
+readme = "README.md"
+license = "AGPL-3.0-only"
+license-files = ["LICENSE"]
+requires-python = ">=3.12"
+dependencies = [
+    "sounddevice>=0.5.5",
+    "numpy>=2.4.6",
+    "django>=6.0.6",
+    "aiogram>=3.28.2",
+    "librosa>=0.11.0",
+    "onnxruntime>=1.20.0",
+    "djangorestframework>=3.17.1",
+    "django-cors-headers>=4.9.0",
+    "python-dotenv>=1.2.2",
+    "gunicorn>=23.0.0",
+    "psutil>=7.2.2",
+    "requests>=2.34.2",
+    "pandas>=3.0.3",
+    "rasterio>=1.5.0",
+    "pyproj>=3.7.2",
+]
+
+[project.optional-dependencies]
+# BirdNET 2, kept as the fallback while BirdNET 3 is a preview release.
+#
+# Install with `uv sync --extra birdnet2` before setting active_acoustic_model to
+# birdnet_2. The factory says so if you forget.
+birdnet2 = [
+    "birdnetlib>=0.18.1",
+    "tensorflow>=2.21.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["backyardchirps"]
+# These directories are data, not code, and must never be included
+# into a built artifact.
+exclude = [
+    "backyardchirps/species_data/generated",
+    "backyardchirps/species_data/assets/ebird_occurrence",
+]
+
+[dependency-groups]
+dev = [
+    # Development and CI install BirdNET 2 as well, so its analyzer and the test that
+    # checks our week numbering against birdnetlib's keep running. A station installs
+    # only what it needs.
+    "backyardchirps[birdnet2]",
+    "django-stubs>=6.0.5",
+    "djangorestframework-stubs>=3.17.0",
+    "mypy>=2.1.0",
+    "pandas-stubs>=3.0.3",
+    "pre-commit>=4.6.0",
+    "pytest>=8.3.0",
+    "pytest-cov>=6.0.0",
+    "pytest-django>=4.9.0",
+    "ruff>=0.15.17",
+    "types-psutil>=7.0.0",
+    "types-requests>=2.32.0",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "backyardchirps.settings"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "--cov=backyardchirps --cov-report=term-missing --cov-report=xml"
+
+[tool.mypy]
+python_version = "3.12"
+files = ["backyardchirps"]
+enable_error_code = ["ignore-without-code"]
+check_untyped_defs = true
+allow_incomplete_defs = false
+warn_unused_configs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_return_any = true
+plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
+
+[tool.django-stubs]
+django_settings_module = "backyardchirps.settings"
+
+[[tool.mypy.overrides]]
+module = ["sounddevice", "birdnetlib", "birdnetlib.*", "rasterio", "onnxruntime", "librosa"]
+ignore_missing_imports = true
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+fix = true
+exclude = ["backyardchirps/migrations"]
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+select = [
+    # flake8-2020
+    "YTT",
+    # flake8-bugbear
+    "B",
+    # flake8-builtins
+    "A",
+    # flake8-comprehensions
+    "C4",
+    # flake8-debugger
+    "T10",
+    # flake8-no-pep420
+    "INP",
+    # flake8-print
+    "T20",
+    # flake8-pytest-style
+    "PT",
+    # flake8-simplify
+    "SIM",
+    # flake8-tidy-imports
+    "TID",
+    # isort
+    "I",
+    # mccabe
+    "C90",
+    # pycodestyle
+    "E",
+    "W",
+    # pyflakes
+    "F",
+    # pygrep-hooks
+    "PGH",
+    # ruff
+    "RUF",
+]
+isort.force-single-line = true
+
+[tool.ruff.lint.per-file-ignores]
+# The tests directory is an implicit namespace package (no __init__.py, by design
+# for pytest's rootdir import mode), so INP001 does not apply.
+"tests/**" = ["INP001"]
+# tools/ holds standalone maintenance scripts (not an importable package), so
+# INP001 does not apply; print() is their normal CLI output, so T201 is allowed.
+# They are not management commands, so they have to call django.setup() themselves
+# before importing anything from backyardchirps, which is what E402 objects to.
+"tools/**" = ["INP001", "T201", "E402"]

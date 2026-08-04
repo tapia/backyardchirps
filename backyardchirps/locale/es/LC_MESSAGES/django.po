@@ -1,0 +1,26 @@
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Language: es\n"
+
+msgid "Confidence"
+msgstr "Confianza"
+
+msgid "First detection today"
+msgstr "Primera detección hoy"
+
+msgid "Rare species"
+msgstr "Especie rara"
+
+msgid "First of the year"
+msgstr "Primera del año"
+
+msgid "New species"
+msgstr "Nueva especie"
+
+msgid "Not seen for %(days)s days"
+msgstr "Sin detectar desde hace %(days)s días"
+
+msgid "Dubious identification, pending human validation"
+msgstr "Identificación dudosa, pendiente de validación humana"

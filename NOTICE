@@ -1,0 +1,105 @@
+backyardchirps
+Copyright (c) 2026 the backyardchirps contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License version 3, as published by
+the Free Software Foundation. See the LICENSE file for the full text.
+
+The sections below list third-party work this project depends on. They are
+credited here and in the site footer.
+
+
+================================================================================
+Models and data
+================================================================================
+
+BirdNET
+    https://birdnet.cornell.edu
+    K. Lisa Yang Center for Conservation Bioacoustics at the Cornell Lab of
+    Ornithology, and Chemnitz University of Technology.
+    Provides the acoustic models that identify species, the GeoModel location
+    filter, and the taxonomy.
+
+    The BirdNET models are licensed under Creative Commons
+    Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0):
+    https://creativecommons.org/licenses/by-nc-sa/4.0/
+
+    NON-COMMERCIAL USE ONLY. Because the models carry a non-commercial licence,
+    no distribution of this project as a whole may be put to commercial use,
+    whatever the licence on the source code itself.
+
+eBird Status and Trends
+    https://science.ebird.org/en/status-and-trends
+    Cornell Lab of Ornithology.
+    Provides the weekly occurrence data behind the seasonality timeline and the
+    source data for the range maps.
+
+    Access and redistribution are governed by the eBird Status and Trends
+    Products Terms of Use. Anyone redistributing derived products (for example
+    the region packs this project builds) must confirm their own permission
+    under those terms.
+
+xeno-canto
+    https://xeno-canto.org
+    Reference recordings shown on species pages. Individual recordings are
+    licensed by their contributors, most under Creative Commons licences that
+    require attribution to the recordist.
+
+
+================================================================================
+Services
+================================================================================
+
+Open-Meteo          https://open-meteo.com
+                    Weather conditions recorded alongside detections.
+
+ipgeolocation.io    https://ipgeolocation.io
+                    Sunrise and sunset times.
+
+
+================================================================================
+Trademarks
+================================================================================
+
+The provider names and logos shown in the site footer and on species pages are
+the trademarks of their respective owners. They are used to credit the source
+of the data, and imply no endorsement of this project.
+
+
+================================================================================
+Software
+================================================================================
+
+Backend (Python), all permissively licensed and compatible with the AGPL:
+
+    birdnetlib              Apache-2.0
+    Django                  BSD-3-Clause
+    djangorestframework     BSD-3-Clause
+    django-cors-headers     MIT
+    TensorFlow              Apache-2.0
+    onnxruntime             MIT
+    librosa                 ISC
+    numpy                   BSD-3-Clause and others
+    pandas                  BSD-3-Clause
+    rasterio                BSD-3-Clause
+    pyproj                  MIT
+    sounddevice             MIT
+    aiogram                 MIT
+    requests                Apache-2.0
+    gunicorn                MIT
+    psutil                  BSD-3-Clause
+    python-dotenv           BSD-3-Clause
+
+Frontend (JavaScript), all MIT licensed:
+
+    Vue, vue-router, vue-i18n, axios, Bootstrap, Bootstrap Icons,
+    Chart.js, chartjs-chart-matrix, dayjs, @vuepic/vue-datepicker,
+    Vite, @vitejs/plugin-vue, ESLint, eslint-plugin-vue, Prettier
+
+Fonts, served from Google Fonts and licensed under the SIL Open Font License
+1.1:
+
+    Newsreader, Source Sans 3
+
+The authoritative licence for each dependency is the one shipped in its own
+distribution. This list records what those licences were when it was written.

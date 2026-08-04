@@ -1,0 +1,14 @@
+[Unit]
+Description=Birds Recorder -> enforce clip storage disk quota
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=APP_USER
+WorkingDirectory=APP_DIR
+EnvironmentFile=__DATA_DIR__/.env
+Environment=BACKYARDCHIRPS_DATA_DIR=__DATA_DIR__
+ExecStart=APP_DIR/.venv/bin/python manage.py enforce_clip_disk_quota
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,25 @@
+[Unit]
+Description=Birds Recorder -> Django web server (Gunicorn)
+After=network.target
+
+[Service]
+Type=notify
+User=APP_USER
+Group=APP_USER
+WorkingDirectory=APP_DIR
+EnvironmentFile=__DATA_DIR__/.env
+# Deliberately after EnvironmentFile, so this line wins over anything in .env.
+# That file lives inside DATA_DIR, so it cannot be what decides where DATA_DIR is.
+Environment=BACKYARDCHIRPS_DATA_DIR=__DATA_DIR__
+RuntimeDirectory=backyardchirps-web
+ExecStart=APP_DIR/.venv/bin/gunicorn \
+    --bind unix:/run/backyardchirps-web/gunicorn.sock \
+    --workers 2 \
+    --threads 2 \
+    --timeout 60 \
+    backyardchirps.wsgi:application
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
