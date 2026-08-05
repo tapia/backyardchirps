@@ -2,6 +2,16 @@ name: Deploy
 
 # Deploy only after the CI workflow finishes, and only for CI runs that succeeded on
 # this repository's own main.
+#
+# The branches filter is not enough on its own. It matches the head branch of whatever
+# triggered CI, and a pull request from a fork carries its own branch name, which is
+# `main` by default. So a stranger's PR can satisfy the filter. The head_repository
+# check below is what actually keeps this job to code that came from here.
+#
+# That matters because this runs on a self-hosted runner, meaning a Raspberry Pi in
+# somebody's home. Nothing is checked out here on purpose: the only step runs a script
+# already on the machine, which pulls this repository's main. Keep it that way. Adding
+# an actions/checkout step would put a contributor's code on the Pi.
 on:
   workflow_run:
     workflows: [CI]

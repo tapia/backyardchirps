@@ -128,6 +128,10 @@ def main() -> None:
     if not geomodel_is_available():
         raise SystemExit("GeoModel is not downloaded. Run: uv run python manage.py download_birdnet3_model")
 
+    # Taken from the settings rather than worked out from where this file happens to
+    # live. The two are not the same once a station has a data directory: the app then
+    # reads its rasters from there, and a downloader that wrote next to the code would
+    # fill a directory nothing ever looks in. That is exactly what used to happen.
     output_dir = Path(settings.EBIRD_DATA_DIR)
     print(f"Downloading into {output_dir}")
 

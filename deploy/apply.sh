@@ -120,6 +120,11 @@ DOMAIN="${SITE_URL#*://}"
 DOMAIN="${DOMAIN%%/*}"
 
 echo "[apply] Installing Python dependencies..."
+# The two `uv sync` lines in this script are the only things that decide what is
+# installed. Every `uv run` below passes --no-sync so it uses the environment
+# rather than building its own: a bare `uv run` re-syncs with the dev group, and
+# dev asks for the birdnet2 extra, which would drag TensorFlow onto a station that
+# just took care to leave it out.
 uv sync --no-dev
 
 # A release tarball ships frontend/dist already built by CI, marked with
@@ -139,13 +144,13 @@ else
 fi
 
 echo "[apply] Running database migrations..."
-uv run python manage.py migrate --noinput
+uv run --no-sync python manage.py migrate --noinput
 
 # BirdNET 2 is an optional extra, left out of the install above because it drags in
 # TensorFlow and most stations run BirdNET 3. A station set to it needs a second pass.
 # This has to come after the migrations, since the setting lives in the database.
 echo "[apply] Checking which acoustic model is selected..."
-active_acoustic_model="$(uv run python manage.py shell -c \
+active_acoustic_model="$(uv run --no-sync python manage.py shell -c \
     'from backyardchirps.features.settings.logic import Settings, SettingsKey
 print(Settings.get(SettingsKey.ACTIVE_ACOUSTIC_MODEL))' | tail -n 1)"
 if [ "$active_acoustic_model" = "birdnet_2" ]; then
@@ -156,14 +161,14 @@ else
 fi
 
 echo "[apply] Collecting static files..."
-uv run python manage.py collectstatic --noinput
+uv run --no-sync python manage.py collectstatic --noinput
 
 # The recorder's acoustic model and the GeoModel location filter. Both live under
 # DATA_DIR, so they survive a release swap, and both are downloaded only when
 # missing or when their checksum no longer matches upstream. This runs before the
 # recorder is restarted below, so the model is on disk by the time it starts.
 echo "[apply] Downloading the BirdNET 3 model and GeoModel if needed..."
-uv run python manage.py download_birdnet3_model
+uv run --no-sync python manage.py download_birdnet3_model
 
 # nginx serves the SPA and the collected static files straight off disk, so it
 # needs traversal into whichever directory those live in.
