@@ -4,7 +4,7 @@ After=network.target sound.target
 
 [Service]
 Type=simple
-User=APP_USER
+User=SERVICE_USER
 Group=audio
 WorkingDirectory=APP_DIR
 EnvironmentFile=__DATA_DIR__/.env

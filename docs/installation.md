@@ -80,7 +80,7 @@ git clone git@github.com:<your-username>/backyardchirps.git ~/backyardchirps
 The clone is all you need. Dependencies, the frontend build, migrations and static files are
 part of every deploy, and they behave the same on an empty database as on an existing one.
 
-## 5. Choose where the data lives
+## 5. Create the service user and choose where the data lives
 
 The checkout is disposable: a deploy replaces it whole. Everything the station accumulates goes
 somewhere else, so it survives that:
@@ -90,8 +90,20 @@ bash ~/backyardchirps/deploy/provision-data-dir.sh
 export BACKYARDCHIRPS_DATA_DIR=/var/lib/backyardchirps
 ```
 
-The script creates `/var/lib/backyardchirps`, gives it to your user, and records the path in the
-two places that need it. Pass a different directory as an argument if you want one.
+The script creates `/var/lib/backyardchirps`, records the path in the two places that need it,
+and creates the `backyardchirps` system user that owns it. Pass a different directory as an
+argument if you want one, and `--user NAME` for a different account.
+
+The services run as that user rather than as you. It has no password and no login shell, and its
+only extra privilege is membership of the `audio` group, which is what lets the recorder open the
+microphone. Your own account keeps owning the checkout and running deploys, and drops to the
+service user for anything that writes to the data directory. So a station's database and
+recordings have one owner no matter who last deployed, and a web process that is somehow
+compromised cannot rewrite the code it runs.
+
+The directory itself is readable by everyone, because nginx serves the collected static files out
+of it. `.env` is not: it holds the secret key and every API token, so `apply.sh` keeps it at mode
+`640` on every deploy.
 
 Those two places are read by different things. A deploy triggered by GitHub Actions carries none
 of your shell environment, so it reads `/etc/default/backyardchirps`. Anything you run by hand,
@@ -135,6 +147,7 @@ The script installs the systemd units and the nginx site itself, so it needs pas
 ```bash
 APP_USER="$(whoami)"
 cat <<EOF | sudo tee /etc/sudoers.d/backyardchirps > /dev/null
+$APP_USER ALL=(backyardchirps) NOPASSWD: ALL
 $APP_USER ALL=(ALL) NOPASSWD: \\
   /usr/bin/tee /etc/systemd/system/backyardchirps-*, \\
   /usr/bin/tee /etc/nginx/sites-available/backyardchirps, \\
@@ -150,6 +163,12 @@ $APP_USER ALL=(ALL) NOPASSWD: \\
 EOF
 sudo chmod 440 /etc/sudoers.d/backyardchirps
 ```
+
+The first line is a different kind of grant from the rest. It does not allow any new command as
+root: it allows running commands **as the `backyardchirps` service user**, which owns the data
+directory. The deploy needs it for every step that touches that directory, starting with reading
+`.env`, so a deploy fails immediately without it. See step 5 for why the two accounts are
+separate.
 
 The `systemctl` wildcards are deliberate. On a machine that does nothing else, being able to
 restart any unit is already close to being root, so naming every unit and verb would gain very

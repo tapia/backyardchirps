@@ -263,7 +263,18 @@ without touching anything the station has gathered:
 | | Holds | Lifetime |
 |---|---|---|
 | `BASE_DIR` | The checkout: Python, the built frontend, `deploy/`, species seeds | One per release, disposable |
-| `DATA_DIR` | `.env`, `detections.db`, `clips/`, downloaded models, `packs/` | Never replaced |
+| `DATA_DIR` | `.env`, `detections.db`, `clips/`, `staticfiles/`, downloaded models, `packs/` | Never replaced |
+
+The two directories have different owners, which is what decides where a deploy step can run.
+`BASE_DIR` belongs to whoever deploys. `DATA_DIR` belongs to the `backyardchirps` system user,
+which is what the four systemd units run as, so a station's data has one owner however many
+people deploy. `apply.sh` builds the code as the deploying user and drops to the service user
+through `run_as_service_user` for everything else, including reading `.env`.
+
+`collectstatic` is why `STATIC_ROOT` is in `DATA_DIR` rather than next to the code: it runs as
+the service user like every other `manage.py` command, and writing to the code directory would
+need a root step on every deploy to hand the output directory over. The trade is that static
+files from an older release are not pruned.
 
 `DATA_DIR` comes from `BACKYARDCHIRPS_DATA_DIR`. It has to be a real environment variable, never a line
 in `.env`, because `.env` is itself read out of the directory it names. Three readers need it,

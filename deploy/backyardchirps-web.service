@@ -4,8 +4,8 @@ After=network.target
 
 [Service]
 Type=notify
-User=APP_USER
-Group=APP_USER
+User=SERVICE_USER
+Group=SERVICE_USER
 WorkingDirectory=APP_DIR
 EnvironmentFile=__DATA_DIR__/.env
 # Deliberately after EnvironmentFile, so this line wins over anything in .env.

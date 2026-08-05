@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=APP_USER
+User=SERVICE_USER
 WorkingDirectory=APP_DIR
 EnvironmentFile=__DATA_DIR__/.env
 Environment=BACKYARDCHIRPS_DATA_DIR=__DATA_DIR__

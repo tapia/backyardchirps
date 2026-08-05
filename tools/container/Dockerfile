@@ -32,9 +32,14 @@ RUN find /lib/systemd/system/sysinit.target.wants/ -name 'systemd-tmpfiles-setup
              /lib/systemd/system/basic.target.wants/* \
     && rm -f /lib/systemd/system/getty.target.wants/*
 
-# Mirrors the Pi: an ordinary user in the audio group, with sudo. Deliberately not
-# named after anyone, since this is the machine a stranger would be installing on.
-RUN useradd --create-home --shell /bin/bash --groups sudo,audio station \
+# The account that deploys, and nothing more. It is deliberately not in the audio
+# group: the recorder reaches the microphone through the backyardchirps service
+# user, which provision-data-dir.sh creates, and putting station in audio too
+# would hide a deploy that quietly depends on being the same account.
+#
+# Deliberately not named after anyone, since this is the machine a stranger would
+# be installing on.
+RUN useradd --create-home --shell /bin/bash --groups sudo station \
     && echo 'station ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/station \
     && chmod 440 /etc/sudoers.d/station
 

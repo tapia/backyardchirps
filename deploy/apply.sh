@@ -34,7 +34,18 @@ if [ -z "${BACKYARDCHIRPS_DATA_DIR:-}" ] && [ -f /etc/default/backyardchirps ]; 
 fi
 
 DATA_DIR="${BACKYARDCHIRPS_DATA_DIR:-$APP_DIR}"
+# Two identities, deliberately. The deploying user owns the code and builds it.
+# The service user owns the data and is what the units run as, so a station's
+# database and clips have one owner however many people deploy. Anything below
+# that writes to DATA_DIR goes through run_as_service_user.
+#
+# They collapse into one on a development machine, where DATA_DIR is APP_DIR and
+# there is no separate account: run_as_service_user then just runs the command.
 APP_USER="${BACKYARDCHIRPS_APP_USER:-$(whoami)}"
+SERVICE_USER="${BACKYARDCHIRPS_SERVICE_USER:-backyardchirps}"
+if ! id "$SERVICE_USER" > /dev/null 2>&1; then
+    SERVICE_USER="$APP_USER"
+fi
 export PATH="$HOME/.local/bin:$PATH"
 
 # A station with a real data directory has to record it in the file above, because
@@ -71,25 +82,31 @@ export BACKYARDCHIRPS_DATA_DIR="$DATA_DIR"
 
 cd "$APP_DIR"
 
+run_as_service_user() {
+    if [ "$(whoami)" = "$SERVICE_USER" ]; then
+        "$@"
+    else
+        sudo -u "$SERVICE_USER" "$@"
+    fi
+}
+
+run_manage() {
+    run_as_service_user env BACKYARDCHIRPS_DATA_DIR="$DATA_DIR" \
+        "$APP_DIR/.venv/bin/python" manage.py "$@"
+}
+
 read_env_value() {
-    # Read one KEY=value out of .env without sourcing the file. An absent key is
-    # not an error: it returns the empty string and the caller decides. The
-    # `|| true` matters, since under `set -o pipefail` a grep that matches
-    # nothing would otherwise abort the whole deploy.
     local key="$1"
-    { grep -E "^${key}=" "$DATA_DIR/.env" || true; } | tail -n 1 | cut -d= -f2- | tr -d "\"'"
+    { run_as_service_user grep -E "^${key}=" "$DATA_DIR/.env" || true; } \
+        | tail -n 1 | cut -d= -f2- | tr -d "\"'"
 }
 
 install_file() {
-    # Render a deploy/ template into a system path, substituting the local user,
-    # paths, and domain. Returns 0 when the destination content changed and 1
-    # when it was already identical, so callers can reload a running service
-    # only when there is something new for it to read.
     local source_file="$1"
     local destination="$2"
     local rendered
     rendered="$(sed \
-        -e "s|APP_USER|$APP_USER|g" \
+        -e "s|SERVICE_USER|$SERVICE_USER|g" \
         -e "s|APP_DIR|$APP_DIR|g" \
         -e "s|__DATA_DIR__|$DATA_DIR|g" \
         -e "s|DOMAIN|$DOMAIN|g" \
@@ -101,14 +118,26 @@ install_file() {
 }
 
 echo "[apply] Checking prerequisites..."
-mkdir -p "$DATA_DIR"
-if [ ! -f "$DATA_DIR/.env" ]; then
-    cp "$APP_DIR/.env.example" "$DATA_DIR/.env"
+if [ ! -d "$DATA_DIR" ]; then
+    sudo mkdir -p "$DATA_DIR"
+    sudo chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
+    sudo chmod 755 "$DATA_DIR"
+fi
+# Tested through the service user, since .env is readable only by it and a bare
+# `test -f` as the deploying user would report it missing and overwrite it.
+if ! run_as_service_user test -f "$DATA_DIR/.env"; then
+    run_as_service_user cp "$APP_DIR/.env.example" "$DATA_DIR/.env"
+    run_as_service_user chmod 640 "$DATA_DIR/.env"
     echo "[apply] No .env found, so one was created at $DATA_DIR/.env."
     echo "[apply] Fill in SECRET_KEY, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS and"
     echo "[apply] SITE_URL, then run this script again."
     exit 1
 fi
+# The data directory is traversable so nginx can serve static files out of it, so
+# .env has to protect itself. Enforced on every deploy rather than only at
+# creation, since a station upgrading from the single-user layout arrives with
+# whatever mode it had.
+run_as_service_user chmod 640 "$DATA_DIR/.env"
 if ! command -v uv > /dev/null; then
     echo "[apply] uv is not installed. See docs/installation.md."
     exit 1
@@ -144,13 +173,13 @@ else
 fi
 
 echo "[apply] Running database migrations..."
-uv run --no-sync python manage.py migrate --noinput
+run_manage migrate --noinput
 
 # BirdNET 2 is an optional extra, left out of the install above because it drags in
 # TensorFlow and most stations run BirdNET 3. A station set to it needs a second pass.
 # This has to come after the migrations, since the setting lives in the database.
 echo "[apply] Checking which acoustic model is selected..."
-active_acoustic_model="$(uv run --no-sync python manage.py shell -c \
+active_acoustic_model="$(run_manage shell -c \
     'from backyardchirps.features.settings.logic import Settings, SettingsKey
 print(Settings.get(SettingsKey.ACTIVE_ACOUSTIC_MODEL))' | tail -n 1)"
 if [ "$active_acoustic_model" = "birdnet_2" ]; then
@@ -161,14 +190,18 @@ else
 fi
 
 echo "[apply] Collecting static files..."
-uv run --no-sync python manage.py collectstatic --noinput
+# STATIC_ROOT is inside DATA_DIR, which the service user already owns, so this
+# needs no root step to hand a directory over. The cost is that files from an
+# older release are not cleaned up, since collectstatic overwrites rather than
+# prunes. They are a few hundred kilobytes of Django admin assets.
+run_manage collectstatic --noinput
 
 # The recorder's acoustic model and the GeoModel location filter. Both live under
 # DATA_DIR, so they survive a release swap, and both are downloaded only when
 # missing or when their checksum no longer matches upstream. This runs before the
 # recorder is restarted below, so the model is on disk by the time it starts.
 echo "[apply] Downloading the BirdNET 3 model and GeoModel if needed..."
-uv run --no-sync python manage.py download_birdnet3_model
+run_manage download_birdnet3_model
 
 # nginx serves the SPA and the collected static files straight off disk, so it
 # needs traversal into whichever directory those live in.
