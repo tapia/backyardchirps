@@ -25,6 +25,7 @@ from backyardchirps.features.detections.queries import species_identified_in_sam
 from backyardchirps.features.overrides import queries as species_override_repository
 from backyardchirps.features.species.entity import Species
 from backyardchirps.shared.http import _parse_dt
+from backyardchirps.shared.http import request_body
 
 
 @api_view(["POST", "DELETE"])
@@ -227,7 +228,7 @@ def _list_species(species, scientific_name, lang):
 
 
 def _reassigned_species(request: Request) -> Species | None:
-    scientific_name = request.data.get("species_scientific_name")
+    scientific_name = request_body(request).get("species_scientific_name")
     if not scientific_name:
         return None
     species = Species.from_scientific_name(scientific_name)

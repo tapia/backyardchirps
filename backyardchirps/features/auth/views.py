@@ -8,6 +8,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from backyardchirps.shared.http import request_body
+
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
@@ -36,8 +38,9 @@ def login_view(request: Request) -> Response:
     Log in with a username and password. The CSRF token that comes back belongs to the
     new session, so the old one must be replaced with it.
     """
-    username = request.data.get("username", "")
-    password = request.data.get("password", "")
+    body = request_body(request)
+    username = body.get("username", "")
+    password = body.get("password", "")
     user = authenticate(request, username=username, password=password)
     if user is None:
         return Response({"error": "Invalid credentials"}, status=401)

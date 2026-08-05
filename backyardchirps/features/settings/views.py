@@ -5,6 +5,7 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from backyardchirps.features.settings.logic import Settings
+from backyardchirps.shared.http import request_body
 
 
 @api_view(["GET", "PUT"])
@@ -17,7 +18,7 @@ def app_settings(request: Request) -> Response:
     if request.method == "PUT":
         errors: dict[str, str] = {}
 
-        for key, value in request.data.items():
+        for key, value in request_body(request).items():
             try:
                 Settings.set(key, value)
             except ValueError as exc:
