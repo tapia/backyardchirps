@@ -15,10 +15,13 @@ FROM debian:bookworm
 ENV DEBIAN_FRONTEND=noninteractive
 ENV container=docker
 
+# Deliberately minimal: systemd so units can be tested, and sqlite3 so the test can
+# look inside the database afterwards. Everything the station itself needs, uv
+# included, is install.sh's job, so leaving it out here is what proves the
+# installer installs it.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         systemd systemd-sysv dbus \
-        nginx curl ca-certificates sudo procps \
-        git sqlite3 zstd libportaudio2 python3 \
+        ca-certificates sudo procps sqlite3 \
     && rm -rf /var/lib/apt/lists/*
 
 # systemd in a container: units that want real hardware never become ready, and
@@ -32,21 +35,5 @@ RUN find /lib/systemd/system/sysinit.target.wants/ -name 'systemd-tmpfiles-setup
              /lib/systemd/system/basic.target.wants/* \
     && rm -f /lib/systemd/system/getty.target.wants/*
 
-# The account that deploys, and nothing more. It is deliberately not in the audio
-# group: the recorder reaches the microphone through the backyardchirps service
-# user, which provision-data-dir.sh creates, and putting station in audio too
-# would hide a deploy that quietly depends on being the same account.
-#
-# Deliberately not named after anyone, since this is the machine a stranger would
-# be installing on.
-RUN useradd --create-home --shell /bin/bash --groups sudo station \
-    && echo 'station ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/station \
-    && chmod 440 /etc/sudoers.d/station
-
-USER station
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/home/station/.local/bin:${PATH}"
-
-USER root
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]

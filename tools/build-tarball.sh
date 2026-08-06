@@ -151,7 +151,12 @@ fi
 # ---------------------------------------------------------------------------
 TARBALL_NAME="${RELEASE_NAME}.tar.zst"
 TARBALL_PATH="$OUTPUT_DIR/$TARBALL_NAME"
-tar --zstd -cf "$TARBALL_PATH" -C "$STAGING_PARENT" "$RELEASE_NAME"
+# COPYFILE_DISABLE stops the tar on macOS from writing a ._name AppleDouble file
+# next to every entry to carry its extended attributes. Those files are noise
+# inside a release, and the first one sorts ahead of the real directory, so
+# anything reading the listing to find the release name sees them first. Linux
+# tar ignores the variable, so CI is unaffected.
+COPYFILE_DISABLE=1 tar --zstd -cf "$TARBALL_PATH" -C "$STAGING_PARENT" "$RELEASE_NAME"
 
 if command -v sha256sum > /dev/null; then
     SHA256="$(sha256sum "$TARBALL_PATH" | cut -d' ' -f1)"

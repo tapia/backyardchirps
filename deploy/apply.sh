@@ -48,6 +48,20 @@ if ! id "$SERVICE_USER" > /dev/null 2>&1; then
 fi
 export PATH="$HOME/.local/bin:$PATH"
 
+# uv downloads its own CPython when the system one is too old, and on Raspberry Pi
+# OS bookworm it always is: that ships 3.11 and this project needs 3.12. By
+# default the download lands in the home directory of whoever runs the deploy,
+# which on a station is root, and the service user cannot read anything under
+# /root. So the virtualenv would be built around an interpreter the services are
+# not allowed to open.
+#
+# Keep it next to the other downloaded things instead. It is readable there, and
+# it survives a release swap, so an update does not fetch a whole interpreter
+# again. A development machine, where DATA_DIR is APP_DIR, is left alone.
+if [ "$DATA_DIR" != "$APP_DIR" ]; then
+    export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$DATA_DIR/python}"
+fi
+
 # A station with a real data directory has to record it in the file above, because
 # that file is all a CI deploy has to go on. Getting this wrong is silent and
 # expensive: every deploy you run by hand keeps working, and the first one CI runs
@@ -118,25 +132,24 @@ install_file() {
 }
 
 echo "[apply] Checking prerequisites..."
-if [ ! -d "$DATA_DIR" ]; then
-    sudo mkdir -p "$DATA_DIR"
-    sudo chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
-    sudo chmod 755 "$DATA_DIR"
-fi
-# Tested through the service user, since .env is readable only by it and a bare
-# `test -f` as the deploying user would report it missing and overwrite it.
-if ! run_as_service_user test -f "$DATA_DIR/.env"; then
-    run_as_service_user cp "$APP_DIR/.env.example" "$DATA_DIR/.env"
-    run_as_service_user chmod 640 "$DATA_DIR/.env"
-    echo "[apply] No .env found, so one was created at $DATA_DIR/.env."
-    echo "[apply] Fill in SECRET_KEY, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS and"
-    echo "[apply] SITE_URL, then run this script again."
-    exit 1
-fi
-# The data directory is traversable so nginx can serve static files out of it, so
-# .env has to protect itself. Enforced on every deploy rather than only at
-# creation, since a station upgrading from the single-user layout arrives with
-# whatever mode it had.
+# This script builds and starts a station. It does not create one: install.sh and
+# provision-data-dir.sh do that. Two scripts creating the data directory meant two
+# places could disagree about who owns it, which is the one mistake here that
+# costs a station its recordings.
+#
+# Tested through the service user, since .env is readable only by it.
+for required in "$DATA_DIR" "$DATA_DIR/.env"; do
+    if ! run_as_service_user test -e "$required"; then
+        echo "[apply] $required does not exist, so this station has not been set up yet."
+        echo "[apply] A fresh machine is set up by install.sh. An existing one is"
+        echo "[apply] described in docs/installation.md."
+        exit 1
+    fi
+done
+# Kept even though install.sh sets it too: the data directory is traversable so
+# nginx can serve static files out of it, so .env has to protect itself, and a
+# station upgrading from the old single-user layout arrives with whatever mode it
+# had.
 run_as_service_user chmod 640 "$DATA_DIR/.env"
 if ! command -v uv > /dev/null; then
     echo "[apply] uv is not installed. See docs/installation.md."
@@ -155,6 +168,13 @@ echo "[apply] Installing Python dependencies..."
 # dev asks for the birdnet2 extra, which would drag TensorFlow onto a station that
 # just took care to leave it out.
 uv sync --no-dev
+
+# The interpreter above may have just been downloaded by root. The services run as
+# someone else and have to be able to execute it, so make the tree readable rather
+# than trusting whatever umask was in force when uv unpacked it.
+if [ -n "${UV_PYTHON_INSTALL_DIR:-}" ] && [ -d "$UV_PYTHON_INSTALL_DIR" ]; then
+    chmod -R a+rX "$UV_PYTHON_INSTALL_DIR"
+fi
 
 # A release tarball ships frontend/dist already built by CI, marked with
 # .prebuilt, so the Pi never needs Node. A git checkout has no marker and builds
