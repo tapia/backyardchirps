@@ -236,7 +236,7 @@ fi
 # ---------------------------------------------------------------------------
 # 6. sudoers
 # ---------------------------------------------------------------------------
-# This is not the policy in docs/installation.md. That one lets a person deploy
+# This is not the policy in docs/devel/deployment.md. That one lets a person deploy
 # from a git checkout. Here root installs and the updater runs as root, so no
 # human needs sudo at all.
 #

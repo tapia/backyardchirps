@@ -26,15 +26,27 @@ keeps calling. Anything the system is still unsure about waits for a person to c
 [How detections actually happen](docs/using-the-site.md#how-detections-actually-happen) has the
 rules in full.
 
+## Install
+
+On a Raspberry Pi 4 or 5 running 64-bit Raspberry Pi OS, with a USB microphone plugged in:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/tapia/backyardchirps/main/install.sh | sudo bash
+```
+
+It prints the address of your station when it finishes. [Installation](docs/installation.md)
+covers what it does, how to update, and what to do when something goes wrong.
+
 ## Documentation
 
 | Guide | For |
 |---|---|
 | [Using the site](docs/using-the-site.md) | Visitors: browsing, confidence scores, reviewing recordings |
 | [Admin guide](docs/admin-guide.md) | Running a station: settings, per-species rules, monitoring |
-| [Installation](docs/installation.md) | Setting up a Raspberry Pi, and how deploys work afterwards |
+| [Installation](docs/installation.md) | Setting up a Raspberry Pi, and how updates work afterwards |
 | [Architecture](docs/devel/architecture.md) | Developers: local setup, how it runs, how the code is laid out |
 | [Frontend](docs/devel/frontend.md) | Developers: the Vue app |
+| [Deployment](docs/devel/deployment.md) | Developers: deploying from a git checkout |
 
 ## Contributing
 

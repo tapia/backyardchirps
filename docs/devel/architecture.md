@@ -313,11 +313,11 @@ In a checkout, all of it sits under `backyardchirps/species_data/` instead.
 ## Deploying
 
 `deploy/apply.sh` is the whole build, and it never fetches code: whatever calls it puts the code
-on disk first. Today that caller is `deploy/deploy.sh`, run by GitHub Actions on every push to
-main. Every step can be repeated safely, which is why one script both sets up a new machine and
-updates a running one.
+on disk first. There are two callers. `install.sh` unpacks a release tarball; `deploy/deploy.sh`
+pulls a git checkout and is run by GitHub Actions on every push to main. Every step can be
+repeated safely, which is why one script both sets up a new machine and updates a running one.
 
-[installation.md](../installation.md) lists what a deploy does, step by step.
+[deployment.md](deployment.md) lists what a deploy does, step by step.
 
 ## Where else to look
 
@@ -326,4 +326,5 @@ updates a running one.
 | [frontend.md](frontend.md) | The Vue app |
 | [species-data.md](species-data.md) | Taxonomy, assets, and adding a location |
 | [releases.md](releases.md) | Cutting a version and what ships in one |
-| [installation.md](../installation.md) | Production deployment |
+| [deployment.md](deployment.md) | Deploying from a git checkout, and testing an install |
+| [installation.md](../installation.md) | Installing a release, the path a user takes |

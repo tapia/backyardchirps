@@ -44,6 +44,20 @@ DATA_DIR="${BACKYARDCHIRPS_DATA_DIR:-$APP_DIR}"
 APP_USER="${BACKYARDCHIRPS_APP_USER:-$(whoami)}"
 SERVICE_USER="${BACKYARDCHIRPS_SERVICE_USER:-backyardchirps}"
 if ! id "$SERVICE_USER" > /dev/null 2>&1; then
+    # Data outside the checkout has to belong to somebody. Without the account,
+    # this deploy would migrate and collect static as APP_USER while rendering the
+    # units to run as someone else, so the station would come up green and fail on
+    # its first write. Only DATA_DIR == APP_DIR is a legitimate single identity.
+    if [ "$DATA_DIR" != "$APP_DIR" ] || [ -n "${BACKYARDCHIRPS_SERVICE_USER:-}" ]; then
+        echo "[apply] There is no $SERVICE_USER account to own $DATA_DIR, so the"
+        echo "[apply] services could not write to what this deploy is about to build."
+        echo "[apply]"
+        echo "[apply]   bash $APP_DIR/deploy/provision-data-dir.sh $DATA_DIR --user $SERVICE_USER"
+        echo "[apply]"
+        echo "[apply] An existing station also has to hand its data over. See"
+        echo "[apply] docs/devel/deployment.md."
+        exit 1
+    fi
     SERVICE_USER="$APP_USER"
 fi
 export PATH="$HOME/.local/bin:$PATH"
@@ -85,7 +99,7 @@ if [ "$DATA_DIR" != "$APP_DIR" ]; then
         echo "[apply]"
         echo "[apply]   echo 'BACKYARDCHIRPS_DATA_DIR=$DATA_DIR' | sudo tee /etc/default/backyardchirps"
         echo "[apply]"
-        echo "[apply] See docs/installation.md, step 5."
+        echo "[apply] See docs/devel/deployment.md, step 5."
         exit 1
     fi
 fi
@@ -142,7 +156,7 @@ for required in "$DATA_DIR" "$DATA_DIR/.env"; do
     if ! run_as_service_user test -e "$required"; then
         echo "[apply] $required does not exist, so this station has not been set up yet."
         echo "[apply] A fresh machine is set up by install.sh. An existing one is"
-        echo "[apply] described in docs/installation.md."
+        echo "[apply] described in docs/devel/deployment.md."
         exit 1
     fi
 done
@@ -152,7 +166,7 @@ done
 # had.
 run_as_service_user chmod 640 "$DATA_DIR/.env"
 if ! command -v uv > /dev/null; then
-    echo "[apply] uv is not installed. See docs/installation.md."
+    echo "[apply] uv is not installed. See docs/devel/deployment.md."
     exit 1
 fi
 
@@ -233,7 +247,8 @@ chmod o+x "$APP_DIR" 2>/dev/null || true
 # Every unit below is installed, enabled, and started from here, so a fresh Pi
 # (or a newly added unit) needs no manual systemctl work.
 #
-# Requires the sudoers entry from docs/installation.md.
+# Requires a sudoers entry: install.sh writes one, and docs/devel/deployment.md
+# has the wider policy a checkout deploy needs.
 
 # Long-running daemons: enabled at boot and restarted on every deploy so they
 # pick up the new code.

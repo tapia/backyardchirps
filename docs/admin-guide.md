@@ -3,9 +3,14 @@
 Running the station day to day. For setting up a new Pi, see
 [installation.md](installation.md).
 
-Log in at `/login` with a staff account, created during installation. **Settings**,
+Log in at `/login` with a staff account. **Settings**,
 **Detection settings**, and **Server status** then appear under **Admin** in the navbar;
 without staff access they redirect to the login page.
+
+A station installed from a release has no such account yet, and no way to make one: that is the
+setup wizard, which arrives in the next version. Everything below already works, and until then
+it is reachable only on a station deployed from a checkout, where
+[deployment.md](devel/deployment.md) creates the account by hand.
 
 ## Settings
 
