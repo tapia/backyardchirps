@@ -2,8 +2,9 @@
 # Run install.sh on a clean throwaway machine and check what came out. The release
 # it installs is built here and never published, so nothing has to be tagged first.
 #
-#   bash tools/container/run-test.sh          build, deploy, assert, tear down
-#   bash tools/container/run-test.sh --keep   leave it running to poke at
+#   bash tools/container/run-test.sh                    build, install, assert, tear down
+#   bash tools/container/run-test.sh --keep             leave it running to look at
+#   bash tools/container/run-test.sh --runtime docker   pin the container runtime
 #
 # The point is a machine that has never worked before. Anything that only passes
 # because of state left behind by an earlier attempt fails here, which is exactly
@@ -22,23 +23,56 @@ INSTALL_ROOT=/opt/backyardchirps
 APP_DIR="$INSTALL_ROOT/current"
 SERVICE_USER=backyardchirps
 KEEP=no
-[ "${1:-}" = "--keep" ] && KEEP=yes
+RUNTIME=
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --keep)    KEEP=yes; shift ;;
+        --runtime) RUNTIME="$2"; shift 2 ;;
+        *)
+            echo "Unknown option: $1" >&2
+            echo "Usage: run-test.sh [--keep] [--runtime podman|docker]" >&2
+            exit 1
+            ;;
+    esac
+done
 
 say()  { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
-die()  { printf '\n\033[1;31mFAILED: %s\033[0m\n\n' "$*" >&2; exit 1; }
+# Every failure message points at the install log, and on CI nobody can open a
+# shell to read it, so the tail comes out here. The container may not exist yet,
+# which is why this is allowed to find nothing.
+die() {
+    printf '\n\033[1;31mFAILED: %s\033[0m\n\n' "$*" >&2
+    if [ -n "${RUNTIME:-}" ] && $RUNTIME exec "$NAME" \
+            test -f /var/log/backyardchirps-install.log > /dev/null 2>&1; then
+        printf -- '--- last 60 lines of /var/log/backyardchirps-install.log ---\n' >&2
+        $RUNTIME exec "$NAME" tail -n 60 /var/log/backyardchirps-install.log >&2 || true
+        printf -- '--- end of log ---\n\n' >&2
+    fi
+    exit 1
+}
 
-if command -v podman > /dev/null; then
-    RUNTIME=podman
-    # podman knows what an init process needs, so it wires up cgroups itself.
-    RUN_FLAGS=(--systemd=always)
-elif command -v docker > /dev/null; then
-    RUNTIME=docker
-    # docker does not, so systemd needs the cgroup filesystem handed to it.
-    RUN_FLAGS=(--privileged --tmpfs /run --tmpfs /tmp -v /sys/fs/cgroup:/sys/fs/cgroup:rw)
-else
-    die "Neither podman nor docker is installed. See the header of this file."
+# Podman first when nothing is pinned: it knows what an init process needs and
+# wires up cgroups itself, where docker has to be handed the cgroup filesystem and
+# a privileged container. CI pins docker with --runtime, because that is the
+# combination GitHub runners are set up for.
+if [ -z "$RUNTIME" ]; then
+    if command -v podman > /dev/null; then
+        RUNTIME=podman
+    elif command -v docker > /dev/null; then
+        RUNTIME=docker
+    else
+        die "Neither podman nor docker is installed. See the header of this file."
+    fi
 fi
+command -v "$RUNTIME" > /dev/null || die "$RUNTIME is not installed."
+
+case "$RUNTIME" in
+    podman) RUN_FLAGS=(--systemd=always) ;;
+    docker) RUN_FLAGS=(--privileged --tmpfs /run --tmpfs /tmp -v /sys/fs/cgroup:/sys/fs/cgroup:rw) ;;
+    *)      die "Unknown runtime '$RUNTIME'. Use podman or docker." ;;
+esac
 info "using $RUNTIME"
 
 cleanup() {

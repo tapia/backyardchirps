@@ -64,15 +64,18 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # uv downloads its own CPython when the system one is too old, and on Raspberry Pi
 # OS bookworm it always is: that ships 3.11 and this project needs 3.12. By
-# default the download lands in the home directory of whoever runs the deploy,
-# which on a station is root, and the service user cannot read anything under
-# /root. So the virtualenv would be built around an interpreter the services are
-# not allowed to open.
+# default the download lands in the home directory of whoever runs the deploy. On
+# an installed station that is root, and the service user cannot read anything
+# under /root, so the virtualenv would be built around an interpreter the services
+# are not allowed to open. Keep it next to the other downloaded things instead,
+# where it is readable and survives a release swap.
 #
-# Keep it next to the other downloaded things instead. It is readable there, and
-# it survives a release swap, so an update does not fetch a whole interpreter
-# again. A development machine, where DATA_DIR is APP_DIR, is left alone.
-if [ "$DATA_DIR" != "$APP_DIR" ]; then
+# Only when deploying as root, though. DATA_DIR belongs to the service user, so a
+# deploy run by a human cannot create anything inside it and uv would fail trying.
+# That path does not need the workaround: its home is reachable by the service
+# user, which is the only thing the interpreter has to be. The check after the
+# sync proves that rather than assuming it.
+if [ "$DATA_DIR" != "$APP_DIR" ] && [ "$(id -u)" = 0 ]; then
     export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$DATA_DIR/python}"
 fi
 
@@ -188,6 +191,19 @@ uv sync --no-dev
 # than trusting whatever umask was in force when uv unpacked it.
 if [ -n "${UV_PYTHON_INSTALL_DIR:-}" ] && [ -d "$UV_PYTHON_INSTALL_DIR" ]; then
     chmod -R a+rX "$UV_PYTHON_INSTALL_DIR"
+fi
+
+# Every unit runs this interpreter as the service user, and .venv/bin/python is a
+# symlink to wherever uv put the real one. Whether that is reachable depends on
+# who ran the sync and where their home is, which is exactly the kind of thing
+# that fails silently: the deploy passes and all four units die at boot instead.
+# Cheaper to find out here.
+if ! run_as_service_user test -x "$APP_DIR/.venv/bin/python"; then
+    echo "[apply] $SERVICE_USER cannot execute $APP_DIR/.venv/bin/python, which is what"
+    echo "[apply] every unit starts. The usual cause is uv choosing an interpreter under"
+    echo "[apply] the home directory of whoever deployed, where that account cannot follow."
+    echo "[apply] Set UV_PYTHON_INSTALL_DIR to somewhere readable and deploy again."
+    exit 1
 fi
 
 # A release tarball ships frontend/dist already built by CI, marked with

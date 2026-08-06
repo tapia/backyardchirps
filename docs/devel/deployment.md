@@ -330,9 +330,21 @@ uninstalls. Nothing has to be tagged or published, and the artifact under test i
 downloads. It covers everything except real audio.
 
 ```bash
-bash tools/container/run-test.sh          # build, install, assert, tear down
-bash tools/container/run-test.sh --keep   # leave it running to look around
+bash tools/container/run-test.sh                    # build, install, assert, tear down
+bash tools/container/run-test.sh --keep             # leave it running to look around
+bash tools/container/run-test.sh --runtime docker   # pin the runtime
 ```
+
+Podman is preferred when both are installed, because it wires up cgroups for an init process on
+its own where docker needs a privileged container and the cgroup filesystem mounted in.
+`--runtime` overrides that.
+
+`.github/workflows/installer.yml` runs the same script on every change to `install.sh`,
+`uninstall.sh`, `deploy/`, the tarball builder or the locked dependencies. It runs on arm64,
+since an installer proves little from a different architecture, and pins docker because that is
+what the runner image is set up for. When it fails it prints the tail of the station's install
+log into the job output, so the reason is visible without opening a container that no longer
+exists.
 
 ## Where else to look
 
