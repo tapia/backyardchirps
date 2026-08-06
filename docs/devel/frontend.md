@@ -14,7 +14,7 @@ frontend/src/
 ├── i18n.js               vue-i18n setup
 ├── locales/              en.js / es.js UI strings; both must define the same keys
 ├── api/                  ALL backend communication (see below)
-├── router/               Routes + the admin guard (meta.requiresAdmin)
+├── router/               Routes, the setup guard, and the admin guard (meta.requiresAdmin)
 ├── pages/                One component per route, named <Thing>Page.vue
 ├── components/           Reusable UI in feature subfolders (species, recordings, charts,
 │                         audio, review, feed, navbar, settings, common). Nothing loose.
@@ -40,7 +40,7 @@ behind `useServerStatus` and `useWeather`.
 
 **Every** HTTP call goes through `src/api/`. Components and composables import named functions
 from `../api/index.js` and never touch axios. One module per backend area, matching the features
-in `backyardchirps/features/`: `auth`, `species`, `detections`, `taxonomy`, `settings`,
+in `backyardchirps/features/`: `auth`, `species`, `detections`, `taxonomy`, `settings`, `setup`,
 `weather`, `serverStatus`.
 
 Three conventions make the layer worth having:
@@ -86,6 +86,17 @@ calculated as the app runs and has no meaningful name, such as a pixel position.
 `App.vue` provides the current locale as `lang`. Pages `inject('lang')` and pass `lang.value` to
 API calls, so the backend returns localised common names. Interface strings live in
 `locales/en.js` and `locales/es.js`, which must always define the same keys.
+
+## The setup wizard
+
+`SetupWizardPage.vue` and `components/setup/` are the first-run flow, and a router guard sends
+every route to it until `/api/setup/status/` reports the station configured. `App.vue` drops the
+navbar and the footer there, so the wizard has the page to itself.
+
+Only two of its steps are its own. The account step talks to `api/setup.js`; everything after it
+loads and saves through the ordinary settings API, reusing `useSettingsForm` and the field
+components from `components/settings/`. That is deliberate: a field that exists in both places
+must not be able to validate differently in each, and the wizard is not a second settings page.
 
 ## Two visual systems
 

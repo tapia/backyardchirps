@@ -9,7 +9,9 @@ import LoginPage from '../pages/LoginPage.vue'
 import SettingsPage from '../pages/SettingsPage.vue'
 import DetectionSettingsPage from '../pages/DetectionSettingsPage.vue'
 import ServerStatusPage from '../pages/ServerStatusPage.vue'
+import SetupWizardPage from '../pages/SetupWizardPage.vue'
 import { useAuth } from '../composables/useAuth.js'
+import { useSetup } from '../composables/useSetup.js'
 
 const routes = [
   { path: '/', name: 'recent', component: DetectionsFeedPage },
@@ -32,11 +34,27 @@ const routes = [
     component: ServerStatusPage,
     meta: { requiresAdmin: true },
   },
+  { path: '/setup', name: 'setup', component: SetupWizardPage },
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
+})
+
+// An unconfigured station has no coordinates and is not even recording yet, so there is
+// nothing to look at anywhere else. Everything goes to the wizard until it is finished.
+router.beforeEach(async (to) => {
+  const { status, ready: setupReady } = useSetup()
+  await setupReady()
+
+  if (!status.value.is_complete) {
+    return to.name === 'setup' ? true : { name: 'setup' }
+  }
+  if (to.name === 'setup') {
+    return { name: 'recent' }
+  }
+  return true
 })
 
 router.beforeEach(async (to) => {

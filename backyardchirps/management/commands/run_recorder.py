@@ -39,7 +39,7 @@ class Command(BaseCommand):
             sample_rate=settings.RECORDING["sample_rate"],
             clip_duration=settings.RECORDING["clip_duration"],
             step_duration=settings.RECORDING["step_duration"],
-            device=settings.RECORDING["device"],
+            device=Settings.get(SettingsKey.AUDIO_DEVICE),
         )
         analyzer = build_acoustic_model(
             model_key=Settings.get(SettingsKey.ACTIVE_ACOUSTIC_MODEL),

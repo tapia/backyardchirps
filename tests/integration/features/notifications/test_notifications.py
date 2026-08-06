@@ -140,8 +140,9 @@ class _SendRecorder:
 
 
 @pytest.fixture
-def send_recorder(monkeypatch: pytest.MonkeyPatch, settings: Any) -> _SendRecorder:
-    settings.NOTIFICATIONS = {"telegram_token": "token", "telegram_chat_id": "chat"}
+def send_recorder(monkeypatch: pytest.MonkeyPatch) -> _SendRecorder:
+    Settings.set(SettingsKey.TELEGRAM_TOKEN, "token")
+    Settings.set(SettingsKey.TELEGRAM_CHAT_ID, "chat")
     # Avoid depending on which species have bundled image files.
     monkeypatch.setattr(Species, "image_path", property(lambda self: None))
     recorder = _SendRecorder()
@@ -171,10 +172,13 @@ def test_evaluate_and_send_skips_blacklisted(
     assert send_recorder.captions == []
 
 
-def test_evaluate_and_send_noop_when_disabled(
-    monkeypatch: pytest.MonkeyPatch, settings: Any, make_audio_clip: Callable[..., Any]
+def test_evaluate_and_send_noop_without_credentials(
+    monkeypatch: pytest.MonkeyPatch, make_audio_clip: Callable[..., Any]
 ) -> None:
-    settings.NOTIFICATIONS = {"telegram_token": "", "telegram_chat_id": ""}
+    # Set explicitly rather than left at the default: the 0002 migration carries any
+    # credentials in the developer's own .env into the database it builds.
+    Settings.set(SettingsKey.TELEGRAM_TOKEN, "")
+    Settings.set(SettingsKey.TELEGRAM_CHAT_ID, "")
     recorder = _SendRecorder()
     monkeypatch.setattr(notifications, "send_photo_and_audio", recorder)
 

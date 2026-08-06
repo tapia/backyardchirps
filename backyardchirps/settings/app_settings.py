@@ -1,16 +1,14 @@
-import os
 from pathlib import Path
 from typing import TypedDict
 
 from .django_settings import DATA_DIR
 from .django_settings import MODELS_DIR
 from .django_settings import RECORDER_STATE_DIR
-from .django_settings import SPECIES_RUNTIME_LOCATION_DIR
+from .django_settings import SPECIES_RUNTIME_DIR
 
 
 class _RecordingSettings(TypedDict):
     sample_rate: int
-    device: int | None
     clip_duration: float
     step_duration: float
     detection_time_buffer_in_minutes: int
@@ -25,11 +23,6 @@ class _Birdnet3Settings(TypedDict):
     target_sample_rate: int
     window_samples: int
     geomodel_threshold: float
-
-
-class _NotificationsSettings(TypedDict):
-    telegram_token: str
-    telegram_chat_id: str
 
 
 class _ConsistencyFilterSettings(TypedDict):
@@ -47,12 +40,14 @@ class _ServerStatusThresholds(TypedDict):
 
 # The species plausible at this station, one scientific name per line. Narrows the search
 # in the validation dialog and decides what counts as rare.
-# The `update_species_data` commands builds this file from the station's own coordinates,
-# so there is no file until that has run.
-SPECIES_LIST_RUNTIME_FILE = SPECIES_RUNTIME_LOCATION_DIR / "species_birdnet.txt"
+#
+# The `update_species_data` command builds this file from the station's own coordinates,
+# so there is no file until that has run. Nothing in the path names a region, because the
+# list belongs to the point it was derived for and to nowhere else: two stations an hour
+# apart get different files, and neither is "the Spanish list".
+SPECIES_LIST_RUNTIME_FILE = SPECIES_RUNTIME_DIR / "species_birdnet.txt"
 
-# Downloaded from Zenodo by the download_birdnet3_model command. Global, not
-# per-location, unlike the species list above.
+# Downloaded from Zenodo by the download_birdnet3_model command.
 BIRDNET3_MODEL_FILE = MODELS_DIR / "model.onnx"
 BIRDNET3_LABELS_FILE = MODELS_DIR / "labels.txt"
 
@@ -68,11 +63,10 @@ ACOUSTIC_MODELS: tuple[str, ...] = ("birdnet_2", "birdnet_3")
 # ---------------------------------------------------------------------------
 # Audio capture
 # ---------------------------------------------------------------------------
+# The microphone is missing here on purpose: it is an AppSetting, so the wizard can
+# choose it. The recorder reads it at startup, like the other settings it caches.
 RECORDING: _RecordingSettings = {
     "sample_rate": 48000,
-    # Audio input device. None = system default. Set to an integer index to
-    # target a specific microphone (find indices with `python -m sounddevice`).
-    "device": int(os.environ["AUDIO_DEVICE"]) if os.environ.get("AUDIO_DEVICE") else None,
     # Must stay 3.0: BirdNET was trained on 3-second windows.
     "clip_duration": 3.0,
     # Seconds of new audio between one clip and the next. When this is smaller than
@@ -101,10 +95,6 @@ CONSISTENCY_FILTER: _ConsistencyFilterSettings = {
     "bypass_confidence": 0.8,
 }
 
-XENO_CANTO = {
-    "api_key": os.environ.get("XENO_CANTO_API_KEY", ""),
-}
-
 # ---------------------------------------------------------------------------
 # Where clips are written. The other clip settings live in AppSetting instead, so
 # the settings UI can change them while the app runs.
@@ -131,15 +121,6 @@ BIRDNET_3: _Birdnet3Settings = {
     # occurrence probability. BirdNET V3 publishes no recommended value, so this one
     # carries over from V2's location filter. Tune it by observation.
     "geomodel_threshold": 0.03,
-}
-
-# ---------------------------------------------------------------------------
-# Telegram credentials, from the environment. The confidence thresholds that decide
-# what gets sent live in AppSetting.
-# ---------------------------------------------------------------------------
-NOTIFICATIONS: _NotificationsSettings = {
-    "telegram_token": os.environ.get("TELEGRAM_TOKEN", ""),
-    "telegram_chat_id": os.environ.get("TELEGRAM_CHAT_ID", ""),
 }
 
 # ---------------------------------------------------------------------------

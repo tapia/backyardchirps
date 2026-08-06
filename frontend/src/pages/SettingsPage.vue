@@ -108,6 +108,50 @@
           />
         </SettingsCard>
 
+        <SettingsCard icon="bi-mic" :title="t('page.settings.microphone')" :form="microphone">
+          <SettingsSelectField
+            class="mb-4"
+            :form="microphone"
+            name="audio_device"
+            :label="t('page.settings.microphoneDevice')"
+            :hint="t('page.settings.microphoneDeviceHint')"
+            :options="microphoneOptions"
+          />
+        </SettingsCard>
+
+        <SettingsCard icon="bi-key" :title="t('page.settings.credentials')" :form="credentials">
+          <SettingsTextField
+            class="mb-3"
+            :form="credentials"
+            name="telegram_token"
+            type="password"
+            :label="t('page.settings.telegramToken')"
+            :hint="t('page.settings.telegramTokenHint')"
+          />
+          <SettingsTextField
+            class="mb-3"
+            :form="credentials"
+            name="telegram_chat_id"
+            :label="t('page.settings.telegramChatId')"
+          />
+          <SettingsTextField
+            class="mb-3"
+            :form="credentials"
+            name="xeno_canto_api_key"
+            type="password"
+            :label="t('page.settings.xenoCantoApiKey')"
+            :hint="t('page.settings.xenoCantoApiKeyHint')"
+          />
+          <SettingsTextField
+            class="mb-4"
+            :form="credentials"
+            name="ipgeolocation_api_key"
+            type="password"
+            :label="t('page.settings.ipgeolocationApiKey')"
+            :hint="t('page.settings.ipgeolocationApiKeyHint')"
+          />
+        </SettingsCard>
+
         <SettingsCard
           icon="bi-bell"
           :title="t('page.settings.notifications')"
@@ -180,16 +224,18 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { fetchSettings } from '../api/index.js'
+import { fetchSettings, fetchAudioDevices } from '../api/index.js'
 import { useSettingsForm } from '../composables/useSettingsForm.js'
 import SettingsCard from '../components/settings/SettingsCard.vue'
 import SettingsNumberField from '../components/settings/SettingsNumberField.vue'
 import SettingsSelectField from '../components/settings/SettingsSelectField.vue'
+import SettingsTextField from '../components/settings/SettingsTextField.vue'
 import NotificationRuleField from '../components/settings/NotificationRuleField.vue'
 
 const { t } = useI18n()
 
 const initialLoading = ref(true)
+const microphoneOptions = ref([])
 
 const location = useSettingsForm({ location_lat: '', location_lon: '' })
 const weather = useSettingsForm({
@@ -203,6 +249,13 @@ const analysis = useSettingsForm({
   analysis_high_confidence: '',
 })
 const storage = useSettingsForm({ clips_max_disk_usage_percent: '' })
+const microphone = useSettingsForm({ audio_device: '' })
+const credentials = useSettingsForm({
+  telegram_token: '',
+  telegram_chat_id: '',
+  xeno_canto_api_key: '',
+  ipgeolocation_api_key: '',
+})
 const notifications = useSettingsForm({
   notifications_language: 'es',
   notifications_pending_validation_enabled: true,
@@ -219,13 +272,26 @@ const notifications = useSettingsForm({
   notifications_rare_confidence: '0.75',
 })
 
-const settingsForms = [location, weather, analysis, storage, notifications]
+const settingsForms = [location, weather, analysis, storage, microphone, credentials, notifications]
 
 onMounted(async () => {
-  const settings = await fetchSettings()
+  const [settings] = await Promise.all([fetchSettings(), loadMicrophoneOptions()])
   for (const form of settingsForms) form.load(settings)
   initialLoading.value = false
 })
+
+async function loadMicrophoneOptions() {
+  // An empty value is how "no device chosen" is stored, and it means the system default.
+  const options = [{ value: '', label: t('page.settings.microphoneSystemDefault') }]
+  try {
+    const { devices } = await fetchAudioDevices()
+    for (const device of devices) options.push({ value: device.index, label: device.name })
+  } catch {
+    // Listening devices needs the machine's sound card. Failing here leaves the system
+    // default as the only option, which is still a usable card.
+  }
+  microphoneOptions.value = options
+}
 </script>
 
 <style scoped>

@@ -4,8 +4,8 @@
 #   curl -fsSL https://raw.githubusercontent.com/tapia/backyardchirps/main/install.sh | sudo bash
 #
 # It downloads the latest release, installs it under /opt/backyardchirps, creates
-# the service user and the data directory, and starts everything. When it finishes
-# the site is running on your local network.
+# the service user and the data directory, and brings the site up on your local
+# network.
 #
 # Options, mostly for testing:
 #
@@ -17,9 +17,8 @@
 #
 # Everything it prints also goes to /var/log/backyardchirps-install.log.
 #
-# What it does NOT do: configure the station. That needs the setup wizard, which
-# arrives in the next version. Until then a station runs with no location set and
-# identifies birds against every species on earth, which works but works badly.
+# It does not configure the station and does not start recording. Both are the
+# setup wizard's job: open the address this prints and it takes you there.
 
 set -euo pipefail
 
@@ -43,7 +42,7 @@ while [ $# -gt 0 ]; do
         --data-dir)         DATA_DIR="$2"; shift 2 ;;
         --ignore-preflight) IGNORE_PREFLIGHT=yes; shift ;;
         --help)
-            sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -203,7 +202,11 @@ info "$SERVICE_USER owns $DATA_DIR"
 # 5. .env
 # ---------------------------------------------------------------------------
 # Written only once. Running the installer again on a configured station must not
-# throw away its keys.
+# throw away its secret key and hostnames.
+#
+# This file holds only what has to exist before Django starts. The credentials for
+# Telegram, xeno-canto and ipgeolocation.io are set in the wizard and stored in the
+# database, so nothing here needs hand-editing.
 say "Writing the environment file"
 if [ -f "$DATA_DIR/.env" ]; then
     info "$DATA_DIR/.env already exists, leaving it alone"
@@ -218,10 +221,6 @@ else
 
     cat > "$DATA_DIR/.env" <<EOF
 SECRET_KEY=$secret_key
-XENO_CANTO_API_KEY=
-IPGEOLOCATION_API_KEY=
-TELEGRAM_TOKEN=
-TELEGRAM_CHAT_ID=
 
 DEBUG=false
 ALLOWED_HOSTS=$allowed_hosts
@@ -268,8 +267,8 @@ BACKYARDCHIRPS_SERVICE_USER="$SERVICE_USER" \
 # ---------------------------------------------------------------------------
 # 8. Setup token
 # ---------------------------------------------------------------------------
-# The wizard in the next version trades this for an admin account. Written now so
-# that a station installed today can be configured without reinstalling.
+# The wizard trades this for an admin account, then deletes it. Its absence is what
+# tells a later deploy that the station has an owner and may start recording.
 say "Generating the setup token"
 SETUP_TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
 printf '%s\n' "$SETUP_TOKEN" > "$DATA_DIR/setup-token"
@@ -285,19 +284,18 @@ site_url="$(grep '^SITE_URL=' "$DATA_DIR/.env" | cut -d= -f2-)"
 cat <<EOF
 
 ===============================================================
- Your station is running.
+ Your station is installed. Open it and finish setting it up:
 
    $site_url
 
  Setup token: $SETUP_TOKEN
 
- Keep the token. The setup wizard needs it, and it is the only
- way to create the first admin account.
+ Keep the token. The wizard asks for it, and it is the only way
+ to create the first admin account.
 
- This version cannot be configured yet, so the station has no
- location and identifies birds against every species on earth.
- It records and it works, but it will guess badly until you
- update to a version with the wizard.
+ It is not recording yet. A station that does not know where it
+ is would match every species on earth, so the recorder starts
+ when you finish the wizard, not before.
 
  Log:      $LOG_FILE
  Data:     $DATA_DIR

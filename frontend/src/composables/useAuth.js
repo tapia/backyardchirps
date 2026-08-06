@@ -29,5 +29,7 @@ function ready() {
 ready()
 
 export function useAuth() {
-  return { currentUser, login, logout, ready }
+  // refresh re-reads the session from the server. The setup wizard needs it: it logs in
+  // as the admin it just created through its own endpoint, not through login().
+  return { currentUser, login, logout, ready, refresh: restoreSession }
 }

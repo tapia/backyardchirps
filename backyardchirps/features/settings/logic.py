@@ -35,6 +35,11 @@ class SettingsKey(StrEnum):
     NOTIFICATIONS_PENDING_VALIDATION_ENABLED = "notifications_pending_validation_enabled"
     WEATHER_TEMPERATURE_UNIT = "weather_temperature_unit"
     WEATHER_WIND_SPEED_UNIT = "weather_wind_speed_unit"
+    TELEGRAM_TOKEN = "telegram_token"
+    TELEGRAM_CHAT_ID = "telegram_chat_id"
+    XENO_CANTO_API_KEY = "xeno_canto_api_key"
+    IPGEOLOCATION_API_KEY = "ipgeolocation_api_key"
+    AUDIO_DEVICE = "audio_device"
 
 
 class SettingsErrorCode(StrEnum):
@@ -65,6 +70,10 @@ class SettingsErrorCode(StrEnum):
     WIND_SPEED_UNIT = "invalid_wind_speed_unit"
     # The value is not one of the supported acoustic models.
     ACOUSTIC_MODEL = "invalid_acoustic_model"
+    # The value of a credential is not a string.
+    CREDENTIAL = "invalid_credential"
+    # The value is not a whole number of 0 or more, and not empty.
+    AUDIO_DEVICE = "invalid_audio_device"
 
 
 @dataclass(frozen=True)
@@ -154,6 +163,36 @@ def parse_acoustic_model(value: Any) -> str:
     raise ValueError(SettingsErrorCode.ACOUSTIC_MODEL)
 
 
+def parse_credential(value: Any) -> str:
+    """
+    A key or token for an external service. Any string will do, since only the service
+    itself can say whether it is right, and an empty one means the integration is off.
+    """
+    if not isinstance(value, str):
+        raise ValueError(SettingsErrorCode.CREDENTIAL)
+    return value.strip()
+
+
+def parse_audio_device(value: Any) -> int | None:
+    """
+    The index of the microphone to record from. An empty value gives None, meaning the
+    system default, which is what a station with one sound card wants.
+
+    Whether the index is really there is not checked here. Devices come and go with the
+    hardware, so the answer would be stale by the time the recorder next starts, and it
+    is the recorder that has to deal with a device that has gone.
+    """
+    if value is None or value == "":
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        raise ValueError(SettingsErrorCode.AUDIO_DEVICE) from None
+    if parsed < 0:
+        raise ValueError(SettingsErrorCode.AUDIO_DEVICE)
+    return parsed
+
+
 def parse_days(value: Any) -> int:
     try:
         parsed = int(value)
@@ -197,6 +236,11 @@ DEFAULTS: dict[SettingsKey, SettingDefinition[Any]] = {
     SettingsKey.NOTIFICATIONS_PENDING_VALIDATION_ENABLED: SettingDefinition(default=True, parser=parse_bool),
     SettingsKey.WEATHER_TEMPERATURE_UNIT: SettingDefinition(default="celsius", parser=parse_temperature_unit),
     SettingsKey.WEATHER_WIND_SPEED_UNIT: SettingDefinition(default="kmh", parser=parse_wind_speed_unit),
+    SettingsKey.TELEGRAM_TOKEN: SettingDefinition(default="", parser=parse_credential),
+    SettingsKey.TELEGRAM_CHAT_ID: SettingDefinition(default="", parser=parse_credential),
+    SettingsKey.XENO_CANTO_API_KEY: SettingDefinition(default="", parser=parse_credential),
+    SettingsKey.IPGEOLOCATION_API_KEY: SettingDefinition(default="", parser=parse_credential),
+    SettingsKey.AUDIO_DEVICE: SettingDefinition(default=None, parser=parse_audio_device),
 }
 
 

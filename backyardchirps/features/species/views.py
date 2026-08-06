@@ -13,6 +13,8 @@ from backyardchirps.features.detections.queries import get_species_stats
 from backyardchirps.features.detections.queries import species_with_detection_counts
 from backyardchirps.features.overrides import queries as species_override_repository
 from backyardchirps.features.overrides.views import detection_settings_state
+from backyardchirps.features.settings.logic import Settings
+from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.species import queries
 from backyardchirps.features.species.entity import Species
 from backyardchirps.features.species.seasonality import get_yearly_seasonality
@@ -106,7 +108,7 @@ def species_detail(request, slug):
             "image_url": species.image_url,
             "map_url": species.map_url,
             "external_links": species.external_links(lang),
-            "sounds": get_xeno_canto_recordings(species.scientific_name),
+            "sounds": get_xeno_canto_recordings(Settings.get(SettingsKey.XENO_CANTO_API_KEY), species.scientific_name),
             "recordings_total": recordings_total,
             "detection_settings": detection_settings_state(override),
         }

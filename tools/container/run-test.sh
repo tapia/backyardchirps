@@ -192,25 +192,22 @@ for unit in backyardchirps-web backyardchirps-recorder \
 done
 info "all four units run as $SERVICE_USER"
 
-for unit in backyardchirps-web backyardchirps-recorder; do
-    if inside systemctl is-active --quiet "$unit"; then
-        info "$unit is active"
-    else
-        # A container has no capture device, so the recorder failing is expected.
-        # Failing for some other reason is not, and the old check could not tell
-        # the two apart. Insist the journal says it was the audio device.
-        if [ "$unit" = backyardchirps-recorder ]; then
-            recorder_journal="$(inside journalctl -u "$unit" --no-pager)"
-            if printf '%s' "$recorder_journal" | grep -qiE 'audio|sound|device|portaudio|alsa'; then
-                info "$unit stopped on the audio device, which is expected here"
-            else
-                die "$unit is not running, and not because of the audio device. Try --keep, then 'journalctl -u $unit'."
-            fi
-        else
-            die "$unit is not running. Try --keep, then 'journalctl -u $unit'."
-        fi
-    fi
-done
+inside systemctl is-active --quiet backyardchirps-web \
+    || die "backyardchirps-web is not running. Try --keep, then 'journalctl -u backyardchirps-web'."
+info "backyardchirps-web is active"
+
+# The recorder is the opposite: it must NOT be running yet. A station that has not
+# been through the wizard has no coordinates, and with none BirdNET matches against
+# every species on earth, so it would fill the database with rubbish. apply.sh leaves
+# it enabled but stopped, and the wizard starts it.
+#
+# This also happens to be why the container needs no capture device.
+inside systemctl is-enabled --quiet backyardchirps-recorder \
+    || die "backyardchirps-recorder was not enabled, so the wizard could not start it."
+if inside systemctl is-active --quiet backyardchirps-recorder; then
+    die "backyardchirps-recorder is recording on a station nobody has configured yet."
+fi
+info "backyardchirps-recorder is enabled but stopped, waiting for the wizard"
 
 for timer in backyardchirps-update-species.timer backyardchirps-clip-disk-quota.timer; do
     inside systemctl is-enabled --quiet "$timer" || die "$timer was not enabled."
@@ -242,6 +239,16 @@ info "nginx serves the site"
 API="$(inside curl -s -o /dev/null -w '%{http_code}' http://localhost/api/species/ || true)"
 [ "$API" = "200" ] || die "The API returned $API for /api/species/ rather than 200."
 info "the API answers"
+
+# What a browser asks first: the wizard has to be reachable, and it has to say the
+# station is unconfigured. If this is wrong nobody can ever set the station up, which
+# is the one failure an install cannot recover from on its own.
+SETUP="$(inside curl -s http://localhost/api/setup/status/ || true)"
+printf '%s' "$SETUP" | grep -q '"is_complete":false' \
+    || die "/api/setup/status/ does not report an unconfigured station: $SETUP"
+printf '%s' "$SETUP" | grep -q '"token_required":true' \
+    || die "/api/setup/status/ does not ask for the token the installer just wrote: $SETUP"
+info "the setup wizard is reachable and asks for the token"
 
 # Static files are collected into DATA_DIR and served by nginx, which runs as
 # www-data and owns none of it. A 403 here means the data directory is not

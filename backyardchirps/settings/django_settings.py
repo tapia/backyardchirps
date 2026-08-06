@@ -149,15 +149,16 @@ LOCALE_PATHS = [BASE_DIR / "backyardchirps" / "locale"]
 
 SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
 
-IPGEOLOCATION_API_KEY = os.environ.get("IPGEOLOCATION_API_KEY", "")
-
 # ---------------------------------------------------------------------------
 # Species data layout  (see docs/devel/species-data.md)
 # ---------------------------------------------------------------------------
-# The taxonomy, photos and occurrence rasters are shared by every location. Only two
-# things differ per location: the BirdNET species list and the range maps, which are
-# drawn around that region. ACTIVE_LOCATION picks the locations/<slug>/ directory holding
-# them, so adding a location means creating that directory and pointing this at it.
+# The taxonomy, photos and occurrence rasters are shared by every location. Only the
+# range maps differ, being drawn around one region, and ACTIVE_LOCATION picks the
+# locations/<slug>/ directory holding them.
+#
+# This is the last job it has, and a region pack takes it over in Phase 4 of the
+# installer plan. The species list used to live here too, until it became something each
+# station derives from its own coordinates.
 ACTIVE_LOCATION = os.environ.get("ACTIVE_LOCATION", "spain")
 
 SPECIES_DATA_DIR = BASE_DIR / "backyardchirps" / "species_data"
@@ -190,7 +191,6 @@ else:
 # checked in for tests, CI and fresh installs to seed from. The app reads a runtime file
 # whenever it finds one.
 SPECIES_TAXONOMY_RUNTIME_FILE = SPECIES_RUNTIME_DIR / "taxonomy" / "birdnet_taxonomy.json"
-SPECIES_RUNTIME_LOCATION_DIR = SPECIES_RUNTIME_DIR / "locations" / ACTIVE_LOCATION
 
 # EBIRD_DATA_DIR holds the eBird Status & Trends data behind the seasonality timeline: one
 # folder per species, named by eBird code, each holding a weekly raster and a CSV of band
@@ -199,6 +199,11 @@ SPECIES_RUNTIME_LOCATION_DIR = SPECIES_RUNTIME_DIR / "locations" / ACTIVE_LOCATI
 # Downloaded region packs, meaning range maps and cropped occurrence rasters, one
 # directory per pack id.
 PACKS_DIR = DATA_DIR / "packs"
+
+# The one-time token install.sh writes, which the setup wizard trades for the first admin
+# account. Finishing the wizard deletes it, so its absence is what makes the wizard
+# refuse to hand the station to a second person.
+SETUP_TOKEN_FILE = DATA_DIR / "setup-token"
 
 # Location-specific data for ACTIVE_LOCATION.
 ACTIVE_LOCATION_DIR = SPECIES_DATA_DIR / "locations" / ACTIVE_LOCATION

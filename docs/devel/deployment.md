@@ -138,9 +138,10 @@ Fill in at least:
 | `ALLOWED_HOSTS` | `birds.example.com,localhost,127.0.0.1` |
 | `CSRF_TRUSTED_ORIGINS` | `https://birds.example.com` |
 | `SITE_URL` | `https://birds.example.com` |
-| `TELEGRAM_TOKEN` | optional, for notifications |
-| `TELEGRAM_CHAT_ID` | optional, for notifications |
-| `XENO_CANTO_API_KEY` | optional, for reference calls on species pages |
+
+That is the whole file. The credentials for Telegram, xeno-canto and ipgeolocation.io are
+settings rather than environment variables, so they are set in the web UI and stored in the
+database.
 
 ## 7. Let `deploy.sh` configure the machine
 
@@ -219,13 +220,22 @@ hostname when flashing.
 ## 10. Create the admin account
 
 Settings, detection rules, and the review queue need a staff account, and a fresh database has
-none:
+none. **The recorder is stopped until one exists**: `apply.sh` refuses to start a station that
+has not been configured, because with no coordinates BirdNET matches against every species on
+earth.
+
+The site takes you to the setup wizard on its own. A checkout has no setup token, so it asks
+for none, and finishing it creates the account and starts the recorder. That is the path worth
+taking, if only because it is the one your users take.
+
+To do it by hand instead:
 
 ```bash
 cd ~/backyardchirps
 echo "$BACKYARDCHIRPS_DATA_DIR"     # must print your data directory, not empty
 DJANGO_SUPERUSER_PASSWORD='<pick-a-password>' \
     uv run python manage.py createsuperuser --noinput --username admin --email ''
+sudo systemctl start backyardchirps-recorder
 ```
 
 Check that variable first. Empty means this shell predates step 5, and the account would be
@@ -234,6 +244,9 @@ created in a database the station never reads. Open a new session, or export it 
 The empty `--email` is deliberate: the field is optional, but `--noinput` still insists on being
 given a value. Running the command a second time fails saying the username is taken, which is
 all the confirmation you need that the account exists.
+
+The explicit `systemctl start` is what the wizard would have done for you. Without it the
+recorder waits for the next deploy, which will start it now that the station has an owner.
 
 ## Deploys after that
 

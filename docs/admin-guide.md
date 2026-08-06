@@ -7,10 +7,7 @@ Log in at `/login` with a staff account. **Settings**,
 **Detection settings**, and **Server status** then appear under **Admin** in the navbar;
 without staff access they redirect to the login page.
 
-A station installed from a release has no such account yet, and no way to make one: that is the
-setup wizard, which arrives in the next version. Everything below already works, and until then
-it is reachable only on a station deployed from a checkout, where
-[deployment.md](devel/deployment.md) creates the account by hand.
+The account is the one you made in the setup wizard when you installed the station.
 
 ## Settings
 
@@ -62,11 +59,34 @@ job deletes the audio of the oldest clips.
 Only the audio goes. The detection records stay, so history, charts and species counts are
 unaffected. The old entries simply lose their play button.
 
+### Microphone
+
+Which input the recorder listens to. **System default** is right when the Pi has one sound
+card, which is the usual case; pick a device by name when it has more than one, or when a USB
+microphone is not the one being used.
+
+Saving restarts the recorder, since it opens the microphone once at startup and never looks
+again.
+
+If the list is empty the operating system sees no recording device at all. Check the cable and
+`arecord -l` before looking anywhere else.
+
+### Keys and tokens
+
+| Key | Without it |
+|---|---|
+| Telegram bot token and chat ID | No notifications are sent. Get a token from @BotFather |
+| xeno-canto API key | Species pages show no reference recordings |
+| ipgeolocation.io API key | Charts show no sunrise and sunset lines |
+
+All three are optional and the station works without any of them. They are stored in the
+database, so they survive an update and never need `.env` to be edited.
+
 ### Notifications
 
-Telegram messages, if `TELEGRAM_TOKEN` and `TELEGRAM_CHAT_ID` are set in `.env`. Each rule has
-its own switch and its own minimum confidence, so you can be strict about what is worth being
-interrupted for.
+Telegram messages, once you have filled in the bot token and chat ID under **Keys and tokens**.
+Each rule has its own switch and its own minimum confidence, so you can be strict about what
+is worth being interrupted for.
 
 | Rule | Default confidence | Fires when |
 |---|---|---|
@@ -81,9 +101,10 @@ Messages go out in Spanish by default; change it under **Send messages in**.
 
 ### What needs a recorder restart
 
-Settings live in the database and take effect at once, with three exceptions. The recorder
-builds its analyzer only when it starts, so the coordinates, the acoustic model and the low
-confidence threshold are read once and then kept. Changing any of those needs:
+Settings live in the database and take effect at once, with four exceptions. The recorder opens
+the microphone and builds its analyzer only when it starts, so the coordinates, the acoustic
+model, the low confidence threshold and the microphone are read once and then kept. The
+microphone looks after itself, restarting the recorder when you save it. For the other three:
 
 ```bash
 sudo systemctl restart backyardchirps-recorder
@@ -151,7 +172,11 @@ sudo systemctl status backyardchirps-recorder
 journalctl -u backyardchirps-recorder -n 50 --no-pager
 ```
 
-Usually the microphone. Check it survived a reboot with `arecord -l`.
+Usually the microphone. Check it survived a reboot with `arecord -l`, and that the right one
+is chosen under **Settings → Microphone**.
+
+A station that has never finished the setup wizard is a different case: its recorder is stopped
+on purpose and the journal is empty. Open the site and it takes you back to the wizard.
 
 The whole site is unreachable:
 

@@ -40,7 +40,7 @@ class AstronomyService:
         None when no location or no API key is configured. A successful reading is cached
         for one hour.
         """
-        api_key = settings.IPGEOLOCATION_API_KEY
+        api_key = Settings.get(SettingsKey.IPGEOLOCATION_API_KEY)
         latitude = Settings.get(SettingsKey.LOCATION_LAT)
         longitude = Settings.get(SettingsKey.LOCATION_LON)
         if not api_key or latitude is None or longitude is None:

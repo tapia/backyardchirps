@@ -2,21 +2,18 @@ import logging
 
 import requests
 
-from backyardchirps import settings
-
 logger = logging.getLogger(__name__)
 
 _API_URL = "https://xeno-canto.org/api/3/recordings"
 
 
-def get_recordings(scientific_name: str, limit: int = 5) -> list[dict]:
+def get_recordings(api_key: str, scientific_name: str, limit: int = 5) -> list[dict]:
     """
     Up to `limit` recordings of the species, or an empty list if anything at all went
     wrong.
     """
     try:
         query = f'sp:"{scientific_name}"+q:">C"'
-        api_key = settings.XENO_CANTO.get("api_key")
         response = requests.get(
             f"{_API_URL}?query={query}&key={api_key}",
             timeout=5,

@@ -141,6 +141,20 @@ export default {
       notificationsLongAbsent: 'Especie ausente durante más de N días',
       notificationsMinConfidence: 'Confianza mínima',
       notificationsAbsenceDays: 'Umbral de ausencia (días)',
+      microphone: 'Micrófono',
+      microphoneDevice: 'Dispositivo de grabación',
+      microphoneDeviceHint:
+        'Qué entrada escucha el grabador. La lee al arrancar, así que se reinicia al guardar.',
+      microphoneSystemDefault: 'Predeterminado del sistema',
+      credentials: 'Claves y tokens',
+      telegramToken: 'Token del bot de Telegram',
+      telegramTokenHint: 'De @BotFather. Déjalo vacío para desactivar las notificaciones.',
+      telegramChatId: 'ID de chat de Telegram',
+      xenoCantoApiKey: 'Clave de API de xeno-canto',
+      xenoCantoApiKeyHint: 'Opcional. Añade grabaciones de referencia a las fichas de especies.',
+      ipgeolocationApiKey: 'Clave de API de ipgeolocation.io',
+      ipgeolocationApiKeyHint:
+        'Opcional. Añade las horas de salida y puesta del sol a los gráficos.',
       errors: {
         invalid_boolean: 'Debe ser verdadero o falso.',
         invalid_confidence: 'Debe ser un número decimal entre 0 y 1.',
@@ -152,10 +166,83 @@ export default {
         invalid_temperature_unit: "Debe ser 'celsius' o 'fahrenheit'.",
         invalid_wind_speed_unit: "Debe ser 'kmh' o 'mph'.",
         invalid_acoustic_model: "Debe ser 'birdnet_2' o 'birdnet_3'.",
+        invalid_credential: 'Debe ser texto.',
+        invalid_audio_device:
+          'Debe ser un número entero, o vacío para el predeterminado del sistema.',
         unknown_setting: 'Configuración desconocida.',
       },
       save: 'Guardar',
       saved: 'Guardado',
+    },
+  },
+  setup: {
+    title: 'Configura tu estación',
+    stepCount: 'Paso {current} de {total}',
+    next: 'Siguiente',
+    back: 'Atrás',
+    finish: 'Empezar a escuchar',
+    language: {
+      title: 'Idioma',
+      intro: '¿En qué idioma quieres ver este sitio? Puedes cambiarlo más tarde.',
+    },
+    admin: {
+      title: 'Tu cuenta',
+      intro:
+        'Con esta cuenta volverás a entrar en la configuración. Es la única, y se guarda en esta máquina.',
+      token: 'Token de instalación',
+      tokenHint: 'El instalador lo mostró al terminar.',
+      username: 'Usuario',
+      password: 'Contraseña',
+      submit: 'Crear la cuenta',
+    },
+    location: {
+      title: 'Dónde está la estación',
+      intro:
+        'Las coordenadas deciden qué aves es plausible oír aquí. Sin ellas la estación compara con todas las especies del planeta y acierta mucho menos.',
+      useBrowser: 'Usar mi ubicación',
+      browserFailed: 'El navegador no ha dado una ubicación. Escribe las coordenadas a mano.',
+      why: 'Con la precisión del jardín basta. No se envía a ninguna parte: las coordenadas se quedan en esta máquina.',
+    },
+    microphone: {
+      title: 'Micrófono',
+      intro: 'Elige la entrada con la que grabar y comprueba que se oye algo.',
+      none: 'Esta máquina no encuentra dispositivos de grabación. Conecta un micrófono y recarga.',
+      systemDefault: 'predeterminado',
+      level: 'Nivel de entrada',
+      test: 'Probar',
+      stop: 'Parar',
+      speakUp: 'Da una palmada o habla cerca del micrófono. La barra debería moverse.',
+    },
+    detection: {
+      title: 'Umbrales de detección',
+      intro:
+        'Cuánta confianza necesita BirdNET para que una identificación cuente. Por debajo del umbral bajo se descarta; por debajo del medio te espera en la cola de revisión.',
+      defaultsAreFine:
+        'Los valores por defecto son un buen punto de partida. Vuelve cuando lleves unos días escuchando.',
+    },
+    notifications: {
+      title: 'Notificaciones y claves',
+      intro: 'Todo opcional y todo cambiable después. Sáltatelo si prefieres empezar ya.',
+      rulesLater:
+        'Qué detecciones merecen un mensaje se decide en la configuración, una vez dentro.',
+    },
+    done: {
+      title: 'Listo',
+      intro:
+        'Ya está todo. Al terminar arranca el grabador y el token de instalación deja de servir, así que este asistente no volverá a abrirse.',
+      recorderNotStarted:
+        'La configuración ha terminado, pero el grabador no ha arrancado. Mira la página de estado del servidor.',
+    },
+    errors: {
+      bad_token: 'Ese token no coincide con el de esta máquina.',
+      admin_exists:
+        'Esta estación ya tiene una cuenta, así que la configuración no puede repetirse.',
+      no_admin: 'Crea primero la cuenta.',
+      username_required: 'Elige un usuario.',
+      weak_password: 'Esa contraseña es demasiado fácil de adivinar.',
+      unknown_device: 'Ese no es uno de los dispositivos de grabación de esta máquina.',
+      device_busy: 'El micrófono lo está usando otra cosa, así que no se puede probar ahora mismo.',
+      unreachable: 'La estación no ha respondido. Inténtalo otra vez.',
     },
   },
   weather: {

@@ -8,7 +8,6 @@ from pathlib import Path
 
 from aiogram.types import BufferedInputFile
 from aiogram.types import URLInputFile
-from django.conf import settings
 from django.utils import timezone
 from django.utils import translation
 from django.utils.translation import gettext as _
@@ -216,7 +215,6 @@ _RULES: list[NotificationRule] = [
 
 class Notifier:
     def __init__(self) -> None:
-        self._enabled = bool(settings.NOTIFICATIONS["telegram_token"] and settings.NOTIFICATIONS["telegram_chat_id"])
         self._pending_notifications: dict[int, tuple[Detection, AudioClip]] = {}
 
     def maybe_notify(self, detection: Detection, clip: AudioClip) -> None:
@@ -241,7 +239,11 @@ class Notifier:
             self._evaluate_and_send(detection, clip)
 
     def _evaluate_and_send(self, detection: Detection, clip: AudioClip) -> None:
-        if not self._enabled:
+        # Read on every send rather than at startup, so that setting the credentials in
+        # the wizard turns notifications on without restarting the recorder.
+        token = Settings.get(SettingsKey.TELEGRAM_TOKEN)
+        chat_id = Settings.get(SettingsKey.TELEGRAM_CHAT_ID)
+        if not token or not chat_id:
             return
         if species_override_repository.is_blacklisted(detection.species):
             return
@@ -259,10 +261,12 @@ class Notifier:
         if matching_labels:
             caption = self._build_caption(detection, matching_labels, language)
             audio_bytes, audio_filename = self._read_audio(detection, clip)
-            asyncio.run(self._send_all(detection, caption, audio_bytes, audio_filename))
+            asyncio.run(self._send_all(token, chat_id, detection, caption, audio_bytes, audio_filename))
 
     async def _send_all(
         self,
+        token: str,
+        chat_id: str,
         detection: Detection,
         caption: str,
         audio_bytes: bytes,
@@ -276,8 +280,8 @@ class Notifier:
         )
         audio = BufferedInputFile(audio_bytes, filename=audio_filename)
         await send_photo_and_audio(
-            settings.NOTIFICATIONS["telegram_token"],
-            settings.NOTIFICATIONS["telegram_chat_id"],
+            token,
+            chat_id,
             photo,
             caption,
             audio,

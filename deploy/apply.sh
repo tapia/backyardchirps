@@ -239,6 +239,14 @@ else
     echo "[apply] BirdNET 3 is selected, so BirdNET 2 and TensorFlow stay uninstalled."
 fi
 
+# A station that has not been through the setup wizard has no coordinates, and with no
+# coordinates BirdNET matches against every species on earth. Recording in that state
+# would fill the database with rubbish before the owner has even seen the site, so the
+# recorder stays stopped until the wizard finishes and starts it.
+setup_complete="$(run_manage shell -c \
+    'from backyardchirps.features.setup.logic import get_status
+print("yes" if get_status().is_complete else "no")' | tail -n 1)"
+
 echo "[apply] Collecting static files..."
 # STATIC_ROOT is inside DATA_DIR, which the service user already owns, so this
 # needs no root step to hand a directory over. The cost is that files from an
@@ -286,6 +294,10 @@ sudo systemctl daemon-reload
 echo "[apply] Enabling and restarting services..."
 for daemon in "${DAEMONS[@]}"; do
     sudo systemctl enable "$daemon"
+    if [ "$daemon" = "backyardchirps-recorder" ] && [ "$setup_complete" != "yes" ]; then
+        echo "[apply] Setup is unfinished, so the recorder stays stopped for now."
+        continue
+    fi
     # restart also starts a unit that was installed for the first time.
     sudo systemctl restart "$daemon"
 done

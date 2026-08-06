@@ -38,22 +38,39 @@ model, and starts everything. The Python environment and the model are what take
 When it finishes it prints the address of your station and a setup token:
 
 ```
- Your station is running.
+ Your station is installed. Open it and finish setting it up:
 
    http://raspberrypi.local
 
  Setup token: 4f3a...
 ```
 
-Keep the token. The setup wizard needs it, and it is the only way to create the first admin
+Keep the token. The wizard asks for it, and it is the only way to create the first admin
 account.
 
-Open that address from any machine on the same network and the site is there.
+The station is not recording yet. A station that does not know where it is would match every
+call against every species on earth, so the recorder waits until you have told it.
 
-**This version has no wizard yet.** The station records and identifies from the moment it
-starts, but nothing can tell it where it is, and without coordinates it matches every call
-against every species on earth. It works, and it guesses badly. The next version adds the
-wizard, and updating to it is one command.
+## 3. Finish setting it up
+
+Open that address from any machine on the same network. The site takes you straight to the
+wizard, which asks for the token and then walks through seven short steps:
+
+| Step | What it wants |
+|---|---|
+| Language | English or Spanish, changeable later |
+| Your account | The token, plus the username and password you will log in with |
+| Where the station is | Latitude and longitude, or the **Use my location** button |
+| Microphone | Which input to record from, with a level meter to check it hears you |
+| Detection thresholds | How sure BirdNET has to be. The defaults are a good start |
+| Notifications and keys | Telegram and the optional API keys. All skippable |
+| Ready | Finishing starts the recorder |
+
+Only the account and the location really matter. Everything else has a working default and
+is on the settings page afterwards.
+
+Finishing deletes the token, so the wizard cannot be opened a second time. From then on you
+get in with the account you made.
 
 ## What it installed
 

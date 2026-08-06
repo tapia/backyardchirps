@@ -52,8 +52,8 @@ Recording needs a microphone:
 uv run python manage.py run_recorder
 ```
 
-If it picks the wrong input, list devices with `python -m sounddevice` and set `AUDIO_DEVICE` to
-the index you want.
+If it picks the wrong input, choose the right one under **Microphone** on the settings page.
+The recorder reads it at startup, so restart it after changing it.
 
 ## Management commands
 
@@ -79,6 +79,7 @@ There is no `api/`, `domain/`, `repositories/`, `services/`, or `use_cases/` lay
 | `recording` | Audio capture and the acoustic model pipeline (the recorder process) |
 | `notifications` | Notification rules and the notifier |
 | `settings` | `AppSetting` reads and writes, with parsing and defaults |
+| `setup` | The first-run wizard: the one-time token, the first admin account, the microphone picker |
 | `weather` | Current weather and sunrise/sunset, both cached |
 | `auth`, `server_status` | Session endpoints, and the machine metrics behind the status page |
 

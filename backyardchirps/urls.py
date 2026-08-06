@@ -14,6 +14,7 @@ from backyardchirps.features.detections import views as detections_views
 from backyardchirps.features.overrides import views as overrides_views
 from backyardchirps.features.server_status import views as server_status_views
 from backyardchirps.features.settings import views as settings_views
+from backyardchirps.features.setup import views as setup_views
 from backyardchirps.features.species import views as species_views
 from backyardchirps.features.weather import views as weather_views
 
@@ -23,6 +24,13 @@ urlpatterns = [
     path("api/auth/login/", auth_views.login_view, name="api-auth-login"),
     path("api/auth/logout/", auth_views.logout_view, name="api-auth-logout"),
     path("api/settings/", settings_views.app_settings, name="api-settings"),
+    path("api/setup/status/", setup_views.setup_status, name="api-setup-status"),
+    path("api/setup/claim/", setup_views.claim, name="api-setup-claim"),
+    path("api/setup/admin/", setup_views.create_admin, name="api-setup-admin"),
+    path("api/setup/audio-devices/", setup_views.audio_devices, name="api-setup-audio-devices"),
+    path("api/setup/audio-device/", setup_views.choose_audio_device, name="api-setup-audio-device"),
+    path("api/setup/audio-level/", setup_views.audio_level, name="api-setup-audio-level"),
+    path("api/setup/complete/", setup_views.complete, name="api-setup-complete"),
     path("api/server-status/", server_status_views.server_status, name="api-server-status"),
     path("api/weather/current/", weather_views.current_weather, name="api-weather-current"),
     path(

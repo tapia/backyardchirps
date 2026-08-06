@@ -140,6 +140,19 @@ export default {
       notificationsLongAbsent: 'Species absent for more than N days',
       notificationsMinConfidence: 'Minimum confidence',
       notificationsAbsenceDays: 'Absence threshold (days)',
+      microphone: 'Microphone',
+      microphoneDevice: 'Recording device',
+      microphoneDeviceHint:
+        'Which input the recorder listens to. It reads this at startup, so it restarts when you save.',
+      microphoneSystemDefault: 'System default',
+      credentials: 'Keys and tokens',
+      telegramToken: 'Telegram bot token',
+      telegramTokenHint: 'From @BotFather. Leave empty to turn Telegram notifications off.',
+      telegramChatId: 'Telegram chat ID',
+      xenoCantoApiKey: 'xeno-canto API key',
+      xenoCantoApiKeyHint: 'Optional. Adds reference recordings to species pages.',
+      ipgeolocationApiKey: 'ipgeolocation.io API key',
+      ipgeolocationApiKeyHint: 'Optional. Adds sunrise and sunset times to the charts.',
       errors: {
         invalid_boolean: 'Must be true or false.',
         invalid_confidence: 'Must be a decimal number between 0 and 1.',
@@ -151,10 +164,81 @@ export default {
         invalid_temperature_unit: "Must be 'celsius' or 'fahrenheit'.",
         invalid_wind_speed_unit: "Must be 'kmh' or 'mph'.",
         invalid_acoustic_model: "Must be 'birdnet_2' or 'birdnet_3'.",
+        invalid_credential: 'Must be text.',
+        invalid_audio_device: 'Must be a whole number, or empty for the system default.',
         unknown_setting: 'Unknown setting.',
       },
       save: 'Save',
       saved: 'Saved',
+    },
+  },
+  setup: {
+    title: 'Set up your station',
+    stepCount: 'Step {current} of {total}',
+    next: 'Next',
+    back: 'Back',
+    finish: 'Start listening',
+    language: {
+      title: 'Language',
+      intro: 'Which language should this site use? You can change it later.',
+    },
+    admin: {
+      title: 'Your account',
+      intro:
+        'This account is how you get back into the settings later. It is the only one, and it is stored on this machine.',
+      token: 'Setup token',
+      tokenHint: 'The installer printed this when it finished.',
+      username: 'Username',
+      password: 'Password',
+      submit: 'Create the account',
+    },
+    location: {
+      title: 'Where the station is',
+      intro:
+        'The coordinates decide which birds can plausibly be heard here. Without them the station matches against every species on earth and guesses badly.',
+      useBrowser: 'Use my location',
+      browserFailed: 'Your browser would not give a location. Type the coordinates instead.',
+      why: 'The garden is close enough. Nothing is sent anywhere: the coordinates stay on this machine.',
+    },
+    microphone: {
+      title: 'Microphone',
+      intro: 'Pick the input to record from, then test that it hears something.',
+      none: 'This machine reports no recording devices. Plug a microphone in and reload.',
+      systemDefault: 'default',
+      level: 'Input level',
+      test: 'Test',
+      stop: 'Stop',
+      speakUp: 'Clap or talk near the microphone. The bar should move.',
+    },
+    detection: {
+      title: 'Detection thresholds',
+      intro:
+        'How confident BirdNET has to be before an identification counts. Below the low threshold it is thrown away; below the medium one it waits for you in the review queue.',
+      defaultsAreFine:
+        'The defaults are a good starting point. Come back once you have heard a few days of birds.',
+    },
+    notifications: {
+      title: 'Notifications and keys',
+      intro:
+        'All optional, and all changeable later. Skip this if you would rather just get started.',
+      rulesLater: 'Which detections are worth a message is on the settings page, once you are in.',
+    },
+    done: {
+      title: 'Ready',
+      intro:
+        'That is everything. Finishing starts the recorder and puts the setup token beyond use, so this wizard will not open again.',
+      recorderNotStarted:
+        'Setup is finished, but the recorder did not start. Check the server status page.',
+    },
+    errors: {
+      bad_token: 'That token does not match the one on this machine.',
+      admin_exists: 'This station already has an account, so setup cannot run again.',
+      no_admin: 'Create the account first.',
+      username_required: 'Pick a username.',
+      weak_password: 'That password is too easy to guess.',
+      unknown_device: "That is not one of this machine's recording devices.",
+      device_busy: 'The microphone is in use by something else, so it cannot be tested right now.',
+      unreachable: 'The station did not answer. Try again.',
     },
   },
   weather: {

@@ -25,14 +25,16 @@ backyardchirps/species_data/
 ├── locations/
 │   └── <slug>/                   One directory per location
 │       └── range_maps/           <slug>.webp, framed on this region
-└── generated/                    GIT-IGNORED, written at runtime:
-                                  the refreshed taxonomy, and the station's
-                                  own species list
+└── generated/                    GIT-IGNORED, written at runtime
+    ├── taxonomy/                 The refreshed taxonomy
+    └── species_birdnet.txt       The station's own species list, derived from
+                                  its coordinates
 ```
 
 `ACTIVE_LOCATION` picks the `locations/<slug>/` directory the app reads. It defaults to `spain`
 in `backyardchirps/settings/django_settings.py`, and the environment variable of the same name
-overrides it.
+overrides it. Range maps are all it selects: the species list under `generated/` is named after
+nothing, because it belongs to the station's coordinates rather than to a region.
 
 ## The seed and the generated files
 
@@ -47,6 +49,11 @@ which are working states.
 
 `update_species_data` (a daily timer in production) writes only under `generated/`, never over
 the committed taxonomy, so a `git pull` on deploy cannot conflict.
+
+The list used to sit under `generated/locations/<slug>/`. A station updating across that change
+finds no list at the new path and behaves as a station that never had one, which is a working
+state, until the daily timer writes a fresh one. Run `update_species_data` by hand to skip the
+wait.
 
 The two sit on opposite sides of the code and data split in [architecture.md](architecture.md).
 The seed ships with the release. When `BACKYARDCHIRPS_DATA_DIR` is set, the generated files move to
@@ -73,6 +80,8 @@ region. The species list is not part of this: a station generates its own.
 mkdir -p backyardchirps/species_data/locations/<slug>/range_maps
 export ACTIVE_LOCATION=<slug>        # or change the default in django_settings.py
 ```
+
+This selects the range maps and nothing else.
 
 **3. Generate the species list.** This refreshes the taxonomy, then asks GeoModel which
 species are plausible at the configured coordinates in any week of the year, and writes them
