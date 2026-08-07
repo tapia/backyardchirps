@@ -147,8 +147,6 @@ STATIC_ROOT = DATA_DIR / "staticfiles"
 
 LOCALE_PATHS = [BASE_DIR / "backyardchirps" / "locale"]
 
-SITE_URL = os.environ.get("SITE_URL", "http://localhost:8000")
-
 # ---------------------------------------------------------------------------
 # Species data layout  (see docs/devel/species-data.md)
 # ---------------------------------------------------------------------------
