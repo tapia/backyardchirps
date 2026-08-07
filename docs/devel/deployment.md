@@ -113,13 +113,29 @@ happens:
 2. Runs migrations and collects static files
 3. Downloads the BirdNET 3 acoustic model and GeoModel if their upstream checksums changed
 4. Installs and enables the `backyardchirps-*` units, including any new ones
-5. Restarts the web server, and the recorder once setup is finished
-6. Updates the nginx site, reloading it only if its config changed
+5. **Points `current` at the new release**
+6. Restarts the web server, and the recorder once setup is finished
+7. Updates the nginx site, reloading it only if its config changed
 
-Every step can be repeated safely, which is why one script both sets up a fresh Pi and updates a
+Step 5 is where a deploy becomes real, and everything expensive happens above it. `apply.sh`
+takes two directories: `BACKYARDCHIRPS_APP_DIR` is the versioned release it builds, and
+`BACKYARDCHIRPS_LINK_DIR` is the symlink the units and the nginx site are written to point at.
+They differ only for the length of a deploy.
+
+So a build that fails leaves the station on the release it was already running, still able to
+reboot. Pointing the symlink first would leave it running from open file handles and dying at the
+next restart, which is a failure that does not show up until much later and looks like something
+else when it does.
+
+Everything can be repeated safely, which is why one script both sets up a fresh Pi and updates a
 running one. Nothing serving traffic is restarted for a configuration it already has. A broken
 nginx config fails the deploy while the old one carries on serving, because the reload happens
 only after `nginx -t` accepts the new file.
+
+One sharp edge remains: migrations run at step 2, above the swap, so a build that fails after
+them leaves a database ahead of the code still serving. Additive migrations are harmless there,
+but a destructive one would not be. The backup-before-migrating half of that belongs to the
+updater, in [installer-plan.md](installer-plan.md) Phase 5.2.
 
 To run it by hand on the station, against whatever `current` points at:
 

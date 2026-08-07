@@ -278,8 +278,20 @@ VERSION="${release_name#backyardchirps-}"
     || die "This does not look like a backyardchirps release: the tarball holds '$release_name'."
 
 RELEASE_DIR="$INSTALL_ROOT/releases/$VERSION"
+LINK_DIR="$INSTALL_ROOT/current"
+# What is serving right now, if anything. Only used to say something useful when the
+# build fails, since the symlink is not moved until it succeeds.
+PREVIOUS_RELEASE="$(readlink -f "$LINK_DIR" 2> /dev/null || true)"
+
 say "Installing version $VERSION"
 mkdir -p "$INSTALL_ROOT/releases"
+# Reinstalling a version over itself is the one case with nothing to fall back to,
+# because the directory being emptied here is the one that is serving. Worth saying
+# out loud rather than discovering after a failed build. Deploys that install a
+# build per commit never land here, since each carries its own version.
+if [ -n "$PREVIOUS_RELEASE" ] && [ "$PREVIOUS_RELEASE" = "$RELEASE_DIR" ]; then
+    info "this replaces the running release in place, so there is nothing to fall back to"
+fi
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
 # --no-same-owner because tar run as root otherwise restores the numeric owner
@@ -289,10 +301,11 @@ mkdir -p "$RELEASE_DIR"
 # here belongs to root and is read by the service user and nginx through its mode.
 tar --zstd -xf "$tarball" -C "$RELEASE_DIR" --strip-components=1 --no-same-owner
 
-# The units and the nginx site point at the symlink rather than at the versioned
-# directory, so an update is a symlink swap and not a rewrite of every file.
-ln -sfn "$RELEASE_DIR" "$INSTALL_ROOT/current"
-APP_DIR="$INSTALL_ROOT/current"
+# Everything from here builds the versioned directory. The symlink is not moved
+# here: apply.sh points it at this release once the build has succeeded, right
+# before it restarts anything. Until then the station carries on serving whatever
+# it was already serving.
+APP_DIR="$RELEASE_DIR"
 info "$RELEASE_DIR"
 
 # ---------------------------------------------------------------------------
@@ -361,10 +374,20 @@ info "$SERVICE_USER may restart its own units"
 # ---------------------------------------------------------------------------
 say "Building and starting the station"
 info "This is the slow part: Python packages and the acoustic model."
-BACKYARDCHIRPS_APP_DIR="$APP_DIR" \
-BACKYARDCHIRPS_DATA_DIR="$DATA_DIR" \
-BACKYARDCHIRPS_SERVICE_USER="$SERVICE_USER" \
-    bash "$APP_DIR/deploy/apply.sh" || die "The build failed. See $LOG_FILE."
+# APP_DIR is the release being built, LINK_DIR the symlink everything points at.
+# apply.sh moves the second onto the first once the build has worked, so a failure
+# here leaves the station on the release it was already running.
+if ! BACKYARDCHIRPS_APP_DIR="$APP_DIR" \
+     BACKYARDCHIRPS_LINK_DIR="$LINK_DIR" \
+     BACKYARDCHIRPS_DATA_DIR="$DATA_DIR" \
+     BACKYARDCHIRPS_SERVICE_USER="$SERVICE_USER" \
+         bash "$APP_DIR/deploy/apply.sh"; then
+    if [ -n "$PREVIOUS_RELEASE" ] && [ -d "$PREVIOUS_RELEASE" ]; then
+        printf '\nThe build failed, so nothing was switched over.\n' >&2
+        printf 'Your station is still running %s.\n' "$PREVIOUS_RELEASE" >&2
+    fi
+    die "The build failed. See $LOG_FILE."
+fi
 
 # ---------------------------------------------------------------------------
 # 8. Setup token
@@ -424,7 +447,7 @@ esac
 # The live one is never a candidate, whatever its age: a re-install of the same
 # version leaves it looking older than the versions it replaced.
 say "Removing old releases"
-current_target="$(readlink -f "$INSTALL_ROOT/current")"
+current_target="$(readlink -f "$LINK_DIR")"
 pruned=0
 for candidate in $(ls -1dt "$INSTALL_ROOT/releases"/*/ 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) || true); do
     candidate="${candidate%/}"

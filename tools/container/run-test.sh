@@ -337,6 +337,36 @@ printf '%s' "$SETUP" | grep -q '"is_complete":true' \
     || die "The station lost its setup state when the installer ran again: $SETUP"
 info "no token written, and the station is still configured"
 
+say "A failed build must leave the running release alone"
+# The expensive half of a deploy happens before anything is switched over, so a
+# build that dies has to leave the station exactly as it found it: still pointed at
+# the release that works, and still able to survive a reboot. Getting this backwards
+# is silent, which is what makes it worth a test: the station carries on serving from
+# files it already has open, and only dies the next time anything restarts it.
+#
+# A release directory holding nothing but deploy/ is the cheapest way to fail. It
+# gets as far as `uv sync`, which is where a real deploy is most likely to break,
+# and that is above the swap.
+live_release_before="$(inside readlink -f "$APP_DIR")"
+inside mkdir -p "$INSTALL_ROOT/releases/9.9.9-broken"
+inside cp -r "$live_release_before/deploy" "$INSTALL_ROOT/releases/9.9.9-broken/deploy"
+
+if inside env BACKYARDCHIRPS_APP_DIR="$INSTALL_ROOT/releases/9.9.9-broken" \
+        BACKYARDCHIRPS_LINK_DIR="$APP_DIR" \
+        BACKYARDCHIRPS_DATA_DIR="$DATA_DIR" \
+        BACKYARDCHIRPS_SERVICE_USER="$SERVICE_USER" \
+        bash "$INSTALL_ROOT/releases/9.9.9-broken/deploy/apply.sh" > /dev/null 2>&1; then
+    die "apply.sh reported success on a release with no code in it."
+fi
+
+live_release_after="$(inside readlink -f "$APP_DIR")"
+[ "$live_release_after" = "$live_release_before" ] \
+    || die "A failed build moved $APP_DIR from $live_release_before to $live_release_after, so the next restart would start a release that was never built."
+inside systemctl is-active --quiet backyardchirps-web \
+    || die "A failed build took the web server down with it."
+inside rm -rf "$INSTALL_ROOT/releases/9.9.9-broken"
+info "the symlink and the web server both survived a failed build"
+
 say "Uninstalling"
 # Without --all, so it has to remove the software and keep every recording. A
 # station being taken apart must not take the data with it by accident.

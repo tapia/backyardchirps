@@ -29,6 +29,19 @@ fi
 
 APP_DIR="${BACKYARDCHIRPS_APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
+# The path the units and the nginx site are written to point at, which is a symlink
+# the caller keeps: /opt/backyardchirps/current. APP_DIR is the versioned directory
+# being built. They differ for exactly as long as this script takes, and the swap
+# below is what makes the new release live.
+#
+# Splitting them is what lets a failed deploy leave nothing behind. Build first,
+# point the symlink at it second: anything that goes wrong above the swap leaves the
+# previous release both installed and still pointed at, so the station survives a
+# restart it would otherwise not have.
+#
+# Equal when the caller keeps no symlink, which is the single-directory case.
+LINK_DIR="${BACKYARDCHIRPS_LINK_DIR:-$APP_DIR}"
+
 # Where the data lives, recorded at install time. An explicit BACKYARDCHIRPS_DATA_DIR
 # wins for this run, which is how install.sh passes a non-default directory before
 # there is anything to read.
@@ -89,7 +102,7 @@ install_file() {
     local rendered
     rendered="$(sed \
         -e "s|SERVICE_USER|$SERVICE_USER|g" \
-        -e "s|APP_DIR|$APP_DIR|g" \
+        -e "s|APP_DIR|$LINK_DIR|g" \
         -e "s|__DATA_DIR__|$DATA_DIR|g" \
         "$source_file")"
     if [ -f "$destination" ] && printf '%s\n' "$rendered" | cmp -s - "$destination"; then
@@ -219,6 +232,22 @@ for job in "${TIMED_JOBS[@]}"; do
     install_file "$APP_DIR/deploy/$job.timer" "/etc/systemd/system/$job.timer" || true
 done
 sudo systemctl daemon-reload
+
+# ---------------------------------------------------------------------------
+# Make it live
+# ---------------------------------------------------------------------------
+# Everything above builds and configures without changing what is running: the
+# units and the nginx site point at LINK_DIR, and LINK_DIR still points at the
+# release that is serving. This one line is what promotes the new one, and it is
+# deliberately the last thing before the restarts.
+#
+# So a deploy that fails anywhere above leaves a station that is still working and
+# still able to reboot, rather than one pointed at a half-built release that dies
+# the next time anything restarts it.
+if [ "$LINK_DIR" != "$APP_DIR" ]; then
+    echo "[apply] Pointing $LINK_DIR at $APP_DIR..."
+    ln -sfn "$APP_DIR" "$LINK_DIR"
+fi
 
 echo "[apply] Enabling and restarting services..."
 for daemon in "${DAEMONS[@]}"; do
