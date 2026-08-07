@@ -282,7 +282,12 @@ say "Installing version $VERSION"
 mkdir -p "$INSTALL_ROOT/releases"
 rm -rf "$RELEASE_DIR"
 mkdir -p "$RELEASE_DIR"
-tar --zstd -xf "$tarball" -C "$RELEASE_DIR" --strip-components=1
+# --no-same-owner because tar run as root otherwise restores the numeric owner
+# recorded in the archive, and that is whoever built it. A tarball built on a
+# developer's machine carries their uid, which on the station belongs to a different
+# account or to none, so /opt would fill with files owned by a stranger. Everything
+# here belongs to root and is read by the service user and nginx through its mode.
+tar --zstd -xf "$tarball" -C "$RELEASE_DIR" --strip-components=1 --no-same-owner
 
 # The units and the nginx site point at the symlink rather than at the versioned
 # directory, so an update is a symlink swap and not a rewrite of every file.
