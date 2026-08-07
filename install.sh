@@ -59,6 +59,21 @@ done
 
 say()  { printf '\n==> %s\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
+
+# One value out of /etc/os-release. Parsed rather than sourced, because that file
+# sets NAME, VERSION and ID, and VERSION is this script's own variable for the
+# release being installed. Missing file or missing key gives an empty string, which
+# the caller checks for.
+read_os_release() {
+    awk -F= -v key="$1" '
+        $1 == key {
+            value = substr($0, length(key) + 2)
+            gsub(/^"|"$/, "", value)
+            print value
+            exit
+        }
+    ' /etc/os-release 2> /dev/null || true
+}
 die() {
     printf '\nInstall failed: %s\n' "$*" >&2
     printf 'The full log is at %s\n\n' "$LOG_FILE" >&2
@@ -100,8 +115,41 @@ else
     [ "$architecture" = arm64 ] \
         || die "This needs 64-bit Raspberry Pi OS. This system reports '$architecture'."
 
-    if ! grep -qi 'raspbian\|raspberry' /etc/os-release 2> /dev/null; then
-        die "This needs Raspberry Pi OS. See /etc/os-release."
+    # /etc/os-release on 64-bit Raspberry Pi OS is Debian's own, word for word: the
+    # 64-bit port is Debian arm64 with the Raspberry Pi archive layered on top, and
+    # nothing in that file mentions a Raspberry Pi. Only the 32-bit Raspbian sets
+    # ID=raspbian, and this installer requires arm64, so looking for the word
+    # "raspberry" in there could never have matched a machine it supports.
+    #
+    # What a station actually depends on is Debian 13 or newer, because that is
+    # where python3 is the 3.13 this project asks for and where every apt package
+    # below comes from. So check that, and let the board check above be what says
+    # this is a Pi.
+    os_pretty_name="$(read_os_release PRETTY_NAME)"
+    os_id="$(read_os_release ID)"
+    os_version_id="$(read_os_release VERSION_ID)"
+
+    # ID rather than ID_LIKE. Ubuntu and 32-bit Raspbian both say ID_LIKE=debian
+    # while shipping a different Python and a different package set, and neither is
+    # a system this has been tested on.
+    [ "$os_id" = debian ] \
+        || die "This needs Raspberry Pi OS, which reports itself as Debian. This system reports '${os_pretty_name:-nothing in /etc/os-release}'."
+    # Debian stable always numbers itself. Testing and unstable do not, and that is
+    # the case this cannot judge rather than one it should reject outright.
+    case "$os_version_id" in
+        "" | *[!0-9]*)
+            die "This needs Debian 13 (trixie) or newer, and '${os_pretty_name:-/etc/os-release}' gives no version to check. Use --ignore-preflight if you know it is new enough."
+            ;;
+    esac
+    [ "$os_version_id" -ge 13 ] \
+        || die "This needs Debian 13 (trixie) or newer, which is what ships Python 3.13. This system reports '$os_pretty_name'."
+    info "$os_pretty_name"
+
+    # Not a requirement, just worth saying which it is. Pi OS images carry this
+    # file; plain Debian on a Pi does not, and that combination is untested rather
+    # than known broken.
+    if [ ! -f /etc/rpi-issue ]; then
+        info "no /etc/rpi-issue, so this is Debian rather than Raspberry Pi OS"
     fi
 
     if [ ! -s /proc/asound/cards ] || grep -q 'no soundcards' /proc/asound/cards; then

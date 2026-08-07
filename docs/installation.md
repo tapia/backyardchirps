@@ -7,7 +7,7 @@ downloads.
 
 - Raspberry Pi 4 or 5, microSD card 32 GB or larger
 - A USB microphone or audio interface
-- Raspberry Pi OS, 64-bit
+- Raspberry Pi OS, 64-bit, Debian 13 (trixie) or newer
 
 Nothing else is supported. The installer checks the board, the architecture and the operating
 system before it writes anything, and stops with a clear message when one of them is wrong.
@@ -15,7 +15,9 @@ system before it writes anything, and stops with a clear message when one of the
 ## 1. Flash the OS
 
 Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/) with **Raspberry Pi OS
-(64-bit)**.
+(64-bit)**. It has to be the trixie release or newer, because the station runs on the `python3`
+that Raspberry Pi OS installs and trixie is where that became 3.13. A Pi still on bookworm needs
+upgrading first, or reflashing, which is the easier of the two.
 
 Click **Edit Settings** before writing and set the hostname, username, password, and WiFi
 network, then enable SSH under **Services**. Write the image, boot the Pi, plug in the
