@@ -105,23 +105,46 @@ info "$IMAGE"
 say "Booting a clean station"
 $RUNTIME rm -f "$NAME" > /dev/null 2>&1 || true
 $RUNTIME run -d --name "$NAME" "${RUN_FLAGS[@]}" "$IMAGE" > /dev/null
+# `systemctl is-system-running` exits non-zero for every state except `running`,
+# and `degraded` is a state this container is expected to reach: it deliberately
+# removes units that want hardware it does not have. So read the state as a value
+# and decide on that. Piping it into `grep -q` reads the same but is not: under
+# `pipefail` the pipeline takes systemctl's exit code, so a matched `degraded`
+# still counts as a failure and the boot check can never pass.
+system_state=
 for _ in $(seq 30); do
-    if inside systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded'; then break; fi
+    system_state="$(inside systemctl is-system-running 2>/dev/null || true)"
+    case "$system_state" in
+        running | degraded) break ;;
+    esac
     sleep 1
 done
-if ! inside systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded'; then
-    # Nothing the station does has run yet, so the install log this script normally
-    # prints does not exist. Show what init itself said instead: on a machine where
-    # the cgroup setup is wrong, that is the only place the reason appears, and
-    # without it the failure reads as "systemd never came up" and nothing more.
-    printf -- '\n--- container output ---\n' >&2
-    $RUNTIME logs "$NAME" 2>&1 | tail -n 40 >&2 || true
-    printf -- '--- systemctl status ---\n' >&2
-    inside systemctl status --no-pager 2>&1 | head -n 20 >&2 || true
-    printf -- '--- end ---\n\n' >&2
-    die "systemd never came up. Try --keep and look at 'systemctl status'."
+case "$system_state" in
+    running | degraded) ;;
+    *)
+        # Nothing the station does has run yet, so the install log this script
+        # normally prints does not exist. Show what init itself said instead: on a
+        # machine where the cgroup setup is wrong, that is the only place the reason
+        # appears, and without it the failure reads as "systemd never came up" and
+        # nothing more.
+        printf -- '\n--- container output ---\n' >&2
+        $RUNTIME logs "$NAME" 2>&1 | tail -n 40 >&2 || true
+        printf -- '--- systemctl status ---\n' >&2
+        inside systemctl status --no-pager 2>&1 | head -n 20 >&2 || true
+        printf -- '--- failed units ---\n' >&2
+        inside systemctl list-units --failed --no-pager --no-legend 2>&1 >&2 || true
+        printf -- '--- end ---\n\n' >&2
+        die "systemd never came up (state: ${system_state:-none}). Try --keep and look at 'systemctl status'."
+        ;;
+esac
+info "systemd is up (${system_state})"
+if [ "$system_state" = degraded ]; then
+    # Expected, and named rather than passed over: this image strips units that want
+    # real hardware. Worth printing so a unit that starts failing for a new reason is
+    # visible instead of hiding inside a state the test already tolerates.
+    failed_units="$(inside systemctl list-units --failed --no-legend --no-pager 2>/dev/null | awk '{ print $1 }' || true)"
+    info "failed units: $(printf '%s' "${failed_units:-none}" | tr '\n' ' ')"
 fi
-info "systemd is up"
 
 say "Staging a release tarball"
 # The station installs a release, not a checkout, so that is what it gets here.
