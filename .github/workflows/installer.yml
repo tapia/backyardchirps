@@ -75,9 +75,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      # Docker rather than podman: it is what the runner image is set up for, and
-      # systemd in a container is fussy enough without also guessing at cgroup
-      # delegation. Locally the script still prefers podman.
+      # Docker rather than podman: it is what the runner image is set up for.
+      # Locally the script still prefers podman, which needs no cgroup flags of its
+      # own, so the docker path is exercised here and nowhere else.
       #
       # On failure the script prints the tail of the station's install log, so the
       # reason is in this job's output rather than inside a container that is

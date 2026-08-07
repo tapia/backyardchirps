@@ -1,5 +1,14 @@
 import numpy as np
-import sounddevice as sd
+
+# sounddevice is imported inside each function below rather than here, the same way
+# build_acoustic_model imports its analyzers inside their branches. Importing it loads
+# PortAudio, a native library, and the Linux wheel bundles none, so on a machine
+# without libportaudio2 the import raises. This module is reachable from the URL
+# configuration through the setup feature, so importing it here would stop the web
+# process serving any page at all, over the two endpoints that need a microphone.
+#
+# The recorder imports sounddevice eagerly, which is right: a recorder that cannot
+# open a microphone has nothing to do.
 
 # How long to listen for when measuring a level. Long enough to catch a syllable of
 # speech or a passing car, short enough that the wizard's meter still feels live.
@@ -21,6 +30,8 @@ def list_input_devices() -> list[tuple[int, str, int, float, bool]]:
     Output-only devices are left out: half of what sounddevice reports on a Pi is HDMI
     and headphone jacks, and offering those as microphones only invites picking one.
     """
+    import sounddevice as sd
+
     try:
         default_input = sd.default.device[0]
     except (TypeError, IndexError):
@@ -50,6 +61,8 @@ def measure_input_level(device: int | None) -> tuple[float, float]:
     Raises DeviceBusy when the device cannot be opened, which the caller has to expect:
     the recorder is normally running and holding the microphone already.
     """
+    import sounddevice as sd
+
     frames = int(_MEASURE_SECONDS * _MEASURE_SAMPLE_RATE)
     try:
         recording = sd.rec(

@@ -54,9 +54,8 @@ die() {
 }
 
 # Podman first when nothing is pinned: it knows what an init process needs and
-# wires up cgroups itself, where docker has to be handed the cgroup filesystem and
-# a privileged container. CI pins docker with --runtime, because that is the
-# combination GitHub runners are set up for.
+# wires up cgroups itself, where docker has to be told. CI pins docker with
+# --runtime, because that is the combination GitHub runners are set up for.
 if [ -z "$RUNTIME" ]; then
     if command -v podman > /dev/null; then
         RUNTIME=podman
@@ -68,9 +67,15 @@ if [ -z "$RUNTIME" ]; then
 fi
 command -v "$RUNTIME" > /dev/null || die "$RUNTIME is not installed."
 
+# Booting systemd under docker needs a private cgroup namespace and nothing else.
+# Do not add -v /sys/fs/cgroup:/sys/fs/cgroup here: that is the cgroup v1 recipe,
+# and every current host is cgroup v2 only. On v2 docker mounts a cgroup2
+# filesystem rooted at the container's own cgroup, and bind-mounting the host tree
+# over it leaves systemd looking at a root that is not its own, where it never
+# finishes booting. That is silent apart from the boot timeout below.
 case "$RUNTIME" in
     podman) RUN_FLAGS=(--systemd=always) ;;
-    docker) RUN_FLAGS=(--privileged --tmpfs /run --tmpfs /tmp -v /sys/fs/cgroup:/sys/fs/cgroup:rw) ;;
+    docker) RUN_FLAGS=(--privileged --cgroupns=private --tmpfs /run --tmpfs /run/lock --tmpfs /tmp) ;;
     *)      die "Unknown runtime '$RUNTIME'. Use podman or docker." ;;
 esac
 info "using $RUNTIME"
@@ -104,8 +109,18 @@ for _ in $(seq 30); do
     if inside systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded'; then break; fi
     sleep 1
 done
-inside systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded' \
-    || die "systemd never came up. Try --keep and look at 'systemctl status'."
+if ! inside systemctl is-system-running 2>/dev/null | grep -qE 'running|degraded'; then
+    # Nothing the station does has run yet, so the install log this script normally
+    # prints does not exist. Show what init itself said instead: on a machine where
+    # the cgroup setup is wrong, that is the only place the reason appears, and
+    # without it the failure reads as "systemd never came up" and nothing more.
+    printf -- '\n--- container output ---\n' >&2
+    $RUNTIME logs "$NAME" 2>&1 | tail -n 40 >&2 || true
+    printf -- '--- systemctl status ---\n' >&2
+    inside systemctl status --no-pager 2>&1 | head -n 20 >&2 || true
+    printf -- '--- end ---\n\n' >&2
+    die "systemd never came up. Try --keep and look at 'systemctl status'."
+fi
 info "systemd is up"
 
 say "Staging a release tarball"
