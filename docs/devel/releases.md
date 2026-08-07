@@ -28,7 +28,7 @@ Two assets on the GitHub release:
 
 | Asset | Contents |
 |---|---|
-| `backyardchirps-<version>.tar.zst` | Everything needed to run: the Python package, `deploy/`, `docs/`, species seeds, and `frontend/dist` prebuilt. Everything except `deploy/deploy.sh`, which updates a git checkout and so cannot work in an unpacked release |
+| `backyardchirps-<version>.tar.zst` | Everything needed to run: the Python package, `deploy/`, `docs/`, species seeds, and `frontend/dist` prebuilt |
 | `manifest.json` | Version, date, sha256, download URL, `min_upgrade_from`, changelog link |
 
 `manifest.json` is the file an installer reads to find the latest version, and the one an
@@ -57,8 +57,8 @@ where a mistake cannot be taken back.
 
 `tools/build-tarball.sh` builds `frontend/dist` and leaves a `.prebuilt` marker in it. `deploy/apply.sh` skips the
 frontend build whenever it sees that marker, so an installed station needs no Node, no `npm ci`
-and none of the minutes those take on a Pi. A git checkout has no marker and builds normally,
-which is the path a deploy from source takes.
+and none of the minutes those take on a Pi. Without that marker `apply.sh` refuses to run, since
+a directory with no built frontend is not a release and it has no other way to become one.
 
 `frontend/src` is not in the tarball. What ships is the built output, and the source stays one
 `git clone` away for anyone who wants it, as the AGPL requires.
@@ -87,3 +87,36 @@ status page. Because the project installs itself (`[build-system]` with hatchlin
 is written when `uv sync` runs, so **a new version number only takes effect after a sync**. Every
 deploy runs `uv sync`, so production is always correct. A development machine needs one `uv sync`
 after changing the number.
+
+## Builds that are not releases
+
+A station can track `main`, which means installing a build per commit rather than per tag.
+`--version-suffix` is what tells those apart:
+
+```bash
+bash tools/build-tarball.sh --version-suffix "+main.a1b2c3d" --output-dir .
+```
+
+The suffix reaches three places: the tarball name, the directory it unpacks into, and the version
+inside the staged `pyproject.toml`, which is what the status page ends up showing. Renaming the
+file alone would leave a station with several builds on disk all calling themselves the same
+version, and `install.sh` overwriting the release directory the running services are executing
+from.
+
+Only the staged copy is rewritten. The `pyproject.toml` in the repository is never written to.
+
+The suffix has to be a PEP 440 local version, a `+` followed by letters, digits and dots, and the
+script refuses anything else. That is also what keeps it from being a way to mistag a release: no
+local version can equal the tag a release is cut from, and `release.yml` never passes the flag.
+
+Worth knowing for the updater: `0.1.0+main.a1b2c3d` sorts **above** `0.1.0` under PEP 440. A
+station tracking `main` is therefore ahead of the newest stable release by that comparison, which
+is true but not what a plain "is there something newer" check should conclude.
+
+## How many releases a station keeps
+
+`install.sh` keeps the newest three directories under `releases/`, plus whatever `current` points
+at whether or not it is among them. Rolling back is moving the symlink and restarting, so keeping
+more than one is the point; pruning is so a station installing on every push does not fill its
+card. It runs last, after the new version is up, because pruning earlier would throw away the
+release to fall back to at exactly the moment the build failed.

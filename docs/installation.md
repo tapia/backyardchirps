@@ -121,8 +121,8 @@ covered here, and is not something the project supports today.
 ## Updating
 
 Re-run the installer. It fetches the newest release, unpacks it beside the current one, swaps
-the `current` symlink, runs migrations and restarts the services. Your `.env`, database and
-recordings are left alone.
+the `current` symlink, runs migrations and restarts the services. Your `.env`, database,
+account and recordings are left alone, and you are not asked to set the station up again.
 
 ## Uninstalling
 
@@ -149,7 +149,8 @@ output of the step that failed.
 
 The [admin guide](admin-guide.md) covers running the station day to day.
 
-## Installing from a git checkout
+## Installing your own build
 
-The path above is for running a station. If you are working on the code, deploying from a
-checkout is a different procedure: see [deployment.md](devel/deployment.md).
+The path above installs a published release. If you are working on the code and want your own
+build on a Pi, you install it the same way, from a tarball you made yourself: see
+[deployment.md](devel/deployment.md).

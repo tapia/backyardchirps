@@ -264,14 +264,14 @@ without touching anything the station has gathered:
 
 | | Holds | Lifetime |
 |---|---|---|
-| `BASE_DIR` | The checkout: Python, the built frontend, `deploy/`, species seeds | One per release, disposable |
+| `BASE_DIR` | The code: Python, the built frontend, `deploy/`, species seeds | One per release, disposable |
 | `DATA_DIR` | `.env`, `detections.db`, `clips/`, `staticfiles/`, downloaded models, `packs/` | Never replaced |
 
 The two directories have different owners, which is what decides where a deploy step can run.
-`BASE_DIR` belongs to whoever deploys. `DATA_DIR` belongs to the `backyardchirps` system user,
-which is what the four systemd units run as, so a station's data has one owner however many
-people deploy. `apply.sh` builds the code as the deploying user and drops to the service user
-through `run_as_service_user` for everything else, including reading `.env`.
+`BASE_DIR` belongs to root, which is what installs it. `DATA_DIR` belongs to the
+`backyardchirps` system user, which is what the four systemd units run as, so a station's data
+has one owner whatever put it there. `apply.sh` runs as root and drops to the service user
+through `run_as_service_user` for everything that touches `DATA_DIR`, including reading `.env`.
 
 `collectstatic` is why `STATIC_ROOT` is in `DATA_DIR` rather than next to the code: it runs as
 the service user like every other `manage.py` command, and writing to the code directory would
@@ -285,16 +285,17 @@ and each gets it from somewhere different:
 | Reader | Gets it from |
 |---|---|
 | The running services | `Environment=` in each systemd unit, written when `apply.sh` renders it |
-| `apply.sh`, on the next deploy | `/etc/default/backyardchirps` |
+| `apply.sh`, when its caller passes nothing | `/etc/default/backyardchirps` |
 | `manage.py` run by hand | the operator's shell profile |
 
-Only the first is written automatically. The other two are set up once during installation, and
-the middle one is load-bearing: a CI deploy carries none of the operator's environment, so
-without that file `apply.sh` falls back to the checkout and migrates a fresh empty database
-into it.
+Only the first is written automatically. `provision-data-dir.sh` sets up the other two during
+installation. `apply.sh` refuses to run when none of them says where the data is, rather than
+guessing: a guess would migrate a fresh empty database somewhere and leave the real one
+orphaned.
 
-**Leave `BACKYARDCHIRPS_DATA_DIR` unset and `DATA_DIR` becomes `BASE_DIR`**, putting everything inside
-the checkout. That is what a development machine wants.
+On a development machine there is no `BACKYARDCHIRPS_DATA_DIR` and `DATA_DIR` falls back to
+`BASE_DIR`, so everything lands inside the checkout. That is `django_settings.py` doing it, not
+`apply.sh`, which never runs on a development machine at all.
 
 Species data falls on both sides. The committed taxonomy, photos and per-location seeds ship
 with the code. The regenerated copies and the eBird rasters are downloaded on the machine and
@@ -315,11 +316,13 @@ In a checkout, all of it sits under `backyardchirps/species_data/` instead.
 ## Deploying
 
 `deploy/apply.sh` is the whole build, and it never fetches code: whatever calls it puts the code
-on disk first. There are two callers. `install.sh` unpacks a release tarball; `deploy/deploy.sh`
-pulls a git checkout and is run by GitHub Actions on every push to main. Every step can be
+on disk first. It runs as root against an unpacked release and only that, so there is one shape
+of machine to reason about rather than three. `install.sh` is the caller today. Every step can be
 repeated safely, which is why one script both sets up a new machine and updates a running one.
 
-[deployment.md](deployment.md) lists what a deploy does, step by step.
+A station never runs from a git checkout, including yours. To put your own build on a Pi, make a
+release and install it: [deployment.md](deployment.md) covers both the automatic path and the
+manual one.
 
 ## Where else to look
 
@@ -328,5 +331,5 @@ repeated safely, which is why one script both sets up a new machine and updates 
 | [frontend.md](frontend.md) | The Vue app |
 | [species-data.md](species-data.md) | Taxonomy, assets, and adding a location |
 | [releases.md](releases.md) | Cutting a version and what ships in one |
-| [deployment.md](deployment.md) | Deploying from a git checkout, and testing an install |
+| [deployment.md](deployment.md) | Getting a build onto your own Pi, and testing an install |
 | [installation.md](../installation.md) | Installing a release, the path a user takes |

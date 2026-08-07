@@ -171,9 +171,6 @@ esac
 
 inside test -f "$APP_DIR/frontend/dist/.prebuilt" \
     || die "The installed release carries no prebuilt frontend."
-inside test ! -e "$APP_DIR/deploy/deploy.sh" \
-    || die "deploy.sh is in the release. It updates a checkout and cannot work from one."
-
 inside id "$SERVICE_USER" > /dev/null 2>&1 || die "The $SERVICE_USER user was not created."
 # Captured rather than piped into grep: grep -q closes the pipe as soon as it
 # matches, which kills the writer with SIGPIPE, and pipefail turns that into a
@@ -277,6 +274,45 @@ info "the setup wizard is reachable and asks for the token"
 STATIC="$(inside curl -s -o /dev/null -w '%{http_code}' http://localhost/static/admin/css/base.css || true)"
 [ "$STATIC" = "200" ] || die "nginx returned $STATIC for a collected static file rather than 200."
 info "nginx serves the collected static files out of $DATA_DIR"
+
+say "Re-running the installer on a station that has an owner"
+# Updating is documented as re-running the installer, so this is the ordinary path and
+# not an edge case. The failure it guards against is silent and total: setup completion
+# is derived as "has an admin and no longer has a token", so an installer that writes a
+# fresh token every time flips a configured station back to unconfigured. The router
+# then sends every route to the wizard, and the wizard refuses to create a second
+# admin, leaving the owner locked out of their own site.
+#
+# The station is given an owner the short way rather than through the wizard's HTTP
+# flow, because finishing that flow needs a microphone and a recorder that can start,
+# which is exactly what this container does not have. What is under test is the
+# installer's decision, and that keys on the admin account and the token file alone.
+as_service "BACKYARDCHIRPS_DATA_DIR=$DATA_DIR $APP_DIR/.venv/bin/python $APP_DIR/manage.py shell -c 'from backyardchirps.features.setup import queries; queries.create_superuser(\"tester\", \"TestStation2026x\")'" > /dev/null \
+    || die "Could not create an admin account to test the update path with."
+# What POST /api/setup/complete does once the wizard is finished.
+inside rm -f "$DATA_DIR/setup-token"
+
+SETUP="$(inside curl -s http://localhost/api/setup/status/ || true)"
+printf '%s' "$SETUP" | grep -q '"is_complete":true' \
+    || die "The station does not report itself configured after being given an owner: $SETUP"
+info "the station now has an owner and reports setup complete"
+
+reinstall_output="$($RUNTIME exec "$NAME" bash /tmp/install/install.sh \
+    --tarball "/tmp/install/$TARBALL_NAME" \
+    --data-dir "$DATA_DIR" \
+    --ignore-preflight 2>&1)" \
+    || die "Re-running install.sh on a configured station failed."
+info "the installer ran again"
+
+inside test ! -e "$DATA_DIR/setup-token" \
+    || die "The installer wrote a setup token onto a station that already has an owner, which locks that owner out of the site."
+if printf '%s' "$reinstall_output" | grep -q 'Setup token:'; then
+    die "The installer offered a setup token for a station that already has an owner."
+fi
+SETUP="$(inside curl -s http://localhost/api/setup/status/ || true)"
+printf '%s' "$SETUP" | grep -q '"is_complete":true' \
+    || die "The station lost its setup state when the installer ran again: $SETUP"
+info "no token written, and the station is still configured"
 
 say "Uninstalling"
 # Without --all, so it has to remove the software and keep every recording. A

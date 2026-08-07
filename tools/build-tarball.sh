@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
 # Assemble a release tarball from this checkout.
 #
-#   bash tools/build-tarball.sh --output-dir DIR
+#   bash tools/build-tarball.sh --output-dir DIR [--version-suffix +main.a1b2c3d]
 #
 # This is the one place that decides what a release contains. CI calls it when a
 # version tag is pushed, and tools/container/run-test.sh calls it to stage a
 # tarball that never leaves the machine, so the installer can be tested against
 # the same artifact a user downloads. Building it in two places would let the two
 # drift, and the copy that drifts is the one that ships a secret.
+#
+# --version-suffix marks a build that is not a release: a commit on main, built so
+# a station can track it. It has to be a PEP 440 local version, meaning it starts
+# with a + sign, and that is what keeps it from ever being mistaken for a release:
+# no local version can equal the tag a release is cut from.
 #
 # Publishing is not this script's job. It writes a file and prints where it went.
 #
@@ -23,6 +28,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="$PWD"
+VERSION_SUFFIX=
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -30,9 +36,13 @@ while [ $# -gt 0 ]; do
             OUTPUT_DIR="$2"
             shift 2
             ;;
+        --version-suffix)
+            VERSION_SUFFIX="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown argument: $1" >&2
-            echo "Usage: build-tarball.sh [--output-dir DIR]" >&2
+            echo "Usage: build-tarball.sh [--output-dir DIR] [--version-suffix +SEGMENT]" >&2
             exit 1
             ;;
     esac
@@ -60,6 +70,19 @@ VERSION="$(awk '
 if [ -z "$VERSION" ]; then
     echo "Could not read the version out of pyproject.toml." >&2
     exit 1
+fi
+RELEASE_VERSION="$VERSION"
+
+# Checked rather than trusted. A suffix that is not a PEP 440 local version could
+# name anything, including a version somebody would read as a release, and it ends
+# up in the package metadata that the site shows and the updater compares.
+if [ -n "$VERSION_SUFFIX" ]; then
+    if ! printf '%s' "$VERSION_SUFFIX" | grep -Eq '^\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*$'; then
+        echo "--version-suffix must be a PEP 440 local version: a + followed by" >&2
+        echo "letters, digits and dots, for example +main.a1b2c3d. Got '$VERSION_SUFFIX'." >&2
+        exit 1
+    fi
+    VERSION="${VERSION}${VERSION_SUFFIX}"
 fi
 say "version $VERSION"
 
@@ -131,6 +154,36 @@ done
 
 cp -R "${RELEASE_PATHS[@]/#/$REPO_ROOT/}" "$STAGING/"
 
+# The suffix has to reach the staged pyproject.toml, not just the file names.
+# settings.VERSION reads the installed package metadata, which uv sync writes from
+# this file, and that is what the server status page shows. Renaming the tarball
+# alone would give a station three builds on disk that all call themselves the same
+# version, so nothing on the site could say which one is running.
+#
+# Only the staged copy is touched. The one in the repository is never written to,
+# which is what keeps this from becoming a way to change a release's version.
+if [ -n "$VERSION_SUFFIX" ]; then
+    say "marking the staged pyproject.toml as $VERSION"
+    # Written with awk rather than sed -i, which takes a different argument on
+    # macOS than on Linux, and this script has to run on both.
+    awk -v new_version="$VERSION" '
+        /^\[project\]/ { in_project = 1; print; next }
+        /^\[/          { in_project = 0 }
+        in_project && !written && /^version *=/ {
+            print "version = \"" new_version "\""
+            written = 1
+            next
+        }
+        { print }
+    ' "$STAGING/pyproject.toml" > "$STAGING/pyproject.toml.new"
+    mv "$STAGING/pyproject.toml.new" "$STAGING/pyproject.toml"
+    if ! grep -q "^version = \"$VERSION\"$" "$STAGING/pyproject.toml"; then
+        echo "Refusing to build: could not write the version into the staged pyproject.toml." >&2
+        echo "The version line is not in the shape this expected. Check it by hand." >&2
+        exit 1
+    fi
+fi
+
 mkdir -p "$STAGING/frontend"
 cp -R "$REPO_ROOT/frontend/dist" "$STAGING/frontend/dist"
 
@@ -139,12 +192,6 @@ cp -R "$REPO_ROOT/frontend/dist" "$STAGING/frontend/dist"
 rm -rf "$STAGING/backyardchirps/species_data/generated"
 rm -rf "$STAGING/backyardchirps/species_data/assets/ebird_occurrence"
 find "$STAGING" -name '__pycache__' -type d -prune -exec rm -rf {} +
-
-# deploy.sh updates a git checkout, which a release install is not. It stays in
-# the repository, where CI uses it to deploy, but shipping it here would only
-# offer a user a script that cannot work for them. apply.sh, the one the installer
-# and the updater actually call, is still in deploy/.
-rm -f "$STAGING/deploy/deploy.sh"
 
 # Refuse to build anything carrying secrets or local state, however it got there.
 # A release is public and permanent, so this fails rather than trusting the copy

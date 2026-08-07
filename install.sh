@@ -35,6 +35,10 @@ IGNORE_PREFLIGHT=no
 # itself, with room to download the next release beside this one later.
 REQUIRED_DISK_MB=4096
 
+# How many release directories to leave under releases/. Two would be enough to
+# roll back once; three leaves room to roll back from a rollback.
+KEEP_RELEASES=3
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --tarball)          LOCAL_TARBALL="$2"; shift 2 ;;
@@ -238,9 +242,8 @@ fi
 # ---------------------------------------------------------------------------
 # 6. sudoers
 # ---------------------------------------------------------------------------
-# This is not the policy in docs/devel/deployment.md. That one lets a person deploy
-# from a git checkout. Here root installs and the updater runs as root, so no
-# human needs sudo at all.
+# Narrow on purpose. Root installs and the updater runs as root, so no human needs
+# sudo at all.
 #
 # What the station does need is the web process, which runs as the service user,
 # being able to restart the recorder after a settings change. Narrow on purpose:
@@ -272,22 +275,83 @@ BACKYARDCHIRPS_SERVICE_USER="$SERVICE_USER" \
 # ---------------------------------------------------------------------------
 # The wizard trades this for an admin account, then deletes it. Its absence is what
 # tells a later deploy that the station has an owner and may start recording.
-say "Generating the setup token"
-SETUP_TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-printf '%s\n' "$SETUP_TOKEN" > "$DATA_DIR/setup-token"
-chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/setup-token"
-chmod 600 "$DATA_DIR/setup-token"
-info "$DATA_DIR/setup-token"
+#
+# So it is written only when nobody owns the station yet. Writing one onto a station
+# that already has an admin would undo its setup: completion is derived rather than
+# stored, as "has an admin and no longer has a token", so a fresh token flips the
+# station back to unconfigured. The router then sends every route to the wizard, and
+# the wizard refuses to create a second admin, which leaves the owner locked out of
+# their own site with no way forward in the UI.
+#
+# Re-running the installer is how a station updates, so this is the ordinary path,
+# not an edge case.
+say "Checking whether the station has an owner"
+station_has_admin="$(
+    sudo -u "$SERVICE_USER" env BACKYARDCHIRPS_DATA_DIR="$DATA_DIR" \
+        "$APP_DIR/.venv/bin/python" "$APP_DIR/manage.py" shell -c \
+        'from backyardchirps.features.setup.logic import get_status
+print("yes" if get_status().has_admin else "no")' | tail -n 1
+)" || die "Could not ask the station whether it has an admin account. See $LOG_FILE."
+
+case "$station_has_admin" in
+    yes)
+        SETUP_TOKEN=
+        info "it does, so no setup token is needed"
+        ;;
+    no)
+        say "Generating the setup token"
+        SETUP_TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+        printf '%s\n' "$SETUP_TOKEN" > "$DATA_DIR/setup-token"
+        chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/setup-token"
+        chmod 600 "$DATA_DIR/setup-token"
+        info "$DATA_DIR/setup-token"
+        ;;
+    *)
+        # Django answered something else, which means the question was not really
+        # answered. Guessing either way is worse than stopping: guess "no" and the
+        # owner is locked out, guess "yes" and a fresh station can never be claimed.
+        die "Could not tell whether the station has an admin account (got '$station_has_admin'). See $LOG_FILE."
+        ;;
+esac
 
 # ---------------------------------------------------------------------------
-# 9. Done
+# 9. Old releases
+# ---------------------------------------------------------------------------
+# Kept so a bad version can be rolled back by pointing the symlink at the one
+# before it, and pruned so a station that installs often does not fill its card.
+# A station tracking main installs on every push, which is what makes this worth
+# doing rather than leaving to Phase 5.
+#
+# Done last, after the new version is up. Pruning before the build would throw away
+# the release to fall back to at exactly the moment the build failed.
+#
+# The live one is never a candidate, whatever its age: a re-install of the same
+# version leaves it looking older than the versions it replaced.
+say "Removing old releases"
+current_target="$(readlink -f "$INSTALL_ROOT/current")"
+pruned=0
+for candidate in $(ls -1dt "$INSTALL_ROOT/releases"/*/ 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) || true); do
+    candidate="${candidate%/}"
+    [ "$candidate" = "$current_target" ] && continue
+    rm -rf "$candidate"
+    pruned=$((pruned + 1))
+done
+if [ "$pruned" -gt 0 ]; then
+    info "removed $pruned, kept the newest $KEEP_RELEASES"
+else
+    info "nothing to remove"
+fi
+
+# ---------------------------------------------------------------------------
+# 10. Done
 # ---------------------------------------------------------------------------
 # Built from the machine rather than read back out of .env, so a station whose
 # hostname changed after it was installed still prints an address that works.
 # ALLOWED_HOSTS carries the leading-dot form for the same reason.
 site_url="http://$host_name.local"
 
-cat <<EOF
+if [ -n "$SETUP_TOKEN" ]; then
+    cat <<EOF
 
 ===============================================================
  Your station is installed. Open it and finish setting it up:
@@ -309,3 +373,21 @@ cat <<EOF
 ===============================================================
 
 EOF
+else
+    cat <<EOF
+
+===============================================================
+ Your station is now on version $VERSION:
+
+   $site_url
+
+ It kept its account, settings and recordings, and it is
+ recording again.
+
+ Log:      $LOG_FILE
+ Data:     $DATA_DIR
+ Releases: $INSTALL_ROOT/releases
+===============================================================
+
+EOF
+fi

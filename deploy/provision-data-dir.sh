@@ -5,21 +5,21 @@
 #   bash deploy/provision-data-dir.sh [/var/lib/backyardchirps] [--user backyardchirps]
 #
 # Everything the station accumulates lives in that directory: .env, the database,
-# clips, downloaded models. It sits outside the checkout because a deploy replaces
-# the checkout whole. It is also the service user's home, which is why one script
+# clips, downloaded models. It sits outside the code because an update replaces the
+# release whole. It is also the service user's home, which is why one script
 # creates both.
 #
 # The services run as a dedicated system user rather than as whoever deploys, so a
 # station's data has one owner no matter who last ran a deploy, and the recorder
 # gets at the microphone through the audio group rather than through a login
-# account. Deploys keep running as the deploying user and drop to this one for
-# anything that writes to the data directory. See deploy/apply.sh.
+# account. Deploys run as root and drop to this one for anything that writes to the
+# data directory. See deploy/apply.sh.
 #
 # Three things need the path and each reads it from somewhere different. The
-# systemd units get it when apply.sh renders them. A deploy started by CI carries
-# no environment at all, so it reads /etc/default/backyardchirps. Anything run by
-# hand, manage.py included, reads the shell profile. This script sets up the last
-# two; apply.sh handles the units.
+# systemd units get it when apply.sh renders them. apply.sh itself reads
+# /etc/default/backyardchirps when its caller passes nothing. Anything run by hand,
+# manage.py included, reads the shell profile. This script sets up the last two;
+# apply.sh handles the units.
 #
 # Safe to run again: it rewrites the file, leaves an existing profile line alone,
 # and leaves an existing user alone.
@@ -74,9 +74,8 @@ sudo chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 # user still reads .env through sudo rather than through the permission bits.
 sudo chmod 755 "$DATA_DIR"
 
-# apply.sh refuses to deploy when this file disagrees with the directory it is
-# about to use, because a CI deploy has nothing else to go on and would otherwise
-# build an empty database inside the checkout.
+# This is what apply.sh reads when its caller passes no data directory, so a person
+# running it by hand on the station gets the same one the units use.
 echo "[provision] Recording it in /etc/default/backyardchirps..."
 printf 'BACKYARDCHIRPS_DATA_DIR=%s\n' "$DATA_DIR" | sudo tee /etc/default/backyardchirps > /dev/null
 

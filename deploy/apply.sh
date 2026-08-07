@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # Build, migrate, and (re)start everything from a release directory that is
 # already on disk. This script never fetches code: whatever calls it puts the code
-# there first. That is what lets a git checkout and an unpacked release tarball
-# share one build path. deploy.sh is the caller today.
+# there first. install.sh is the caller today, and the updater will be the second.
+#
+# It runs as root against an unpacked release, and only that. Deploying from a git
+# checkout was a third shape this script used to carry, and carrying it meant
+# branching on who was running and on whether the data lived inside the code, in
+# almost every step. Keeping one shape is what makes the rest of this file linear.
+# See docs/devel/deployment.md for how to put a build on your own Pi.
 #
 # Every step is idempotent, and nothing already serving traffic is restarted for
 # a configuration it already has.
@@ -12,53 +17,43 @@
 #
 #   APP_DIR    the code. Disposable, one per release.
 #   DATA_DIR   .env, the database, clips, models, packs. Never replaced.
-#
-# Leaving BACKYARDCHIRPS_DATA_DIR unset points DATA_DIR at APP_DIR, which is what a
-# development machine wants.
 
 set -euo pipefail
 
+if [ "$(id -u)" != 0 ]; then
+    echo "[apply] This has to run as root. It installs systemd units and an nginx"
+    echo "[apply] site, and drops to the service user for everything that touches"
+    echo "[apply] the data directory."
+    exit 1
+fi
+
 APP_DIR="${BACKYARDCHIRPS_APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 
-# Per-machine settings, mainly where the data lives. Created during installation,
-# outside the checkout, because the checkout is disposable once releases land.
-#
-# It has to be read here rather than passed in by the caller: a deploy triggered
-# by CI carries none of the operator's environment, and falling back to APP_DIR
-# would quietly point a migrated station at an empty database. An explicit
-# BACKYARDCHIRPS_DATA_DIR still wins for this run, and the check below makes sure the file
-# agrees with it.
+# Where the data lives, recorded at install time. An explicit BACKYARDCHIRPS_DATA_DIR
+# wins for this run, which is how install.sh passes a non-default directory before
+# there is anything to read.
 if [ -z "${BACKYARDCHIRPS_DATA_DIR:-}" ] && [ -f /etc/default/backyardchirps ]; then
     # shellcheck disable=SC1091
     . /etc/default/backyardchirps
 fi
+DATA_DIR="${BACKYARDCHIRPS_DATA_DIR:-}"
+if [ -z "$DATA_DIR" ]; then
+    echo "[apply] Nothing says where this station keeps its data. Either"
+    echo "[apply] /etc/default/backyardchirps records it or BACKYARDCHIRPS_DATA_DIR is set."
+    echo "[apply] install.sh writes that file through provision-data-dir.sh."
+    exit 1
+fi
 
-DATA_DIR="${BACKYARDCHIRPS_DATA_DIR:-$APP_DIR}"
-# Two identities, deliberately. The deploying user owns the code and builds it.
-# The service user owns the data and is what the units run as, so a station's
-# database and clips have one owner however many people deploy. Anything below
-# that writes to DATA_DIR goes through run_as_service_user.
-#
-# They collapse into one on a development machine, where DATA_DIR is APP_DIR and
-# there is no separate account: run_as_service_user then just runs the command.
-APP_USER="${BACKYARDCHIRPS_APP_USER:-$(whoami)}"
+# The units run as this account and it owns everything under DATA_DIR, so a
+# station's database and clips have one owner whatever put them there. Anything
+# below that writes to DATA_DIR goes through run_as_service_user.
 SERVICE_USER="${BACKYARDCHIRPS_SERVICE_USER:-backyardchirps}"
 if ! id "$SERVICE_USER" > /dev/null 2>&1; then
-    # Data outside the checkout has to belong to somebody. Without the account,
-    # this deploy would migrate and collect static as APP_USER while rendering the
-    # units to run as someone else, so the station would come up green and fail on
-    # its first write. Only DATA_DIR == APP_DIR is a legitimate single identity.
-    if [ "$DATA_DIR" != "$APP_DIR" ] || [ -n "${BACKYARDCHIRPS_SERVICE_USER:-}" ]; then
-        echo "[apply] There is no $SERVICE_USER account to own $DATA_DIR, so the"
-        echo "[apply] services could not write to what this deploy is about to build."
-        echo "[apply]"
-        echo "[apply]   bash $APP_DIR/deploy/provision-data-dir.sh $DATA_DIR --user $SERVICE_USER"
-        echo "[apply]"
-        echo "[apply] An existing station also has to hand its data over. See"
-        echo "[apply] docs/devel/deployment.md."
-        exit 1
-    fi
-    SERVICE_USER="$APP_USER"
+    echo "[apply] There is no $SERVICE_USER account to own $DATA_DIR, so the services"
+    echo "[apply] could not write to what this deploy is about to build."
+    echo "[apply]"
+    echo "[apply]   bash $APP_DIR/deploy/provision-data-dir.sh $DATA_DIR --user $SERVICE_USER"
+    exit 1
 fi
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -73,34 +68,6 @@ export PATH="$HOME/.local/bin:$PATH"
 # download makes that impossible rather than working around it.
 export UV_PYTHON_DOWNLOADS=never
 
-# A station with a real data directory has to record it in the file above, because
-# that file is all a CI deploy has to go on. Getting this wrong is silent and
-# expensive: every deploy you run by hand keeps working, and the first one CI runs
-# builds an empty database in the checkout and repoints the services at it. So
-# refuse to continue while the two disagree, which is cheap to fix now and not
-# later.
-if [ "$DATA_DIR" != "$APP_DIR" ]; then
-    persisted_data_dir="$(
-        unset BACKYARDCHIRPS_DATA_DIR
-        if [ -f /etc/default/backyardchirps ]; then
-            # shellcheck disable=SC1091
-            . /etc/default/backyardchirps
-        fi
-        echo "${BACKYARDCHIRPS_DATA_DIR:-}"
-    )"
-    if [ "$persisted_data_dir" != "$DATA_DIR" ]; then
-        echo "[apply] This deploy would use $DATA_DIR, but /etc/default/backyardchirps"
-        echo "[apply] does not say so. A deploy started by CI reads only that file, so the"
-        echo "[apply] next one would fall back to $APP_DIR and migrate an empty database"
-        echo "[apply] there, leaving the real one orphaned."
-        echo "[apply]"
-        echo "[apply]   echo 'BACKYARDCHIRPS_DATA_DIR=$DATA_DIR' | sudo tee /etc/default/backyardchirps"
-        echo "[apply]"
-        echo "[apply] See docs/devel/deployment.md, step 5."
-        exit 1
-    fi
-fi
-
 # The app reads this to find its data. Exported so every manage.py call below
 # resolves the same paths the services will.
 export BACKYARDCHIRPS_DATA_DIR="$DATA_DIR"
@@ -108,11 +75,7 @@ export BACKYARDCHIRPS_DATA_DIR="$DATA_DIR"
 cd "$APP_DIR"
 
 run_as_service_user() {
-    if [ "$(whoami)" = "$SERVICE_USER" ]; then
-        "$@"
-    else
-        sudo -u "$SERVICE_USER" "$@"
-    fi
+    sudo -u "$SERVICE_USER" "$@"
 }
 
 run_manage() {
@@ -145,18 +108,15 @@ echo "[apply] Checking prerequisites..."
 for required in "$DATA_DIR" "$DATA_DIR/.env"; do
     if ! run_as_service_user test -e "$required"; then
         echo "[apply] $required does not exist, so this station has not been set up yet."
-        echo "[apply] A fresh machine is set up by install.sh. An existing one is"
-        echo "[apply] described in docs/devel/deployment.md."
+        echo "[apply] A fresh machine is set up by install.sh."
         exit 1
     fi
 done
 # Kept even though install.sh sets it too: the data directory is traversable so
-# nginx can serve static files out of it, so .env has to protect itself, and a
-# station upgrading from the old single-user layout arrives with whatever mode it
-# had.
+# nginx can serve static files out of it, so .env has to protect itself.
 run_as_service_user chmod 640 "$DATA_DIR/.env"
 if ! command -v uv > /dev/null; then
-    echo "[apply] uv is not installed. See docs/devel/deployment.md."
+    echo "[apply] uv is not installed. install.sh installs it."
     exit 1
 fi
 
@@ -185,21 +145,16 @@ if ! run_as_service_user test -x "$APP_DIR/.venv/bin/python"; then
     exit 1
 fi
 
-# A release tarball ships frontend/dist already built by CI, marked with
-# .prebuilt, so the Pi never needs Node. A git checkout has no marker and builds
-# here instead.
-if [ -f "$APP_DIR/frontend/dist/.prebuilt" ]; then
-    echo "[apply] Using the prebuilt frontend from the release."
-elif command -v npm > /dev/null; then
-    echo "[apply] Building frontend..."
-    cd "$APP_DIR/frontend"
-    npm ci
-    npm run build
-    cd "$APP_DIR"
-else
-    echo "[apply] No prebuilt frontend and npm is not installed."
+# A release ships frontend/dist already built, marked with .prebuilt, so no station
+# ever needs Node. Its absence means this is not a release, which is the one thing
+# this script cannot work with.
+if [ ! -f "$APP_DIR/frontend/dist/.prebuilt" ]; then
+    echo "[apply] $APP_DIR carries no prebuilt frontend, so it is not an unpacked"
+    echo "[apply] release. Build one with tools/build-tarball.sh and install that."
+    echo "[apply] See docs/devel/deployment.md."
     exit 1
 fi
+echo "[apply] Using the prebuilt frontend from the release."
 
 echo "[apply] Running database migrations..."
 run_manage migrate --noinput
@@ -244,10 +199,9 @@ run_manage download_birdnet3_model
 # App services
 # ---------------------------------------------------------------------------
 # Every unit below is installed, enabled, and started from here, so a fresh Pi
-# (or a newly added unit) needs no manual systemctl work.
-#
-# Requires a sudoers entry: install.sh writes one, and docs/devel/deployment.md
-# has the wider policy a checkout deploy needs.
+# (or a newly added unit) needs no manual systemctl work. This script is root, so
+# the sudo calls below need no policy of their own. The one install.sh writes is
+# for the web process, which restarts the recorder after a settings change.
 
 # Long-running daemons: enabled at boot and restarted on every deploy so they
 # pick up the new code.

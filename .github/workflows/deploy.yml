@@ -8,24 +8,94 @@ name: Deploy
 # `main` by default. So a stranger's PR can satisfy the filter. The head_repository
 # check below is what actually keeps this job to code that came from here.
 #
-# That matters because this runs on a self-hosted runner, meaning a Raspberry Pi in
-# somebody's home. Nothing is checked out here on purpose: the only step runs a script
-# already on the machine, which pulls this repository's main. Keep it that way. Adding
-# an actions/checkout step would put a contributor's code on the Pi.
+# That matters because the second job runs on a self-hosted runner, meaning a Raspberry
+# Pi in somebody's home.
+#
+# The station installs a release, exactly as a stranger's would. Nothing is checked out
+# on the Pi: the tarball is built on a GitHub runner and handed over as an artifact, and
+# the installer is fetched from the very commit CI tested. Keep it that way. Adding an
+# actions/checkout step to the deploy job would put a contributor's code on the Pi.
 on:
   workflow_run:
     workflows: [CI]
     types: [completed]
     branches: [main]
 
+permissions:
+  contents: read
+  actions: read
+
 jobs:
-  deploy:
-    name: Deploy to Raspberry Pi
-    runs-on: self-hosted
+  build:
+    name: Build the release tarball
+    runs-on: ubuntu-latest
     if: >
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.head_repository.full_name == github.repository
 
     steps:
-      - name: Deploy latest code
-        run: ~/backyardchirps/deploy/deploy.sh
+      # The exact commit CI tested, not whatever main points at now. A push landing
+      # while this runs would otherwise deploy code no CI run has seen.
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Node lives here and nowhere else. The tarball carries frontend/dist already
+      # built, which is what lets the Pi install without npm.
+      #
+      # The suffix marks this as a commit rather than a release, and gives every
+      # build its own version. Without it each one would land in the release
+      # directory the running station is executing from, and the site would report
+      # the same version whatever was installed.
+      - name: Build the tarball
+        run: |
+          bash tools/build-tarball.sh \
+            --version-suffix "+main.$(git rev-parse --short=7 HEAD)" \
+            --output-dir . >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-tarball
+          path: ${{ env.TARBALL_NAME }}
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Raspberry Pi
+    needs: build
+    runs-on: self-hosted
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-tarball
+          path: ~/backyardchirps-deploy
+
+      # install.sh is not in the tarball: it is the file a user downloads on its own,
+      # before there is a release on the machine. Fetched at the tested commit rather
+      # than from main, so the installer and the release it installs are the same code.
+      - name: Fetch the installer
+        run: |
+          curl -fsSL \
+            "https://raw.githubusercontent.com/${{ github.repository }}/${{ github.event.workflow_run.head_sha }}/install.sh" \
+            -o ~/backyardchirps-deploy/install.sh
+
+      # The installer is re-runnable: it leaves .env, the database, the recordings and
+      # the admin account alone, unpacks the new version beside the old one and swaps
+      # the symlink. Needs a sudoers grant for the runner account, see
+      # docs/devel/deployment.md.
+      - name: Install it
+        run: |
+          tarball="$(find ~/backyardchirps-deploy -name '*.tar.zst' | head -n 1)"
+          [ -n "$tarball" ] || { echo "The build job uploaded no tarball." >&2; exit 1; }
+          sudo bash ~/backyardchirps-deploy/install.sh --tarball "$tarball"
+
+      - name: Clean up
+        if: always()
+        run: rm -rf ~/backyardchirps-deploy
