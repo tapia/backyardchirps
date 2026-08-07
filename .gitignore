@@ -10,6 +10,10 @@ CLAUDE.md
 # checkout. Both hold runtime state, never source.
 packs
 data
+# The CPython apply.sh has uv download when a person deploys from a checkout. It
+# goes here rather than under that person's home, which the service user running
+# the units cannot read into.
+.python
 # Large eBird occurrence rasters, re-downloadable with tools/ebird_downloader.py
 backyardchirps/species_data/assets/ebird_occurrence
 # Written by update_species_data: the refreshed taxonomy and the station's own species

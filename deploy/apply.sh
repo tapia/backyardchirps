@@ -63,20 +63,29 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 
 # uv downloads its own CPython when the system one is too old, and on Raspberry Pi
-# OS bookworm it always is: that ships 3.11 and this project needs 3.12. By
-# default the download lands in the home directory of whoever runs the deploy. On
-# an installed station that is root, and the service user cannot read anything
-# under /root, so the virtualenv would be built around an interpreter the services
-# are not allowed to open. Keep it next to the other downloaded things instead,
-# where it is readable and survives a release swap.
+# OS bookworm it always is: that ships 3.11 and this project needs 3.12. By default
+# the download lands in the home directory of whoever runs the deploy, and the
+# service user can read neither /root nor another person's home. The virtualenv
+# would then be built around an interpreter the units are not allowed to open.
 #
-# Only when deploying as root, though. DATA_DIR belongs to the service user, so a
-# deploy run by a human cannot create anything inside it and uv would fail trying.
-# That path does not need the workaround: its home is reachable by the service
-# user, which is the only thing the interpreter has to be. The check after the
-# sync proves that rather than assuming it.
-if [ "$DATA_DIR" != "$APP_DIR" ] && [ "$(id -u)" = 0 ]; then
-    export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$DATA_DIR/python}"
+# So it never goes to a home directory. Where it goes instead depends on who is
+# deploying, because the two identities can write to different places:
+#
+#   as root      DATA_DIR/python, next to the other downloaded things, where it
+#                also survives a release swap
+#   as a person  APP_DIR/.python, because DATA_DIR belongs to the service user and
+#                a human cannot create anything inside it
+#
+# APP_DIR works for the second case because the service user already has to reach
+# into it: that is where .venv lives, and nginx serves the built frontend out of it
+# too. A checkout is never swapped out either, so nothing is lost by keeping it
+# there. The check after the sync proves the result rather than assuming it.
+if [ "$DATA_DIR" != "$APP_DIR" ]; then
+    if [ "$(id -u)" = 0 ]; then
+        export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$DATA_DIR/python}"
+    else
+        export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$APP_DIR/.python}"
+    fi
 fi
 
 # A station with a real data directory has to record it in the file above, because
@@ -186,9 +195,16 @@ echo "[apply] Installing Python dependencies..."
 # just took care to leave it out.
 uv sync --no-dev
 
-# The interpreter above may have just been downloaded by root. The services run as
-# someone else and have to be able to execute it, so make the tree readable rather
-# than trusting whatever umask was in force when uv unpacked it.
+# The interpreter above may have just been downloaded, by root or by a person. The
+# services run as neither and have to be able to execute it, so make the tree
+# readable rather than trusting whatever umask was in force when uv unpacked it.
+#
+# Two accounts have to get into APP_DIR: nginx, which serves the built frontend and
+# the collected static files straight off disk, and the service user, which reaches
+# .venv and, on a checkout deploy, the interpreter in APP_DIR/.python. Being
+# readable is not enough without traversal, and this has to happen before the check
+# below rather than next to the nginx setup, which is much further down.
+chmod o+x "$APP_DIR" 2>/dev/null || true
 if [ -n "${UV_PYTHON_INSTALL_DIR:-}" ] && [ -d "$UV_PYTHON_INSTALL_DIR" ]; then
     chmod -R a+rX "$UV_PYTHON_INSTALL_DIR"
 fi
@@ -202,7 +218,9 @@ if ! run_as_service_user test -x "$APP_DIR/.venv/bin/python"; then
     echo "[apply] $SERVICE_USER cannot execute $APP_DIR/.venv/bin/python, which is what"
     echo "[apply] every unit starts. The usual cause is uv choosing an interpreter under"
     echo "[apply] the home directory of whoever deployed, where that account cannot follow."
-    echo "[apply] Set UV_PYTHON_INSTALL_DIR to somewhere readable and deploy again."
+    echo "[apply] This deploy put it in ${UV_PYTHON_INSTALL_DIR:-the default uv location}."
+    echo "[apply] Check that $SERVICE_USER can traverse every directory above it, or set"
+    echo "[apply] UV_PYTHON_INSTALL_DIR to somewhere readable and deploy again."
     exit 1
 fi
 
@@ -260,10 +278,6 @@ run_manage collectstatic --noinput
 # recorder is restarted below, so the model is on disk by the time it starts.
 echo "[apply] Downloading the BirdNET 3 model and GeoModel if needed..."
 run_manage download_birdnet3_model
-
-# nginx serves the SPA and the collected static files straight off disk, so it
-# needs traversal into whichever directory those live in.
-chmod o+x "$APP_DIR" 2>/dev/null || true
 
 # ---------------------------------------------------------------------------
 # App services
