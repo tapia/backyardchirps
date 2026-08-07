@@ -102,19 +102,34 @@ mkdir -p "$STAGING"
 # can find, so a station would run on a different Python than the one this project
 # is tested against, and the birdnet2 extra has no wheels for every version.
 say "staging"
-cp -R \
-    "$REPO_ROOT/backyardchirps" \
-    "$REPO_ROOT/deploy" \
-    "$REPO_ROOT/docs" \
-    "$REPO_ROOT/manage.py" \
-    "$REPO_ROOT/pyproject.toml" \
-    "$REPO_ROOT/uv.lock" \
-    "$REPO_ROOT/.python-version" \
-    "$REPO_ROOT/.env.example" \
-    "$REPO_ROOT/LICENSE" \
-    "$REPO_ROOT/NOTICE" \
-    "$REPO_ROOT/README.md" \
-    "$STAGING/"
+RELEASE_PATHS=(
+    backyardchirps
+    deploy
+    docs
+    manage.py
+    pyproject.toml
+    uv.lock
+    .python-version
+    .env.example
+    LICENSE
+    NOTICE
+    README.md
+)
+
+# Check the whole list before copying any of it. Every path here has to be tracked
+# in git, not merely present in whoever's working copy: a file that is git-ignored
+# builds a release fine on the machine that has it and fails on a clean checkout,
+# which is CI and nowhere a person would notice. .python-version was exactly that,
+# ignored by the stock Python template while the allowlist depended on it.
+for release_path in "${RELEASE_PATHS[@]}"; do
+    if [ ! -e "$REPO_ROOT/$release_path" ]; then
+        echo "Refusing to build: $release_path is in the release allowlist but not in this checkout." >&2
+        echo "If it exists on your machine, it is git-ignored. Track it or take it off the list." >&2
+        exit 1
+    fi
+done
+
+cp -R "${RELEASE_PATHS[@]/#/$REPO_ROOT/}" "$STAGING/"
 
 mkdir -p "$STAGING/frontend"
 cp -R "$REPO_ROOT/frontend/dist" "$STAGING/frontend/dist"

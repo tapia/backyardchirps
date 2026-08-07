@@ -131,7 +131,13 @@ say "Staging a release tarball"
 # This is also what lets the image stay free of Node. The tarball carries a
 # prebuilt frontend, so apply.sh has nothing to build.
 STAGING_DIR="$(mktemp -d)"
-eval "$(bash "$REPO_ROOT/tools/build-tarball.sh" --output-dir "$STAGING_DIR")"
+# Kept in a variable rather than eval'd straight from the substitution: a failing
+# build inside `eval "$(...)"` sets no variables and stops nothing, so the script
+# ran on and died several lines later on an unbound TARBALL_NAME, naming neither
+# the build nor the reason it failed.
+tarball_env="$(bash "$REPO_ROOT/tools/build-tarball.sh" --output-dir "$STAGING_DIR")" \
+    || die "Building the release tarball failed. The reason is above."
+eval "$tarball_env"
 info "$TARBALL_NAME"
 
 say "Copying the installer and the tarball in"
