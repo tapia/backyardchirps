@@ -65,11 +65,20 @@ which is the path a deploy from source takes.
 
 ## The Python version
 
-`.python-version` ships in the tarball. Without it `uv` picks the newest interpreter it can find
-on the station, which would be a different one from the version this project is developed and
-tested against, and the `birdnet2` extra has no wheels for every version. Leaving it out is the
-kind of mistake that only shows up on a machine nobody has set up by hand, which is what the
-container test in `tools/container/` is for.
+`.python-version` does **not** ship in the tarball. A station builds against the interpreter apt
+installed, because `deploy/apply.sh` sets `UV_PYTHON_DOWNLOADS=never`, and Raspberry Pi OS trixie
+ships the 3.13 this project asks for. Pinning an exact version in the release would only break
+every install the day Pi OS moves past it.
+
+What a station has to agree with is `requires-python` in `pyproject.toml`, which is a range with
+no upper bound. `.python-version` stays in the repository, where it pins development and CI to
+one interpreter.
+
+The failure this arrangement prevents is worth knowing, because it is silent: a downloaded
+interpreter lands in the home directory of whoever ran the deploy, the service user cannot read
+it, and all four units die at boot around a virtualenv built on a Python they may not open. The
+container test in `tools/container/` runs on a `debian:trixie` image for this reason, so the
+Debian release the station is built against is the one under test.
 
 ## Version reporting
 

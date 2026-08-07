@@ -26,7 +26,8 @@ reaches the running process. Every other setting is read on each request.
 
 ## Local setup
 
-Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), and Node.js 18+.
+Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), and Node.js 18+. That floor is the
+version Raspberry Pi OS trixie ships, since a station builds against the system interpreter.
 
 `uv sync` gives you everything, BirdNET 2 and TensorFlow included, because the dev group asks
 for the `birdnet2` extra so the tests can exercise both models. A station installs neither

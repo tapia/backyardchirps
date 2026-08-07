@@ -1,16 +1,20 @@
 # A throwaway station to test deploys against.
 #
-# Raspberry Pi OS 64-bit is Debian bookworm underneath, and on an arm64 host this
+# Raspberry Pi OS 64-bit is Debian trixie underneath, and on an arm64 host this
 # runs natively, so Python wheels resolve the way they will on the Pi. That is the
 # point of the exercise: an installer cannot be tested on a machine that already
 # works, and it cannot be trusted on a machine of a different architecture.
+#
+# The Debian release matters as much as the architecture now. A station builds
+# against the interpreter apt installs, so trixie is what decides whether the
+# version this project asks for is the version it gets.
 #
 # What it covers: paths, permissions, systemd units, the nginx site, migrations
 # against an empty database, and the data-directory guard.
 #
 # What it cannot: real audio, real Pi hardware. /proc/device-tree/model does not
 # exist here, so anything that preflights on it needs a way to be told otherwise.
-FROM debian:bookworm
+FROM debian:trixie
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV container=docker

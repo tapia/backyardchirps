@@ -62,31 +62,16 @@ if ! id "$SERVICE_USER" > /dev/null 2>&1; then
 fi
 export PATH="$HOME/.local/bin:$PATH"
 
-# uv downloads its own CPython when the system one is too old, and on Raspberry Pi
-# OS bookworm it always is: that ships 3.11 and this project needs 3.12. By default
-# the download lands in the home directory of whoever runs the deploy, and the
-# service user can read neither /root nor another person's home. The virtualenv
-# would then be built around an interpreter the units are not allowed to open.
+# Build against the interpreter apt installed, never one uv downloaded for itself.
+# Raspberry Pi OS trixie ships Python 3.13, which is what this project asks for, so
+# there is nothing to download and /usr/bin/python3 is readable by every account on
+# the machine, the service user included.
 #
-# So it never goes to a home directory. Where it goes instead depends on who is
-# deploying, because the two identities can write to different places:
-#
-#   as root      DATA_DIR/python, next to the other downloaded things, where it
-#                also survives a release swap
-#   as a person  APP_DIR/.python, because DATA_DIR belongs to the service user and
-#                a human cannot create anything inside it
-#
-# APP_DIR works for the second case because the service user already has to reach
-# into it: that is where .venv lives, and nginx serves the built frontend out of it
-# too. A checkout is never swapped out either, so nothing is lost by keeping it
-# there. The check after the sync proves the result rather than assuming it.
-if [ "$DATA_DIR" != "$APP_DIR" ]; then
-    if [ "$(id -u)" = 0 ]; then
-        export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$DATA_DIR/python}"
-    else
-        export UV_PYTHON_INSTALL_DIR="${UV_PYTHON_INSTALL_DIR:-$APP_DIR/.python}"
-    fi
-fi
+# A downloaded interpreter would land in the home directory of whoever ran the
+# deploy, where the service user cannot follow, and every unit would die at boot
+# around a virtualenv built on a Python it is not allowed to open. Refusing the
+# download makes that impossible rather than working around it.
+export UV_PYTHON_DOWNLOADS=never
 
 # A station with a real data directory has to record it in the file above, because
 # that file is all a CI deploy has to go on. Getting this wrong is silent and
@@ -135,12 +120,6 @@ run_manage() {
         "$APP_DIR/.venv/bin/python" manage.py "$@"
 }
 
-read_env_value() {
-    local key="$1"
-    { run_as_service_user grep -E "^${key}=" "$DATA_DIR/.env" || true; } \
-        | tail -n 1 | cut -d= -f2- | tr -d "\"'"
-}
-
 install_file() {
     local source_file="$1"
     local destination="$2"
@@ -149,7 +128,6 @@ install_file() {
         -e "s|SERVICE_USER|$SERVICE_USER|g" \
         -e "s|APP_DIR|$APP_DIR|g" \
         -e "s|__DATA_DIR__|$DATA_DIR|g" \
-        -e "s|DOMAIN|$DOMAIN|g" \
         "$source_file")"
     if [ -f "$destination" ] && printf '%s\n' "$rendered" | cmp -s - "$destination"; then
         return 1
@@ -182,11 +160,6 @@ if ! command -v uv > /dev/null; then
     exit 1
 fi
 
-# The nginx site is rendered for whatever host the app is configured to serve.
-SITE_URL="$(read_env_value SITE_URL)"
-DOMAIN="${SITE_URL#*://}"
-DOMAIN="${DOMAIN%%/*}"
-
 echo "[apply] Installing Python dependencies..."
 # The two `uv sync` lines in this script are the only things that decide what is
 # installed. Every `uv run` below passes --no-sync so it uses the environment
@@ -195,32 +168,20 @@ echo "[apply] Installing Python dependencies..."
 # just took care to leave it out.
 uv sync --no-dev
 
-# The interpreter above may have just been downloaded, by root or by a person. The
-# services run as neither and have to be able to execute it, so make the tree
-# readable rather than trusting whatever umask was in force when uv unpacked it.
-#
 # Two accounts have to get into APP_DIR: nginx, which serves the built frontend and
 # the collected static files straight off disk, and the service user, which reaches
-# .venv and, on a checkout deploy, the interpreter in APP_DIR/.python. Being
-# readable is not enough without traversal, and this has to happen before the check
-# below rather than next to the nginx setup, which is much further down.
+# .venv. Being readable is not enough without traversal, and this has to happen
+# before the check below rather than next to the nginx setup much further down.
 chmod o+x "$APP_DIR" 2>/dev/null || true
-if [ -n "${UV_PYTHON_INSTALL_DIR:-}" ] && [ -d "$UV_PYTHON_INSTALL_DIR" ]; then
-    chmod -R a+rX "$UV_PYTHON_INSTALL_DIR"
-fi
 
-# Every unit runs this interpreter as the service user, and .venv/bin/python is a
-# symlink to wherever uv put the real one. Whether that is reachable depends on
-# who ran the sync and where their home is, which is exactly the kind of thing
-# that fails silently: the deploy passes and all four units die at boot instead.
-# Cheaper to find out here.
+# Every unit starts this interpreter as the service user, so prove it can before
+# the deploy reports success. The failure this used to catch, uv building the
+# virtualenv around a downloaded Python inside somebody's home directory, cannot
+# happen now that UV_PYTHON_DOWNLOADS is never. Kept because it is one line and it
+# catches any interpreter the units cannot reach, whatever put it there.
 if ! run_as_service_user test -x "$APP_DIR/.venv/bin/python"; then
     echo "[apply] $SERVICE_USER cannot execute $APP_DIR/.venv/bin/python, which is what"
-    echo "[apply] every unit starts. The usual cause is uv choosing an interpreter under"
-    echo "[apply] the home directory of whoever deployed, where that account cannot follow."
-    echo "[apply] This deploy put it in ${UV_PYTHON_INSTALL_DIR:-the default uv location}."
-    echo "[apply] Check that $SERVICE_USER can traverse every directory above it, or set"
-    echo "[apply] UV_PYTHON_INSTALL_DIR to somewhere readable and deploy again."
+    echo "[apply] every unit starts. Check that it can traverse every directory above it."
     exit 1
 fi
 
@@ -325,24 +286,20 @@ done
 # Config changes reach the running server through a reload, never a restart,
 # and only after nginx itself has validated them. If the rendered config is
 # invalid the deploy fails here with the old config still serving traffic.
-if [ -z "$DOMAIN" ]; then
-    echo "[apply] SITE_URL is not set in .env, skipping the nginx site."
-else
-    echo "[apply] Installing/updating the nginx site for $DOMAIN..."
-    nginx_config_changed=false
-    if install_file "$APP_DIR/deploy/nginx.conf" /etc/nginx/sites-available/backyardchirps; then
-        nginx_config_changed=true
-    fi
-    sudo ln -sf /etc/nginx/sites-available/backyardchirps /etc/nginx/sites-enabled/backyardchirps
-    sudo rm -f /etc/nginx/sites-enabled/default
-    sudo nginx -t
+echo "[apply] Installing/updating the nginx site..."
+nginx_config_changed=false
+if install_file "$APP_DIR/deploy/nginx.conf" /etc/nginx/sites-available/backyardchirps; then
+    nginx_config_changed=true
+fi
+sudo ln -sf /etc/nginx/sites-available/backyardchirps /etc/nginx/sites-enabled/backyardchirps
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
 
-    sudo systemctl enable nginx
-    if ! systemctl is-active --quiet nginx; then
-        sudo systemctl start nginx
-    elif [ "$nginx_config_changed" = true ]; then
-        sudo systemctl reload nginx
-    fi
+sudo systemctl enable nginx
+if ! systemctl is-active --quiet nginx; then
+    sudo systemctl start nginx
+elif [ "$nginx_config_changed" = true ]; then
+    sudo systemctl reload nginx
 fi
 
-echo "[apply] Done. Live at ${SITE_URL:-http://localhost}"
+echo "[apply] Done."

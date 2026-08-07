@@ -137,7 +137,6 @@ Fill in at least:
 | `SECRET_KEY` | the string generated above |
 | `ALLOWED_HOSTS` | `birds.example.com,localhost,127.0.0.1` |
 | `CSRF_TRUSTED_ORIGINS` | `https://birds.example.com` |
-| `SITE_URL` | `https://birds.example.com` |
 
 That is the whole file. The credentials for Telegram, xeno-canto and ipgeolocation.io are
 settings rather than environment variables, so they are set in the web UI and stored in the

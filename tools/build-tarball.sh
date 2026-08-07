@@ -98,9 +98,10 @@ mkdir -p "$STAGING"
 # public release by being forgotten. A .env sitting in a working copy is the case
 # that matters.
 #
-# .python-version is load-bearing: without it uv picks the newest interpreter it
-# can find, so a station would run on a different Python than the one this project
-# is tested against, and the birdnet2 extra has no wheels for every version.
+# .python-version is deliberately absent. It pins development to one interpreter,
+# but a station builds against the one apt installed, and naming a version here
+# would break every install the day Raspberry Pi OS moves past it. What a station
+# has to agree with is requires-python in pyproject.toml, which is a range.
 say "staging"
 RELEASE_PATHS=(
     backyardchirps
@@ -109,7 +110,6 @@ RELEASE_PATHS=(
     manage.py
     pyproject.toml
     uv.lock
-    .python-version
     .env.example
     LICENSE
     NOTICE
@@ -119,8 +119,8 @@ RELEASE_PATHS=(
 # Check the whole list before copying any of it. Every path here has to be tracked
 # in git, not merely present in whoever's working copy: a file that is git-ignored
 # builds a release fine on the machine that has it and fails on a clean checkout,
-# which is CI and nowhere a person would notice. .python-version was exactly that,
-# ignored by the stock Python template while the allowlist depended on it.
+# which is CI and nowhere a person would notice. .python-version was once exactly
+# that, ignored by the stock Python template while the allowlist depended on it.
 for release_path in "${RELEASE_PATHS[@]}"; do
     if [ ! -e "$REPO_ROOT/$release_path" ]; then
         echo "Refusing to build: $release_path is in the release allowlist but not in this checkout." >&2

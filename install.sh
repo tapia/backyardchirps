@@ -116,12 +116,16 @@ info "${available_mb} MB free on /"
 # ---------------------------------------------------------------------------
 # No Node: the release ships the frontend already built. No git: the release is a
 # tarball. No TensorFlow: BirdNET 3 runs on onnxruntime, which uv installs.
+#
+# python3 is named even though every Raspberry Pi OS image already has it, because
+# it is what the station is built against. uv is told not to download one of its
+# own, so this package is the interpreter every unit ends up starting.
 say "Installing system packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq --no-install-recommends \
-    nginx curl ca-certificates zstd libportaudio2 sudo
-info "nginx, curl, zstd, libportaudio2"
+    python3 nginx curl ca-certificates zstd libportaudio2 sudo
+info "python3 $(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])'), nginx, curl, zstd, libportaudio2"
 
 if ! command -v uv > /dev/null; then
     info "installing uv"
@@ -208,11 +212,11 @@ info "$SERVICE_USER owns $DATA_DIR"
 # Telegram, xeno-canto and ipgeolocation.io are set in the wizard and stored in the
 # database, so nothing here needs hand-editing.
 say "Writing the environment file"
+host_name="$(hostname)"
 if [ -f "$DATA_DIR/.env" ]; then
     info "$DATA_DIR/.env already exists, leaving it alone"
 else
     secret_key="$(head -c 48 /dev/urandom | base64 | tr -d '\n=+/')"
-    host_name="$(hostname)"
     # The leading dot covers the hostname changing later. The raw address does
     # not, so a DHCP reservation is worth setting up: see the admin guide.
     lan_address="$(hostname -I 2> /dev/null | awk '{ print $1 }')"
@@ -225,7 +229,6 @@ SECRET_KEY=$secret_key
 DEBUG=false
 ALLOWED_HOSTS=$allowed_hosts
 CSRF_TRUSTED_ORIGINS=http://$host_name.local
-SITE_URL=http://$host_name.local
 EOF
     chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/.env"
     chmod 640 "$DATA_DIR/.env"
@@ -279,7 +282,10 @@ info "$DATA_DIR/setup-token"
 # ---------------------------------------------------------------------------
 # 9. Done
 # ---------------------------------------------------------------------------
-site_url="$(grep '^SITE_URL=' "$DATA_DIR/.env" | cut -d= -f2-)"
+# Built from the machine rather than read back out of .env, so a station whose
+# hostname changed after it was installed still prints an address that works.
+# ALLOWED_HOSTS carries the leading-dot form for the same reason.
+site_url="http://$host_name.local"
 
 cat <<EOF
 
