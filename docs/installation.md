@@ -9,8 +9,9 @@ downloads.
 - A USB microphone or audio interface
 - Raspberry Pi OS, 64-bit, Debian 13 (trixie) or newer
 
-Nothing else is supported. The installer checks the board, the architecture and the operating
-system before it writes anything, and stops with a clear message when one of them is wrong.
+Nothing else is supported. The installer checks the board, the architecture, the operating system
+and that something can record before it writes anything, and stops with a clear message when one
+of them is wrong.
 
 ## 1. Flash the OS
 

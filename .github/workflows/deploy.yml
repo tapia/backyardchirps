@@ -70,6 +70,12 @@ jobs:
     name: Deploy to Raspberry Pi
     needs: build
     runs-on: self-hosted
+    # Held back on purpose while the station is still running from a git checkout.
+    # The first run of this job would migrate it to /opt with nobody watching, on
+    # hardware none of this has run on. Migrate by hand first, following
+    # docs/devel/deployment.md, and delete this line once an install has been seen
+    # to work on that machine.
+    if: false
 
     steps:
       - uses: actions/download-artifact@v4

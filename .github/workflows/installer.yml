@@ -22,6 +22,7 @@ on:
       - deploy/**
       - tools/build-tarball.sh
       - tools/container/**
+      - tools/test-preflight.sh
       - backyardchirps/settings/**
       - pyproject.toml
       - uv.lock
@@ -35,6 +36,7 @@ on:
       - deploy/**
       - tools/build-tarball.sh
       - tools/container/**
+      - tools/test-preflight.sh
       - backyardchirps/settings/**
       - pyproject.toml
       - uv.lock
@@ -50,6 +52,24 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Seconds, not minutes, and it needs neither a container nor arm64: the machine
+  # checks read the machine through five overridable values, so this points them at
+  # fixtures. Kept separate from the job below so a broken preflight is reported in
+  # seconds rather than after a full install.
+  #
+  # This exists because preflight is the one part of install.sh the container test
+  # cannot reach, and three of its checks shipped broken as a result.
+  preflight:
+    name: Check the preflight checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the preflight checks against fixtures
+        run: bash tools/test-preflight.sh
+
   install:
     name: Install a staged release on a clean machine
     # arm64, because that is what a Pi is. An installer is the one thing that

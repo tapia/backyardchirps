@@ -155,6 +155,25 @@ sudo apt-get purge nodejs
 The database is the same file throughout and no migration is reversed, so going back is
 restoring the old units and pointing them at the checkout again.
 
+## Testing the preflight checks
+
+```bash
+bash tools/test-preflight.sh
+```
+
+Seconds, no container, and it runs anywhere. `install.sh` reads the machine through five
+overridable values (`DEVICE_TREE_MODEL_FILE`, `OS_RELEASE_FILE`, `ASOUND_PCM_FILE`,
+`RPI_ISSUE_FILE`, `SYSTEM_ARCHITECTURE`), so the test points them at fixtures and asserts both
+that a good machine is accepted and that a bad one is refused **for the right reason**.
+
+This exists because preflight is the one part of `install.sh` the container test cannot reach: a
+container is not a Pi, so `run-test.sh` passes `--ignore-preflight`. Three of the four checks
+shipped broken as a result and were only found by deploying to real hardware. `--preflight-only`
+runs the checks and stops, installing nothing and needing no root.
+
+If you add a check, add a case for it here. Anything in that block is otherwise untested until it
+reaches somebody's Pi.
+
 ## Testing an install without a Pi
 
 `tools/container/run-test.sh` boots a clean Debian trixie machine under systemd, stages a release

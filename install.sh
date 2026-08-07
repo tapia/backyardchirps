@@ -13,6 +13,7 @@
 #   --manifest URL        read the release manifest from somewhere else
 #   --data-dir DIR        where the station keeps its data (default /var/lib/backyardchirps)
 #   --ignore-preflight    skip the hardware checks (a container is not a Pi)
+#   --preflight-only      run the hardware checks and stop, installing nothing
 #   --help
 #
 # Everything it prints also goes to /var/log/backyardchirps-install.log.
@@ -30,6 +31,18 @@ SERVICE_USER=backyardchirps
 LOG_FILE=/var/log/backyardchirps-install.log
 LOCAL_TARBALL=
 IGNORE_PREFLIGHT=no
+PREFLIGHT_ONLY=no
+
+# Preflight looks at the machine through these four values, and they are overridable
+# so the checks can be run against fixtures. That is the only way to exercise them:
+# the container test is not a Raspberry Pi, and the one machine that is cannot be a
+# test fixture. Three of these checks shipped broken because nothing ever ran them.
+# See tools/test-preflight.sh.
+DEVICE_TREE_MODEL_FILE="${DEVICE_TREE_MODEL_FILE:-/proc/device-tree/model}"
+OS_RELEASE_FILE="${OS_RELEASE_FILE:-/etc/os-release}"
+ASOUND_PCM_FILE="${ASOUND_PCM_FILE:-/proc/asound/pcm}"
+RPI_ISSUE_FILE="${RPI_ISSUE_FILE:-/etc/rpi-issue}"
+SYSTEM_ARCHITECTURE="${SYSTEM_ARCHITECTURE:-$(dpkg --print-architecture 2> /dev/null || true)}"
 
 # Enough for the virtualenv, the acoustic model, the GeoModel and the release
 # itself, with room to download the next release beside this one later.
@@ -45,8 +58,9 @@ while [ $# -gt 0 ]; do
         --manifest)         MANIFEST_URL="$2"; shift 2 ;;
         --data-dir)         DATA_DIR="$2"; shift 2 ;;
         --ignore-preflight) IGNORE_PREFLIGHT=yes; shift ;;
+        --preflight-only)   PREFLIGHT_ONLY=yes; shift ;;
         --help)
-            sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'
+            sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
             exit 0
             ;;
         *)
@@ -72,7 +86,7 @@ read_os_release() {
             print value
             exit
         }
-    ' /etc/os-release 2> /dev/null || true
+    ' "$OS_RELEASE_FILE" 2> /dev/null || true
 }
 die() {
     printf '\nInstall failed: %s\n' "$*" >&2
@@ -80,25 +94,16 @@ die() {
     exit 1
 }
 
-[ "$(id -u)" = "0" ] || die "This has to run as root. Try again with sudo."
-
-mkdir -p "$(dirname "$LOG_FILE")"
-# Everything from here on is written to the log as well as the screen, so a
-# failure message can point at one file that holds the whole story.
-exec > >(tee -a "$LOG_FILE") 2>&1
-printf '\n===== %s =====\n' "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
-
-# ---------------------------------------------------------------------------
-# 1. Preflight
-# ---------------------------------------------------------------------------
-# Checked before anything is written, because a half-finished install is worse
-# than one that never started.
-say "Checking this machine"
+# Checked before anything is written, because a half-finished install is worse than
+# one that never started. A function rather than a straight run of statements so
+# --preflight-only can call it on a machine that is not a Pi, against fixtures.
+check_this_machine() {
+    say "Checking this machine"
 
 if [ "$IGNORE_PREFLIGHT" = yes ]; then
     info "Hardware checks skipped."
 else
-    model="$(tr -d '\0' < /proc/device-tree/model 2> /dev/null || true)"
+    model="$(tr -d '\0' < "$DEVICE_TREE_MODEL_FILE" 2> /dev/null || true)"
     case "$model" in
         *"Raspberry Pi 4"*|*"Raspberry Pi 5"*)
             info "$model"
@@ -111,9 +116,8 @@ else
             ;;
     esac
 
-    architecture="$(dpkg --print-architecture 2> /dev/null || true)"
-    [ "$architecture" = arm64 ] \
-        || die "This needs 64-bit Raspberry Pi OS. This system reports '$architecture'."
+    [ "$SYSTEM_ARCHITECTURE" = arm64 ] \
+        || die "This needs 64-bit Raspberry Pi OS. This system reports '${SYSTEM_ARCHITECTURE:-nothing}'."
 
     # /etc/os-release on 64-bit Raspberry Pi OS is Debian's own, word for word: the
     # 64-bit port is Debian arm64 with the Raspberry Pi archive layered on top, and
@@ -148,20 +152,59 @@ else
     # Not a requirement, just worth saying which it is. Pi OS images carry this
     # file; plain Debian on a Pi does not, and that combination is untested rather
     # than known broken.
-    if [ ! -f /etc/rpi-issue ]; then
-        info "no /etc/rpi-issue, so this is Debian rather than Raspberry Pi OS"
+    if [ ! -f "$RPI_ISSUE_FILE" ]; then
+        info "no $RPI_ISSUE_FILE, so this is Debian rather than Raspberry Pi OS"
     fi
 
-    if [ ! -s /proc/asound/cards ] || grep -q 'no soundcards' /proc/asound/cards; then
-        die "No sound card found, so there is nothing to record from. Plug in a USB microphone and run this again."
-    fi
-    info "a capture device is present"
+    # Read the file rather than asking how big it is. Files under /proc are produced
+    # when they are read and report a size of zero whatever they contain, so an
+    # earlier `test -s /proc/asound/cards` here rejected every machine it ran on,
+    # including a Pi that was recording at the time.
+    #
+    # /proc/asound/pcm rather than /proc/asound/cards, because cards counts
+    # playback-only devices: a Pi with nothing plugged in but HDMI has two of those
+    # and no microphone. Each line of pcm names its directions, so counting the ones
+    # that can capture is the question actually being asked.
+    #
+    # grep -c prints 0 and exits 1 when nothing matches, and errors if there is no
+    # ALSA at all, so both land on the same answer.
+    capture_device_count="$(grep -c capture "$ASOUND_PCM_FILE" 2> /dev/null || true)"
+    [ "${capture_device_count:-0}" -ge 1 ] \
+        || die "No capture device found, so there is nothing to record from. Plug in a USB microphone and run this again, or pass --ignore-preflight if you are setting this up before the microphone arrives."
+    info "$capture_device_count capture device(s)"
+fi
+}
+
+# The one check that has always run, since it is outside the block --ignore-preflight
+# skips: the container test needs the disk as much as a Pi does.
+check_free_disk() {
+    available_mb="$(df -Pm / | awk 'NR == 2 { print $4 }')"
+    [ "$available_mb" -ge "$REQUIRED_DISK_MB" ] \
+        || die "Needs ${REQUIRED_DISK_MB} MB free on /, found ${available_mb} MB."
+    info "${available_mb} MB free on /"
+}
+
+# Run the machine checks and stop. For tools/test-preflight.sh, which points the
+# four inputs above at fixtures. Deliberately before the root check and the log
+# file below, so the checks can be exercised without either.
+if [ "$PREFLIGHT_ONLY" = yes ]; then
+    check_this_machine
+    exit 0
 fi
 
-available_mb="$(df -Pm / | awk 'NR == 2 { print $4 }')"
-[ "$available_mb" -ge "$REQUIRED_DISK_MB" ] \
-    || die "Needs ${REQUIRED_DISK_MB} MB free on /, found ${available_mb} MB."
-info "${available_mb} MB free on /"
+[ "$(id -u)" = "0" ] || die "This has to run as root. Try again with sudo."
+
+mkdir -p "$(dirname "$LOG_FILE")"
+# Everything from here on is written to the log as well as the screen, so a
+# failure message can point at one file that holds the whole story.
+exec > >(tee -a "$LOG_FILE") 2>&1
+printf '\n===== %s =====\n' "$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+# ---------------------------------------------------------------------------
+# 1. Preflight
+# ---------------------------------------------------------------------------
+check_this_machine
+check_free_disk
 
 # ---------------------------------------------------------------------------
 # 2. System packages
