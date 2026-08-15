@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 17:03+0200\n"
+"POT-Creation-Date: 2026-08-15 20:29+0200\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -103,20 +103,20 @@ msgid "Create account"
 msgstr "Crear cuenta"
 
 #: backyardchirps/templates/setup/base.html:6
-#: backyardchirps/templates/setup/base.html:12
+#: backyardchirps/templates/setup/base.html:13
 msgid "Set up your station"
 msgstr "Configura tu estación"
 
-#: backyardchirps/templates/setup/base.html:14
+#: backyardchirps/templates/setup/base.html:15
 #, python-format
 msgid "Step %(step_number)s of %(step_total)s"
 msgstr "Paso %(step_number)s de %(step_total)s"
 
-#: backyardchirps/templates/setup/base.html:26
+#: backyardchirps/templates/setup/base.html:27
 msgid "Back"
 msgstr "Atrás"
 
-#: backyardchirps/templates/setup/base.html:28
+#: backyardchirps/templates/setup/base.html:29
 msgid "Next"
 msgstr "Siguiente"
 
@@ -124,7 +124,7 @@ msgstr "Siguiente"
 msgid "Detection thresholds"
 msgstr "Umbrales de detección"
 
-#: backyardchirps/templates/setup/detection.html:8
+#: backyardchirps/templates/setup/detection.html:14
 msgid ""
 "How sure BirdNET has to be before a detection counts. The defaults are a "
 "good start."
@@ -132,21 +132,21 @@ msgstr ""
 "Cómo de seguro tiene que estar BirdNET para que una detección cuente. Los "
 "valores por defecto son un buen punto de partida."
 
-#: backyardchirps/templates/setup/detection.html:12
+#: backyardchirps/templates/setup/detection.html:19
 msgid "Low"
 msgstr "Bajo"
 
-#: backyardchirps/templates/setup/detection.html:14
-#: backyardchirps/templates/setup/detection.html:20
-#: backyardchirps/templates/setup/detection.html:26
+#: backyardchirps/templates/setup/detection.html:21
+#: backyardchirps/templates/setup/detection.html:27
+#: backyardchirps/templates/setup/detection.html:33
 msgid "Give a number between 0 and 1."
 msgstr "Escribe un número entre 0 y 1."
 
-#: backyardchirps/templates/setup/detection.html:18
+#: backyardchirps/templates/setup/detection.html:25
 msgid "Medium"
 msgstr "Medio"
 
-#: backyardchirps/templates/setup/detection.html:24
+#: backyardchirps/templates/setup/detection.html:31
 msgid "High"
 msgstr "Alto"
 
@@ -199,7 +199,7 @@ msgstr ""
 msgid "Where the station is"
 msgstr "Dónde está la estación"
 
-#: backyardchirps/templates/setup/location.html:8
+#: backyardchirps/templates/setup/location.html:12
 msgid ""
 "The coordinates decide which species can be here at all, so nothing works "
 "well without them. Click the map, or type them in."
@@ -207,38 +207,46 @@ msgstr ""
 "Las coordenadas deciden qué especies pueden estar aquí, así que nada "
 "funciona bien sin ellas. Haz clic en el mapa, o escríbelas."
 
-#: backyardchirps/templates/setup/location.html:15
+#: backyardchirps/templates/setup/location.html:24
+msgid "Make the map bigger"
+msgstr "Agrandar el mapa"
+
+#: backyardchirps/templates/setup/location.html:29
+msgid "Make the map smaller"
+msgstr "Reducir el mapa"
+
+#: backyardchirps/templates/setup/location.html:34
 msgid "Zoom in"
 msgstr "Acercar"
 
-#: backyardchirps/templates/setup/location.html:16
+#: backyardchirps/templates/setup/location.html:35
 msgid "Zoom out"
 msgstr "Alejar"
 
-#: backyardchirps/templates/setup/location.html:23
+#: backyardchirps/templates/setup/location.html:42
 msgid ""
 "The map needs an internet connection. The coordinates below work without it."
 msgstr ""
 "El mapa necesita conexión a internet. Las coordenadas de abajo funcionan sin "
 "ella."
 
-#: backyardchirps/templates/setup/location.html:27
+#: backyardchirps/templates/setup/location.html:52
 msgid "Latitude"
 msgstr "Latitud"
 
-#: backyardchirps/templates/setup/location.html:29
+#: backyardchirps/templates/setup/location.html:54
 msgid "That is not a latitude between -90 and 90."
 msgstr "Eso no es una latitud entre -90 y 90."
 
-#: backyardchirps/templates/setup/location.html:33
+#: backyardchirps/templates/setup/location.html:58
 msgid "Longitude"
 msgstr "Longitud"
 
-#: backyardchirps/templates/setup/location.html:35
+#: backyardchirps/templates/setup/location.html:60
 msgid "That is not a longitude between -180 and 180."
 msgstr "Eso no es una longitud entre -180 y 180."
 
-#: backyardchirps/templates/setup/location.html:38
+#: backyardchirps/templates/setup/location.html:64
 msgid "Use my location"
 msgstr "Usar mi ubicación"
 

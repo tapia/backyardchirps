@@ -1,28 +1,36 @@
 {% extends "setup/base.html" %}
-{% load i18n %}
+{% load i18n l10n %}
 
 {% block title %}{% translate "Detection thresholds" %}{% endblock %}
+
+{% comment %}
+  localize off, because these fields are posted straight back to a parser that reads
+  them with float(). Spanish writes 0,7 for 0.7, so a localised value would come back
+  as an error on a step the reader only pressed Next on.
+{% endcomment %}
 
 {% block fields %}
   <p class="intro">
     {% translate "How sure BirdNET has to be before a detection counts. The defaults are a good start." %}
   </p>
 
-  <label class="field">
-    <span>{% translate "Low" %}</span>
-    <input type="text" name="analysis_low_confidence" value="{{ settings.analysis_low_confidence }}" />
-    {% if errors.analysis_low_confidence %}<small class="error">{% translate "Give a number between 0 and 1." %}</small>{% endif %}
-  </label>
+  {% localize off %}
+    <label class="field">
+      <span>{% translate "Low" %}</span>
+      <input type="text" name="analysis_low_confidence" value="{{ settings.analysis_low_confidence }}" />
+      {% if errors.analysis_low_confidence %}<small class="error">{% translate "Give a number between 0 and 1." %}</small>{% endif %}
+    </label>
 
-  <label class="field">
-    <span>{% translate "Medium" %}</span>
-    <input type="text" name="analysis_medium_confidence" value="{{ settings.analysis_medium_confidence }}" />
-    {% if errors.analysis_medium_confidence %}<small class="error">{% translate "Give a number between 0 and 1." %}</small>{% endif %}
-  </label>
+    <label class="field">
+      <span>{% translate "Medium" %}</span>
+      <input type="text" name="analysis_medium_confidence" value="{{ settings.analysis_medium_confidence }}" />
+      {% if errors.analysis_medium_confidence %}<small class="error">{% translate "Give a number between 0 and 1." %}</small>{% endif %}
+    </label>
 
-  <label class="field">
-    <span>{% translate "High" %}</span>
-    <input type="text" name="analysis_high_confidence" value="{{ settings.analysis_high_confidence }}" />
-    {% if errors.analysis_high_confidence %}<small class="error">{% translate "Give a number between 0 and 1." %}</small>{% endif %}
-  </label>
+    <label class="field">
+      <span>{% translate "High" %}</span>
+      <input type="text" name="analysis_high_confidence" value="{{ settings.analysis_high_confidence }}" />
+      {% if errors.analysis_high_confidence %}<small class="error">{% translate "Give a number between 0 and 1." %}</small>{% endif %}
+    </label>
+  {% endlocalize %}
 {% endblock %}

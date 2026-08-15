@@ -6,6 +6,7 @@ testing. Which step a visitor is on is a URL and a session, never anything a cli
 remembers on its own, so a test that follows redirects is testing the real mechanism.
 """
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -17,6 +18,7 @@ from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.setup import logic as setup_logic
 from backyardchirps.features.setup.entity import AudioDevice
+from backyardchirps.features.setup.views import SESSION_LANGUAGE
 
 pytestmark = pytest.mark.django_db
 
@@ -117,8 +119,8 @@ def test_a_station_with_no_token_finishes_the_wizard_it_started(
     moved_on = client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
 
     assert moved_on.headers["Location"] == "/setup/microphone/"
-    assert Settings.get(SettingsKey.LOCATION_LAT) == 40.4
     assert client.post("/setup/done/", {}).headers["Location"] == "/"
+    assert Settings.get(SettingsKey.LOCATION_LAT) == 40.4
     assert restarts == [setup_logic.RECORDER_UNIT]
     # And the way back in closes behind it.
     assert client.get("/setup/location/").headers["Location"] == "/"
@@ -129,6 +131,20 @@ def test_an_unknown_step_is_not_a_page(client: Client, token_file: Path) -> None
 
 
 # --- language ----------------------------------------------------------------
+
+
+def test_the_wizard_opens_in_english(client: Client, token_file: Path) -> None:
+    """
+    The station's own LANGUAGE_CODE is Spanish and the wizard does not follow it, since
+    whoever is holding a freshly installed Pi has chosen nothing yet. Checked on the
+    lang attribute rather than on any translated text, which would pass for the wrong
+    reason on a checkout whose catalog has not been compiled.
+    """
+    page = client.get("/setup/language/").content.decode()
+
+    assert '<html lang="en">' in page
+    assert 'value="en" checked' in page
+    assert 'value="es" checked' not in page
 
 
 def test_language_step_moves_on_to_the_account(client: Client, token_file: Path) -> None:
@@ -218,39 +234,90 @@ def test_the_steps_after_the_account_are_closed_to_a_visitor(client: Client, tok
     assert client.get("/setup/done/").headers["Location"] == "/setup/admin/"
 
 
-# --- the steps that write settings -------------------------------------------
+# --- the steps that answer settings -------------------------------------------
+#
+# Nothing here reaches the database. Each step checks what it was given and keeps it for
+# the last step, so these tests read the answer back off the step rather than out of
+# Settings, and the section below is where the saving is tested.
 
 
-def test_location_step_saves_the_coordinates(claimed_client: Client) -> None:
+def test_location_step_takes_the_coordinates(claimed_client: Client) -> None:
     response = claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
 
     assert response.headers["Location"] == "/setup/microphone/"
-    assert Settings.get(SettingsKey.LOCATION_LAT) == 40.4
-    assert Settings.get(SettingsKey.LOCATION_LON) == -3.7
-
-
-def test_location_step_keeps_a_bad_value_off_the_station(claimed_client: Client) -> None:
-    response = claimed_client.post("/setup/location/", {"location_lat": "over there", "location_lon": "-3.7"})
-
-    assert response.status_code == 200
     assert Settings.get(SettingsKey.LOCATION_LAT) is None
 
 
-def test_microphone_step_saves_the_device(claimed_client: Client) -> None:
+def test_a_step_comes_back_holding_what_it_was_told(claimed_client: Client) -> None:
+    """
+    The answers are in the session, not the database, so Back has to draw them from
+    there or the wizard would forget everything the moment somebody looked twice.
+    """
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    page = claimed_client.get("/setup/location/").content.decode()
+
+    assert 'value="40.4"' in page
+    assert 'value="-3.7"' in page
+
+
+def test_location_step_refuses_a_bad_value_and_keeps_the_good_one(claimed_client: Client, restarts: list[str]) -> None:
+    response = claimed_client.post("/setup/location/", {"location_lat": "over there", "location_lon": "-3.7"})
+
+    assert response.status_code == 200
+
+    claimed_client.post("/setup/done/", {})
+
+    assert Settings.get(SettingsKey.LOCATION_LAT) is None
+    assert Settings.get(SettingsKey.LOCATION_LON) == -3.7
+
+
+def test_microphone_step_takes_the_device(claimed_client: Client, restarts: list[str]) -> None:
     response = claimed_client.post("/setup/microphone/", {"audio_device": "1"})
 
     assert response.headers["Location"] == "/setup/detection/"
+
+    claimed_client.post("/setup/done/", {})
+
     assert Settings.get(SettingsKey.AUDIO_DEVICE) == 1
 
 
-def test_detection_step_saves_the_thresholds(claimed_client: Client) -> None:
+def test_detection_step_takes_the_thresholds(claimed_client: Client, restarts: list[str]) -> None:
     response = claimed_client.post(
         "/setup/detection/",
         {"analysis_low_confidence": "0.5", "analysis_medium_confidence": "0.7", "analysis_high_confidence": "0.95"},
     )
 
     assert response.headers["Location"] == "/setup/notifications/"
+
+    claimed_client.post("/setup/done/", {})
+
     assert Settings.get(SettingsKey.ANALYSIS_LOW_CONFIDENCE) == 0.5
+
+
+def test_a_spanish_wizard_draws_numbers_it_can_read_back(claimed_client: Client) -> None:
+    """
+    Spanish writes 0,7 for 0.7, and both these steps draw a number into a field that is
+    posted straight back to float(). Localised, they would refuse a step the reader only
+    pressed Next on.
+    """
+    session = claimed_client.session
+    session[SESSION_LANGUAGE] = "es"
+    session.save()
+
+    thresholds = claimed_client.get("/setup/detection/").content.decode()
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+    coordinates = claimed_client.get("/setup/location/").content.decode()
+
+    assert 'value="0.7"' in thresholds
+    assert 'value="40.4"' in coordinates
+    assert "," not in _field_value(coordinates, "location_lat")
+
+
+def _field_value(page: str, name: str) -> str:
+    match = re.search(rf'name="{name}" value="([^"]*)"', page)
+    assert match is not None, f"no {name} field in the page"
+    return match.group(1)
 
 
 def test_notifications_step_may_be_walked_past(claimed_client: Client) -> None:
@@ -260,6 +327,37 @@ def test_notifications_step_may_be_walked_past(claimed_client: Client) -> None:
 
 
 # --- finishing ---------------------------------------------------------------
+
+
+def test_finishing_saves_everything_the_wizard_was_told(claimed_client: Client, restarts: list[str]) -> None:
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+    claimed_client.post("/setup/microphone/", {"audio_device": "1"})
+    claimed_client.post(
+        "/setup/detection/",
+        {"analysis_low_confidence": "0.5", "analysis_medium_confidence": "0.7", "analysis_high_confidence": "0.95"},
+    )
+    claimed_client.post("/setup/notifications/", {"telegram_token": "  12345:abc  "})
+
+    claimed_client.post("/setup/done/", {})
+
+    assert Settings.get(SettingsKey.LOCATION_LAT) == 40.4
+    assert Settings.get(SettingsKey.LOCATION_LON) == -3.7
+    assert Settings.get(SettingsKey.AUDIO_DEVICE) == 1
+    assert Settings.get(SettingsKey.ANALYSIS_HIGH_CONFIDENCE) == 0.95
+    assert Settings.get(SettingsKey.TELEGRAM_TOKEN) == "12345:abc"
+
+
+def test_an_abandoned_wizard_leaves_the_station_as_it_was(claimed_client: Client) -> None:
+    """
+    The reason the answers wait: somebody who walks half the wizard and closes the
+    browser, or who is only trying it out on a laptop, changes nothing.
+    """
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+    claimed_client.post("/setup/microphone/", {"audio_device": "1"})
+
+    assert Settings.get(SettingsKey.LOCATION_LAT) is None
+    assert Settings.get(SettingsKey.LOCATION_LON) is None
+    assert Settings.get(SettingsKey.AUDIO_DEVICE) is None
 
 
 def test_finishing_destroys_the_token_and_starts_recording(

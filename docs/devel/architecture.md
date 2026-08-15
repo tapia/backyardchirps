@@ -26,8 +26,9 @@ reaches the running process. Every other setting is read on each request.
 
 ## Local setup
 
-Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), and Node.js 18+. That floor is the
-version Raspberry Pi OS trixie ships, since a station builds against the system interpreter.
+Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), Node.js 18+, and `gettext` for the
+message catalogs. That floor is the version Raspberry Pi OS trixie ships, since a station builds
+against the system interpreter.
 
 `uv sync` gives you everything, BirdNET 2 and TensorFlow included, because the dev group asks
 for the `birdnet2` extra so the tests can exercise both models. A station installs neither
@@ -37,8 +38,26 @@ unless it is set to BirdNET 2.
 uv sync
 cp .env.example .env              # SECRET_KEY is the only required value
 uv run python manage.py migrate
+uv run python manage.py compilemessages --ignore .venv --ignore frontend
 uv run python manage.py runserver
 ```
+
+### Translations
+
+The `.po` files under `backyardchirps/locale/` are the source and are tracked. The `.mo` files
+gettext actually reads are built from them and are not, so a fresh checkout is English until you
+compile them, which is the line above. After changing a translated string, run
+`uv run python manage.py makemessages -l <code> --no-obsolete`, fill in the new entries, and let
+the pre-commit hook recompile: it runs whenever a `.po` changes, so a stale catalog cannot
+survive a commit. On a station `apply.sh` compiles them on every deploy.
+
+Nothing in the build names a language. `compilemessages` takes whatever `locale/` holds and the
+container test counts `.mo` files against `.po` files, so adding a language is a `makemessages`
+run and a translator, with no deploy change to remember. The wizard's own picker is the one place
+a language has to be listed, in `LANGUAGE_OPTIONS`.
+
+A number drawn into a form field needs `{% localize off %}`. Spanish writes `0,7` for `0.7`, and
+the setup wizard posts those fields straight back to a parser that reads them with `float()`.
 
 ```bash
 cd frontend && npm install && npm run dev
@@ -125,6 +144,14 @@ The flow is a URL and a session, nothing else. `GET /setup/` redirects to the st
 each step POSTs to its own URL and redirects to the next, and the furthest step reached is in
 the session. So a reload repeats nothing, the back button works, and closing the browser
 half way through loses at most the step being filled in.
+
+The answers go in the session too, and nothing is written to the database until the last step,
+where `complete()` saves them all, deletes the token and starts the recorder. A wizard nobody
+finished therefore leaves the station exactly as it was, which is what the Finish button says
+and what lets the whole thing be walked through on a development machine. Each step still
+checks its own fields as they arrive, through `Settings.parse`, so a bad value is refused on
+the step that asked for it rather than at the end where there is nowhere to send anybody back
+to.
 
 Which is the point. The wizard was a Vue component holding the current step in memory while
 the server decided separately whether setup was finished, and the two could disagree. An

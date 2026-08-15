@@ -273,17 +273,31 @@ class Settings:
         return definition.parser(stored)
 
     @classmethod
-    def set(cls, key: str, value: Any) -> None:
+    def parse(cls, key: str, value: Any) -> Any:
         """
-        Raises ValueError for an unknown key, and for a value the parser rejects.
+        Check a value against its key and give back what would be stored, writing
+        nothing. Raises what set raises: ValueError for an unknown key, and for a value
+        the parser rejects.
+
+        The setup wizard is why this is separate from set. It checks each step as it is
+        filled in but saves nothing until the last one, so it needs the refusal without
+        the row. Every parser accepts what it returns, so a value that came out of here
+        can be handed back to set later.
         """
         try:
             settings_key = SettingsKey(key)
         except ValueError:
             raise ValueError(SettingsErrorCode.UNKNOWN) from None
-        definition = DEFAULTS[settings_key]
-        parsed = definition.parser(value)
-        settings_repository.set_value(settings_key, _serialize(parsed))
+        return DEFAULTS[settings_key].parser(value)
+
+    @classmethod
+    def set(cls, key: str, value: Any) -> None:
+        """
+        Raises ValueError for an unknown key, and for a value the parser rejects.
+        """
+        parsed = cls.parse(key, value)
+        # parse accepted the key, so this cannot raise.
+        settings_repository.set_value(SettingsKey(key), _serialize(parsed))
 
     @classmethod
     def as_dict(cls) -> dict[str, Any]:

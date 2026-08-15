@@ -228,9 +228,13 @@ check_free_disk
 say "Installing system packages"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
+#
+# gettext is msgfmt, which the deploy uses to compile the message catalogs. A release
+# carries the .po files a translator edits, not the .mo files gettext reads, so without
+# this the site and the setup wizard would be English whatever anybody chose.
 apt-get install -y -qq --no-install-recommends \
-    python3 nginx curl ca-certificates zstd libportaudio2 sudo
-info "python3 $(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])'), nginx, curl, zstd, libportaudio2"
+    python3 nginx curl ca-certificates zstd libportaudio2 gettext sudo
+info "python3 $(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])'), nginx, curl, zstd, libportaudio2, gettext"
 
 if ! command -v uv > /dev/null; then
     info "installing uv"

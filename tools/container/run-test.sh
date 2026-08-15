@@ -267,6 +267,19 @@ TABLES="$(inside sqlite3 "$DATA_DIR/detections.db" \
 [ "$TABLES" = "4" ] || die "Expected 4 application tables in the database, found $TABLES."
 info "database created with $TABLES application tables"
 
+# A release carries the .po a translator edits, and gettext reads only the .mo the
+# deploy compiles from it. Without this the wizard's language step would take a choice
+# and every page after it would come back English.
+#
+# Counted rather than named, so a language added later is covered by this run without
+# anybody remembering to come back here.
+po_count="$(inside find "$APP_DIR/backyardchirps/locale" -name '*.po' | wc -l | tr -d ' ')"
+mo_count="$(inside find "$APP_DIR/backyardchirps/locale" -name '*.mo' | wc -l | tr -d ' ')"
+[ "$po_count" -gt 0 ] || die "The release carries no message catalogs at all."
+[ "$mo_count" = "$po_count" ] \
+    || die "$mo_count of $po_count message catalogs were compiled, so the site can only be English."
+info "all $po_count message catalogs are compiled"
+
 inside test -f "$APP_DIR/.venv/bin/python" || die "No virtualenv was built."
 if inside "$APP_DIR/.venv/bin/python" -c "import tensorflow" 2> /dev/null; then
     die "TensorFlow is installed. The birdnet2 extra should stay out of a default install."

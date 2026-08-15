@@ -1,7 +1,10 @@
+from typing import Any
+
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 from backyardchirps.features.recording.audio import devices
+from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.setup import queries as setup_queries
 from backyardchirps.features.setup import token_file
 from backyardchirps.features.setup.entity import AudioDevice
@@ -87,20 +90,29 @@ def measure_audio_level(device: int | None) -> AudioLevel:
     return AudioLevel(peak=peak, rms=rms)
 
 
-def complete() -> bool:
+def complete(answers: dict[str, Any]) -> bool:
     """
-    Finish setup: throw the token away, which is what stops the wizard opening again,
-    then start recording. Returns whether the recorder started.
+    Finish setup: save everything the wizard was told, throw the token away, which is
+    what stops the wizard opening again, then start recording. Returns whether the
+    recorder started.
 
     Refused before there is an admin, since a station with no account and no token could
     never be configured at all.
 
+    The answers are written here rather than step by step, so a wizard nobody finished
+    leaves the station exactly as it was. Each one was already checked by the step that
+    asked for it, and every parser accepts what it returned, so Settings.set is only
+    repeating work here, not deciding anything new.
+
     This is where a station begins listening. Until now it has been deliberately silent,
     because a recorder with no coordinates matches against every species on earth. The
-    token goes first: the recorder has to see a finished setup to stay started across the
-    next deploy.
+    settings go in before the recorder starts, since it reads the coordinates once at
+    startup, and the token goes before that: the recorder has to see a finished setup to
+    stay started across the next deploy.
     """
     if not setup_queries.superuser_exists():
         raise SetupError(SetupErrorCode.NO_ADMIN)
+    for key, value in answers.items():
+        Settings.set(key, value)
     token_file.delete()
     return restart_unit(RECORDER_UNIT)

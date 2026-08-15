@@ -194,6 +194,12 @@ setup_complete="$(run_manage shell -c \
     'from backyardchirps.features.setup.logic import get_status
 print("yes" if get_status().is_complete else "no")' | tail -n 1)"
 
+# Compile Django's gettext files
+echo "[apply] Compiling message catalogs..."
+if ! "$APP_DIR/.venv/bin/python" manage.py compilemessages --ignore .venv --ignore frontend; then
+    echo "[apply] Could not compile the catalogs, so the site stays English. Is gettext installed?"
+fi
+
 echo "[apply] Collecting static files..."
 # STATIC_ROOT is inside DATA_DIR, which the service user already owns, so this
 # needs no root step to hand a directory over. The cost is that files from an

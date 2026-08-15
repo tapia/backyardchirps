@@ -1,7 +1,11 @@
 {% extends "setup/base.html" %}
-{% load i18n static %}
+{% load i18n l10n static %}
 
 {% block title %}{% translate "Where the station is" %}{% endblock %}
+
+{% block styles %}
+  <link rel="stylesheet" href="{% static 'setup/location-map.css' %}" />
+{% endblock %}
 
 {% block fields %}
   <p class="intro">
@@ -11,7 +15,21 @@
   <div class="map" id="location-map">
     <div class="map-tiles" id="map-tiles"></div>
     <div class="map-pin" id="map-pin" hidden></div>
+    {% comment %}
+      Two buttons rather than one that changes label, so the label each state needs can be
+      translated where every other string is, and CSS decides which one is showing.
+    {% endcomment %}
     <div class="map-zoom">
+      <button type="button" class="map-button map-expand" id="map-expand" aria-label="{% translate 'Make the map bigger' %}">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4" />
+        </svg>
+      </button>
+      <button type="button" class="map-button map-collapse" id="map-collapse" aria-label="{% translate 'Make the map smaller' %}">
+        <svg viewBox="0 0 16 16" aria-hidden="true">
+          <path d="M2 6h4V2M14 6h-4V2M2 10h4v4M14 10h-4v4" />
+        </svg>
+      </button>
       <button type="button" class="map-button" id="map-zoom-in" aria-label="{% translate 'Zoom in' %}">+</button>
       <button type="button" class="map-button" id="map-zoom-out" aria-label="{% translate 'Zoom out' %}">&minus;</button>
     </div>
@@ -23,17 +41,23 @@
     {% translate "The map needs an internet connection. The coordinates below work without it." %}
   </p>
 
-  <label class="field">
-    <span>{% translate "Latitude" %}</span>
-    <input type="text" id="location_lat" name="location_lat" value="{{ settings.location_lat|default_if_none:'' }}" required />
-    {% if errors.location_lat %}<small class="error">{% translate "That is not a latitude between -90 and 90." %}</small>{% endif %}
-  </label>
+  {% comment %}
+    localize off, because the map reads these two fields with parseFloat and the form
+    posts them back to float(). Spanish writes 40,4 for 40.4, which neither can read.
+  {% endcomment %}
+  {% localize off %}
+    <label class="field">
+      <span>{% translate "Latitude" %}</span>
+      <input type="text" id="location_lat" name="location_lat" value="{{ settings.location_lat|default_if_none:'' }}" required />
+      {% if errors.location_lat %}<small class="error">{% translate "That is not a latitude between -90 and 90." %}</small>{% endif %}
+    </label>
 
-  <label class="field">
-    <span>{% translate "Longitude" %}</span>
-    <input type="text" id="location_lon" name="location_lon" value="{{ settings.location_lon|default_if_none:'' }}" required />
-    {% if errors.location_lon %}<small class="error">{% translate "That is not a longitude between -180 and 180." %}</small>{% endif %}
-  </label>
+    <label class="field">
+      <span>{% translate "Longitude" %}</span>
+      <input type="text" id="location_lon" name="location_lon" value="{{ settings.location_lon|default_if_none:'' }}" required />
+      {% if errors.location_lon %}<small class="error">{% translate "That is not a longitude between -180 and 180." %}</small>{% endif %}
+    </label>
+  {% endlocalize %}
 
   <button type="button" class="button ghost" id="use-my-location">{% translate "Use my location" %}</button>
 {% endblock %}

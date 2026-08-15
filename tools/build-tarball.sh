@@ -192,6 +192,10 @@ cp -R "$REPO_ROOT/frontend/dist" "$STAGING/frontend/dist"
 rm -rf "$STAGING/backyardchirps/species_data/generated"
 rm -rf "$STAGING/backyardchirps/species_data/assets/ebird_occurrence"
 find "$STAGING" -name '__pycache__' -type d -prune -exec rm -rf {} +
+# A release carries the .po a translator edits and never the .mo compiled from it,
+# which apply.sh builds on the station. A developer's checkout usually has one, and
+# shipping it would mean a release could disagree with its own source.
+find "$STAGING" -name '*.mo' -delete
 
 # Refuse to build anything carrying secrets or local state, however it got there.
 # A release is public and permanent, so this fails rather than trusting the copy

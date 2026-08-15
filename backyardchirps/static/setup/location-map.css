@@ -1,0 +1,117 @@
+/* The location step's map. Its own file rather than more of wizard.css, so it arrives
+   with location-map.js and a station that has the shared stylesheet cached from an
+   older release cannot draw the map without it. */
+
+.map {
+  position: relative;
+  height: 240px;
+  margin-bottom: 1rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  cursor: crosshair;
+  /* The map handles its own dragging, so the browser must not scroll the page instead. */
+  touch-action: none;
+}
+
+.map-tiles {
+  position: absolute;
+  inset: 0;
+}
+
+.map-tile {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  user-select: none;
+}
+
+.map-pin {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin: -7px 0 0 -7px;
+  border-radius: 50%;
+  border: 2px solid var(--paper);
+  background: var(--leaf);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+/* Big enough to pick a rooftop on. Fixed rather than sized to the card, so it covers the
+   form instead of pushing it around, and Escape or the button puts it back. */
+.map.is-expanded {
+  position: fixed;
+  inset: 1rem;
+  height: auto;
+  z-index: 20;
+  border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.map-zoom {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: grid;
+  gap: 0.25rem;
+}
+
+.map-button {
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--paper);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.map-button svg {
+  display: block;
+  width: 14px;
+  height: 14px;
+  margin: 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.map-collapse {
+  display: none;
+}
+
+.map.is-expanded .map-expand {
+  display: none;
+}
+
+.map.is-expanded .map-collapse {
+  display: block;
+}
+
+.map-credit {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px 0 0 0;
+  background: rgba(0, 0, 0, 0.55);
+  font-size: 0.65rem;
+}
+
+.map-credit a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.map-offline {
+  margin: -0.5rem 0 1rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}

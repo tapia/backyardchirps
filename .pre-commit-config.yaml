@@ -26,6 +26,13 @@ repos:
         types: [python]
         pass_filenames: false
 
+      - id: compilemessages
+        name: compilemessages
+        entry: uv run python manage.py compilemessages --ignore .venv --ignore frontend
+        language: system
+        files: \.po$
+        pass_filenames: false
+
       - id: eslint
         name: eslint
         entry: frontend/node_modules/.bin/eslint

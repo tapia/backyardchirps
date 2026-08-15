@@ -29,7 +29,7 @@ from backyardchirps.features.setup.permissions import IsSetupAuthorised
 # most the step being filled in. Nothing about the flow lives in a browser.
 STEPS = ("language", "admin", "location", "microphone", "detection", "notifications", "done")
 
-# What each step writes, by the names the settings API already uses. Both ends therefore
+# What each step answers, by the names the settings API already uses. Both ends therefore
 # agree on field names and validation, because both finish at Settings.set.
 FIELDS_BY_STEP: dict[str, tuple[SettingsKey, ...]] = {
     "location": (SettingsKey.LOCATION_LAT, SettingsKey.LOCATION_LON),
@@ -53,7 +53,19 @@ FIELDS_BY_STEP: dict[str, tuple[SettingsKey, ...]] = {
 # language and the notification language are separate settings.
 SESSION_LANGUAGE = "setup_language"
 
+# Where the answers wait until the last step saves them all at once. A wizard nobody
+# finished then leaves the station exactly as it was, which is what the Finish button
+# has always promised, and what lets the whole thing be walked through on a laptop
+# without keeping anything.
+SESSION_ANSWERS = "setup_answers"
+
 LANGUAGE_OPTIONS = (("en", "English"), ("es", "Espanol"))
+
+# What the wizard opens in, and what the first step has selected before anybody chooses.
+# English rather than the station's own LANGUAGE_CODE, which is Spanish: whoever is holding
+# a freshly installed Pi has not chosen anything yet, and English is the language the
+# installer that sent them here speaks.
+DEFAULT_LANGUAGE = LANGUAGE_OPTIONS[0][0]
 
 
 def wizard(request: HttpRequest) -> HttpResponse:
@@ -228,10 +240,11 @@ def _handle_post(request: HttpRequest, step: str, status: SetupStatus) -> HttpRe
 
     if step == "done":
         try:
-            recorder_started = setup_logic.complete()
+            recorder_started = setup_logic.complete(_answers(request))
         except SetupError as error:
             return _render_step(request, step, status, errors={"done": error.code.value})
         request.session.pop(SESSION_FLAG, None)
+        request.session.pop(SESSION_ANSWERS, None)
         request.session.pop("setup_step", None)
         if recorder_started:
             return redirect("/")
@@ -240,7 +253,7 @@ def _handle_post(request: HttpRequest, step: str, status: SetupStatus) -> HttpRe
         # the station exists to do did not start.
         return _render_step(request, step, status, errors={"recorder": "not_started"})
 
-    errors = _save_settings(request, step)
+    errors = _remember_answers(request, step)
     if errors:
         return _render_step(request, step, status, errors=errors)
     return _advance(request, step)
@@ -280,23 +293,38 @@ def _claim_or_sign_in(request: HttpRequest, status: SetupStatus) -> str | None:
     return None
 
 
-def _save_settings(request: HttpRequest, step: str) -> dict[str, str]:
+def _remember_answers(request: HttpRequest, step: str) -> dict[str, str]:
     """
-    Write this step's fields, reporting a bad value against the field it came from.
+    Check this step's fields and keep them for the last step, reporting a bad value
+    against the field it came from. Nothing reaches the database here.
 
-    Empty is left alone rather than written, so a step whose fields are all optional can
-    be walked past without clearing what a previous run put there.
+    A field the step did not send is left alone rather than remembered, so a step whose
+    fields are all optional can be walked past without clearing an earlier answer.
     """
+    answers = _answers(request)
     errors: dict[str, str] = {}
     for key in FIELDS_BY_STEP.get(step, ()):
         if key not in request.POST:
             continue
         value = request.POST[key].strip()
         try:
-            Settings.set(key, value)
+            answers[key] = Settings.parse(key, value)
         except ValueError as exc:
             errors[key] = str(exc)
+    # Kept even when a sibling field was refused, so a step is never re-drawn asking
+    # again for what was already right.
+    request.session[SESSION_ANSWERS] = answers
     return errors
+
+
+def _answers(request: HttpRequest) -> dict[str, Any]:
+    """
+    What the wizard has been told so far, ready to be saved. Values are what
+    Settings.parse gave back, not what was typed, so a step re-drawing itself shows them
+    the way the settings page would.
+    """
+    remembered = request.session.get(SESSION_ANSWERS)
+    return dict(remembered) if isinstance(remembered, dict) else {}
 
 
 def _advance(request: HttpRequest, step: str) -> HttpResponse:
@@ -322,7 +350,9 @@ def _render_step(request: HttpRequest, step: str, status: SetupStatus, errors: d
         # could only ask the owner to sign in again.
         "previous_step": STEPS[step_index - 1] if step_index > STEPS.index("admin") + 1 else None,
         "errors": errors,
-        "settings": Settings.as_dict(),
+        # What is saved, with what this run has been told on top of it, so Back shows
+        # the answers rather than the station's old values.
+        "settings": Settings.as_dict() | _answers(request),
         "token_required": status.has_token,
         "has_admin": status.has_admin,
         "language": _language(request),
@@ -335,12 +365,12 @@ def _render_step(request: HttpRequest, step: str, status: SetupStatus, errors: d
 
 def _language(request: HttpRequest) -> str:
     """
-    The language this visitor picked on the first step, defaulting to the station's.
+    The language this visitor picked on the first step, English until they pick.
     """
     chosen = request.session.get(SESSION_LANGUAGE)
-    return str(chosen) if chosen in dict(LANGUAGE_OPTIONS) else translation.get_language() or "en"
+    return str(chosen) if chosen in dict(LANGUAGE_OPTIONS) else DEFAULT_LANGUAGE
 
 
 def _chosen_language(request: HttpRequest) -> str:
     submitted = request.POST.get("language", "")
-    return submitted if submitted in dict(LANGUAGE_OPTIONS) else LANGUAGE_OPTIONS[0][0]
+    return submitted if submitted in dict(LANGUAGE_OPTIONS) else DEFAULT_LANGUAGE
