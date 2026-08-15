@@ -63,7 +63,7 @@ def wizard(request: HttpRequest) -> HttpResponse:
     The entry point for anyone who types /setup/, and where the SPA sends people while
     the station is unconfigured.
     """
-    if setup_logic.get_status().is_complete:
+    if setup_logic.get_status().is_complete and not _is_mid_wizard(request):
         return redirect("/")
     return redirect(f"/setup/{_current_step(request)}/")
 
@@ -79,7 +79,7 @@ def wizard_step(request: HttpRequest, step: str) -> HttpResponse:
         raise Http404("No such setup step.")
 
     status = setup_logic.get_status()
-    if status.is_complete:
+    if status.is_complete and not _is_mid_wizard(request):
         return redirect("/")
 
     refused = _refuse_unauthorised(request, step, status)
@@ -171,6 +171,20 @@ def _current_step(request: HttpRequest) -> str:
     if setup_logic.get_status().has_admin:
         return "location"
     return STEPS[0]
+
+
+def _is_mid_wizard(request: HttpRequest) -> bool:
+    """
+    Whether this session is walking the wizard right now.
+
+    Setup counts as complete once the station has an owner and no token, which is right
+    for a visitor arriving at /setup/ and wrong for the person who created that owner one
+    step ago. A machine with no token file, a checkout, becomes complete the moment the
+    account step runs, so without this the wizard would end there: no coordinates, and
+    never a Finish to start the recorder. Both facts read here belong to the session that
+    claimed the station, so nobody else can walk in on a finished setup.
+    """
+    return request.session.get("setup_step") in STEPS and _is_authorised(request)
 
 
 def _refuse_unauthorised(request: HttpRequest, step: str, status: SetupStatus) -> HttpResponse | None:

@@ -1,11 +1,26 @@
 {% extends "setup/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% translate "Where the station is" %}{% endblock %}
 
 {% block fields %}
   <p class="intro">
-    {% translate "The coordinates decide which species can be here at all, so nothing works well without them." %}
+    {% translate "The coordinates decide which species can be here at all, so nothing works well without them. Click the map, or type them in." %}
+  </p>
+
+  <div class="map" id="location-map">
+    <div class="map-tiles" id="map-tiles"></div>
+    <div class="map-pin" id="map-pin" hidden></div>
+    <div class="map-zoom">
+      <button type="button" class="map-button" id="map-zoom-in" aria-label="{% translate 'Zoom in' %}">+</button>
+      <button type="button" class="map-button" id="map-zoom-out" aria-label="{% translate 'Zoom out' %}">&minus;</button>
+    </div>
+    <p class="map-credit">
+      <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">&copy; OpenStreetMap</a>
+    </p>
+  </div>
+  <p class="map-offline" id="map-offline" hidden>
+    {% translate "The map needs an internet connection. The coordinates below work without it." %}
   </p>
 
   <label class="field">
@@ -24,12 +39,5 @@
 {% endblock %}
 
 {% block script %}
-  <script>
-    document.getElementById('use-my-location').addEventListener('click', function () {
-      navigator.geolocation.getCurrentPosition(function (position) {
-        document.getElementById('location_lat').value = position.coords.latitude.toFixed(5)
-        document.getElementById('location_lon').value = position.coords.longitude.toFixed(5)
-      })
-    })
-  </script>
+  <script src="{% static 'setup/location-map.js' %}" defer></script>
 {% endblock %}

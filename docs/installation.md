@@ -63,7 +63,7 @@ wizard, which asks for the token and then walks through seven short steps:
 |---|---|
 | Language | English or Spanish, changeable later |
 | Your account | The token, plus the username and password you will log in with |
-| Where the station is | Latitude and longitude, or the **Use my location** button |
+| Where the station is | Click the map, type the coordinates, or use the **Use my location** button |
 | Microphone | Which input to record from, with a level meter to check it hears you |
 | Detection thresholds | How sure BirdNET has to be. The defaults are a good start |
 | Notifications and keys | Telegram and the optional API keys. All skippable |

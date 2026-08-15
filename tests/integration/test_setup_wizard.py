@@ -104,6 +104,26 @@ def test_setup_sends_a_finished_station_to_the_site(
     assert client.get("/setup/location/").headers["Location"] == "/"
 
 
+def test_a_station_with_no_token_finishes_the_wizard_it_started(
+    client: Client, no_token_file: Path, restarts: list[str]
+) -> None:
+    """
+    A checkout has no token, so it counts as set up the moment the account step gives it
+    an owner. The session already walking the wizard still has to reach the end: that is
+    where the coordinates are asked for and where the recorder is started.
+    """
+    client.post("/setup/admin/", {"username": "owner", "password": GOOD_PASSWORD})
+
+    moved_on = client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    assert moved_on.headers["Location"] == "/setup/microphone/"
+    assert Settings.get(SettingsKey.LOCATION_LAT) == 40.4
+    assert client.post("/setup/done/", {}).headers["Location"] == "/"
+    assert restarts == [setup_logic.RECORDER_UNIT]
+    # And the way back in closes behind it.
+    assert client.get("/setup/location/").headers["Location"] == "/"
+
+
 def test_an_unknown_step_is_not_a_page(client: Client, token_file: Path) -> None:
     assert client.get("/setup/coordinates/").status_code == 404
 

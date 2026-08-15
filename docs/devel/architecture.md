@@ -142,6 +142,12 @@ token as soon as the data directory exists, before the slow part of the install,
 in between cannot leave a station whose missing token means "finished" when it means "never
 written".
 
+One exception, and the reason a checkout can be set up at all: a session that is already
+walking the wizard carries on to the end even after the station counts as finished. A checkout
+never had a token, so it becomes "finished" the moment the account step runs, and without this
+the wizard would stop there, one step short of the coordinates and two short of the Finish that
+starts the recorder.
+
 ## The audio pipeline
 
 ```

@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 15:39+0200\n"
+"POT-Creation-Date: 2026-08-15 17:03+0200\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -49,7 +49,9 @@ msgstr "Tu cuenta"
 msgid ""
 "This station already has an account, and setup was never finished. Sign in "
 "to carry on."
-msgstr "Esta estación ya tiene una cuenta y la configuración no llegó a terminar. Inicia sesión para continuar."
+msgstr ""
+"Esta estación ya tiene una cuenta y la configuración no llegó a terminar. "
+"Inicia sesión para continuar."
 
 #: backyardchirps/templates/setup/admin.html:12
 msgid "This account is how you will log in from now on."
@@ -61,7 +63,8 @@ msgstr "Ese token no coincide con el de esta máquina."
 
 #: backyardchirps/templates/setup/admin.html:18
 msgid "That username and password did not match the account on this station."
-msgstr "Ese usuario y esa contraseña no coinciden con la cuenta de esta estación."
+msgstr ""
+"Ese usuario y esa contraseña no coinciden con la cuenta de esta estación."
 
 #: backyardchirps/templates/setup/admin.html:19
 msgid "Pick a username."
@@ -125,7 +128,9 @@ msgstr "Umbrales de detección"
 msgid ""
 "How sure BirdNET has to be before a detection counts. The defaults are a "
 "good start."
-msgstr "Cómo de seguro tiene que estar BirdNET para que una detección cuente. Los valores por defecto son un buen punto de partida."
+msgstr ""
+"Cómo de seguro tiene que estar BirdNET para que una detección cuente. Los "
+"valores por defecto son un buen punto de partida."
 
 #: backyardchirps/templates/setup/detection.html:12
 msgid "Low"
@@ -153,7 +158,9 @@ msgstr "Listo"
 msgid ""
 "Setup is finished, but the recorder did not start. Check the server status "
 "page."
-msgstr "La configuración ha terminado, pero el grabador no ha arrancado. Mira la página de estado del servidor."
+msgstr ""
+"La configuración ha terminado, pero el grabador no ha arrancado. Mira la "
+"página de estado del servidor."
 
 #: backyardchirps/templates/setup/done.html:11
 msgid "Go to the site"
@@ -161,13 +168,16 @@ msgstr "Ir al sitio"
 
 #: backyardchirps/templates/setup/done.html:13
 msgid "The station could not finish setting up. Try again."
-msgstr "La estación no ha podido terminar la configuración. Inténtalo otra vez."
+msgstr ""
+"La estación no ha podido terminar la configuración. Inténtalo otra vez."
 
 #: backyardchirps/templates/setup/done.html:16
 msgid ""
 "That is everything. Finishing starts the recorder and puts the setup token "
 "beyond use, so this wizard will not open again."
-msgstr "Ya está todo. Al terminar arranca el grabador y el token de instalación deja de servir, así que este asistente no volverá a abrirse."
+msgstr ""
+"Ya está todo. Al terminar arranca el grabador y el token de instalación deja "
+"de servir, así que este asistente no volverá a abrirse."
 
 #: backyardchirps/templates/setup/done.html:21
 msgid "Finish"
@@ -181,7 +191,9 @@ msgstr "Idioma"
 msgid ""
 "Which language should this wizard use? You can change the site language "
 "later."
-msgstr "¿En qué idioma quieres este asistente? El idioma del sitio se puede cambiar después."
+msgstr ""
+"¿En qué idioma quieres este asistente? El idioma del sitio se puede cambiar "
+"después."
 
 #: backyardchirps/templates/setup/location.html:4
 msgid "Where the station is"
@@ -190,26 +202,43 @@ msgstr "Dónde está la estación"
 #: backyardchirps/templates/setup/location.html:8
 msgid ""
 "The coordinates decide which species can be here at all, so nothing works "
-"well without them."
-msgstr "Las coordenadas deciden qué especies pueden estar aquí, así que nada funciona bien sin ellas."
+"well without them. Click the map, or type them in."
+msgstr ""
+"Las coordenadas deciden qué especies pueden estar aquí, así que nada "
+"funciona bien sin ellas. Haz clic en el mapa, o escríbelas."
 
-#: backyardchirps/templates/setup/location.html:12
+#: backyardchirps/templates/setup/location.html:15
+msgid "Zoom in"
+msgstr "Acercar"
+
+#: backyardchirps/templates/setup/location.html:16
+msgid "Zoom out"
+msgstr "Alejar"
+
+#: backyardchirps/templates/setup/location.html:23
+msgid ""
+"The map needs an internet connection. The coordinates below work without it."
+msgstr ""
+"El mapa necesita conexión a internet. Las coordenadas de abajo funcionan sin "
+"ella."
+
+#: backyardchirps/templates/setup/location.html:27
 msgid "Latitude"
 msgstr "Latitud"
 
-#: backyardchirps/templates/setup/location.html:14
+#: backyardchirps/templates/setup/location.html:29
 msgid "That is not a latitude between -90 and 90."
 msgstr "Eso no es una latitud entre -90 y 90."
 
-#: backyardchirps/templates/setup/location.html:18
+#: backyardchirps/templates/setup/location.html:33
 msgid "Longitude"
 msgstr "Longitud"
 
-#: backyardchirps/templates/setup/location.html:20
+#: backyardchirps/templates/setup/location.html:35
 msgid "That is not a longitude between -180 and 180."
 msgstr "Eso no es una longitud entre -180 y 180."
 
-#: backyardchirps/templates/setup/location.html:23
+#: backyardchirps/templates/setup/location.html:38
 msgid "Use my location"
 msgstr "Usar mi ubicación"
 
@@ -219,7 +248,8 @@ msgstr "Micrófono"
 
 #: backyardchirps/templates/setup/microphone.html:7
 msgid "Pick the input to record from. The meter moves when it hears you."
-msgstr "Elige la entrada desde la que grabar. El medidor se mueve cuando te oye."
+msgstr ""
+"Elige la entrada desde la que grabar. El medidor se mueve cuando te oye."
 
 #: backyardchirps/templates/setup/microphone.html:15
 msgid "default"
@@ -228,7 +258,9 @@ msgstr "por defecto"
 #: backyardchirps/templates/setup/microphone.html:22
 msgid ""
 "This machine has no recording device, so there is nothing to listen with."
-msgstr "Esta máquina no tiene ningún dispositivo de grabación, así que no hay con qué escuchar."
+msgstr ""
+"Esta máquina no tiene ningún dispositivo de grabación, así que no hay con "
+"qué escuchar."
 
 #: backyardchirps/templates/setup/notifications.html:4
 msgid "Notifications and keys"
@@ -237,7 +269,9 @@ msgstr "Notificaciones y claves"
 #: backyardchirps/templates/setup/notifications.html:7
 msgid ""
 "All optional. Leave anything blank and set it later on the settings page."
-msgstr "Todo es opcional. Deja en blanco lo que quieras y configúralo después en la página de ajustes."
+msgstr ""
+"Todo es opcional. Deja en blanco lo que quieras y configúralo después en la "
+"página de ajustes."
 
 #: backyardchirps/templates/setup/notifications.html:10
 msgid "Telegram bot token"
