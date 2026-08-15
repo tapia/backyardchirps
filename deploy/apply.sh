@@ -209,7 +209,7 @@ run_manage collectstatic --noinput
 
 # The recorder's acoustic model and the GeoModel location filter. Both live under
 # DATA_DIR, so they survive a release swap, and both are downloaded only when
-# missing or when their checksum no longer matches upstream. This runs before the
+# missing or when their size no longer matches upstream. This runs before the
 # recorder is restarted below, so the model is on disk by the time it starts.
 echo "[apply] Downloading the BirdNET 3 model and GeoModel if needed..."
 run_manage download_birdnet3_model

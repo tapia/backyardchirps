@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = (
         "Download the BirdNET 3 acoustic model and labels from Zenodo and the GeoModel 3 location "
-        "model from Hugging Face, skipping any file that is already current"
+        "model from its GitHub release, skipping any file that is already current"
     )
 
     def handle(self, *args, **options):

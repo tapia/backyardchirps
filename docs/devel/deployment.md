@@ -111,7 +111,7 @@ happens:
 
 1. Installs Python dependencies with `uv sync --no-dev`, against the system interpreter
 2. Runs migrations and collects static files
-3. Downloads the BirdNET 3 acoustic model and GeoModel if their upstream checksums changed
+3. Downloads the BirdNET 3 acoustic model and GeoModel if the local copy is missing or no longer the published size
 4. Installs and enables the `backyardchirps-*` units, including any new ones
 5. **Points `current` at the new release**
 6. Restarts the web server, and the recorder once setup is finished

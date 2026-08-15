@@ -81,7 +81,7 @@ The recorder reads it at startup, so restart it after changing it.
 |---|---|
 | `run_recorder` | The capture and analysis loop |
 | `update_species_data` | Downloads a fresh taxonomy, then rebuilds the local species list from GeoModel (daily timer in production) |
-| `download_birdnet3_model` | Fetches the acoustic model and GeoModel when their checksums change |
+| `download_birdnet3_model` | Fetches the acoustic model and GeoModel when the local copy is missing or no longer the published size |
 | `enforce_clip_disk_quota` | Deletes the oldest clip files when disk usage exceeds the configured percentage |
 
 ## Backend layout
@@ -109,7 +109,7 @@ Four packages sit outside the features:
 |---|---|
 | `models/` | The Django ORM schema, one app, shared on purpose: `DetectedSpecies` is a foreign-key target for both detections and overrides |
 | `integrations/` | Every call to an external system, and the only place external URLs and API keys appear |
-| `shared/` | Helpers that belong to no single feature: request parsing, slug resolvers, disk usage, checksums |
+| `shared/` | Helpers that belong to no single feature: request parsing, slug resolvers, disk usage, the recorder heartbeat |
 | `management/commands/` | Thin CLI entry points that call into a feature. Django looks for commands only here |
 
 ### The layering
@@ -244,8 +244,9 @@ configured, BirdNET 3 runs unfiltered. The acoustic model and GeoModel ship diff
 sets, so species are matched by `Species` identity rather than by class index.
 
 Both BirdNET 3 files are global rather than per-location and are git-ignored, downloaded by
-`download_birdnet3_model` (Zenodo for the acoustic model, Hugging Face for GeoModel) on every
-deploy before the recorder restarts.
+`download_birdnet3_model` (Zenodo for the acoustic model, a GitHub release for GeoModel) on
+every deploy before the recorder restarts. A file comes down only when it is missing or its
+size differs from the published one, which is also how a station moves to a newer GeoModel.
 
 ### What a detection carries
 

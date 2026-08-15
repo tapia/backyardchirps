@@ -3,21 +3,10 @@ import io
 import logging
 from pathlib import Path
 
-from backyardchirps.integrations import huggingface
+from backyardchirps.integrations import github
 from backyardchirps.integrations import zenodo
-from backyardchirps.integrations.huggingface import RemoteFile
-from backyardchirps.shared.checksums import git_blob_sha1_of
-from backyardchirps.shared.checksums import sha256_of
 
 logger = logging.getLogger(__name__)
-
-# The GeoModel 3 files to fetch from Hugging Face. FP16 is the only build published
-# for the V3.0.2 12K set, and it costs us nothing: its tensors are still float32, so
-# onnxruntime runs it on the CPU as it is, and the model is small and only runs once a
-# week anyway. Keep both files on the same version, or the model's output classes stop
-# matching the label rows.
-_GEOMODEL_REMOTE_MODEL = "BirdNET+_Geomodel_V3.0.2_Global_12K_FP16.onnx"
-_GEOMODEL_REMOTE_LABELS = "BirdNET+_Geomodel_V3.0.2_Global_12K_Labels.txt"
 
 
 def refresh_birdnet3_model(model_destination: Path, labels_destination: Path) -> list[str]:
@@ -31,7 +20,7 @@ def refresh_birdnet3_model(model_destination: Path, labels_destination: Path) ->
     """
     written = []
 
-    if model_destination.exists() and model_destination.stat().st_size == zenodo.BIRDNET3_MODEL_SIZE:
+    if _has_published_size(model_destination, zenodo.BIRDNET3_MODEL_SIZE):
         logger.info("BirdNET 3 model is up to date")
     else:
         zenodo.download_file(zenodo.BIRDNET3_MODEL_URL, model_destination)
@@ -51,32 +40,38 @@ def refresh_birdnet3_model(model_destination: Path, labels_destination: Path) ->
 
 def refresh_geomodel(model_destination: Path, labels_destination: Path) -> list[str]:
     """
-    Download the GeoModel 3 model and its labels from Hugging Face, and return the names
-    of the files that were actually written.
+    Download the GeoModel 3 model and its labels from the release that publishes them,
+    and return the names of the files that were actually written.
 
-    A file comes down only when the local copy is missing or no longer matches the
-    digest Hugging Face publishes, so this is cheap to run on a schedule. The labels are
-    saved exactly as they arrive, one tab-separated row per class, and GeoModel picks out
-    the scientific name when it loads them.
+    A file comes down only when the local copy is missing or its size differs from the
+    published one, so this is cheap to run on a schedule, and a station carrying an
+    earlier GeoModel picks the new one up on the next deploy. The labels are saved
+    exactly as they arrive, one tab-separated row per class, and GeoModel picks out the
+    scientific name when it loads them.
     """
-    remote_files = huggingface.list_files()
-    wanted = {
-        _GEOMODEL_REMOTE_MODEL: model_destination,
-        _GEOMODEL_REMOTE_LABELS: labels_destination,
-    }
+    wanted = [
+        (github.GEOMODEL_MODEL_URL, github.GEOMODEL_MODEL_SIZE, model_destination),
+        (github.GEOMODEL_LABELS_URL, github.GEOMODEL_LABELS_SIZE, labels_destination),
+    ]
 
     written = []
-    for remote_name, destination in wanted.items():
-        remote_file = remote_files.get(remote_name)
-        if remote_file is None:
-            raise FileNotFoundError(f"{remote_name} is not published in the GeoModel repository")
-        if _is_up_to_date(destination, remote_file):
+    for url, published_size, destination in wanted:
+        if _has_published_size(destination, published_size):
             logger.info("GeoModel %s is up to date", destination.name)
             continue
-        huggingface.download_file(remote_file.path, destination)
+        github.download_file(url, destination)
         written.append(destination.name)
 
     return written
+
+
+def _has_published_size(destination: Path, published_size: int) -> bool:
+    """
+    Whether the local file is there and as large as the published one. Size is all these
+    releases give us to compare against, and it is enough to catch both a missing file
+    and a download that stopped halfway.
+    """
+    return destination.exists() and destination.stat().st_size == published_size
 
 
 def _scientific_names_from_csv(csv_text: str) -> list[str]:
@@ -91,16 +86,3 @@ def _scientific_names_from_csv(csv_text: str) -> list[str]:
     scientific_column = header.index("sci_name")
     rows = sorted((row for row in reader if row), key=lambda row: int(row[index_column]))
     return [row[scientific_column] for row in rows]
-
-
-def _is_up_to_date(destination: Path, remote_file: RemoteFile) -> bool:
-    """
-    Whether the local file already holds the published content. Which digest we compare
-    depends on which one the Hub reports: sha256 for large files, git object id for the
-    rest.
-    """
-    if not destination.exists():
-        return False
-    if remote_file.sha256 is not None:
-        return sha256_of(destination) == remote_file.sha256
-    return git_blob_sha1_of(destination) == remote_file.git_blob_sha1

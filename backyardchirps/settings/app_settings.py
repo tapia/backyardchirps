@@ -52,7 +52,7 @@ BIRDNET3_MODEL_FILE = MODELS_DIR / "model.onnx"
 BIRDNET3_LABELS_FILE = MODELS_DIR / "labels.txt"
 
 # BirdNET 3's location filter, a spatiotemporal occurrence model. The same command
-# downloads it from Hugging Face.
+# downloads it from its GitHub release.
 GEOMODEL_MODEL_FILE = MODELS_DIR / "geomodel.onnx"
 GEOMODEL_LABELS_FILE = MODELS_DIR / "geomodel_labels.txt"
 
