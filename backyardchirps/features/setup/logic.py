@@ -2,8 +2,6 @@ from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
 
 from backyardchirps.features.recording.audio import devices
-from backyardchirps.features.settings.logic import Settings
-from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.setup import queries as setup_queries
 from backyardchirps.features.setup import token_file
 from backyardchirps.features.setup.entity import AudioDevice
@@ -75,25 +73,6 @@ def list_audio_devices() -> list[AudioDevice]:
         AudioDevice(index=index, name=name, channels=channels, sample_rate=sample_rate, is_default=is_default)
         for index, name, channels, sample_rate, is_default in devices.list_input_devices()
     ]
-
-
-def choose_audio_device(device: object) -> bool:
-    """
-    Record from this microphone from now on, returning whether the recorder was
-    restarted to pick it up.
-
-    Mid-wizard the recorder is deliberately stopped, and restarting it would both start
-    an unconfigured station recording and take the microphone away from the level meter
-    on the very next step. So the restart only happens on a station already past setup,
-    which is the settings-page case. complete() starts it either way.
-
-    A development machine has no unit to restart, and says so rather than failing: the
-    setting is saved, and the next start of the recorder uses it.
-    """
-    Settings.set(SettingsKey.AUDIO_DEVICE, device)
-    if not get_status().is_complete:
-        return False
-    return restart_unit(RECORDER_UNIT)
 
 
 def measure_audio_level(device: int | None) -> AudioLevel:

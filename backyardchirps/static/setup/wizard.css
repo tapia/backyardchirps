@@ -1,0 +1,190 @@
+:root {
+  --forest: #1f3d2b;
+  --forest-deep: #142a1d;
+  --leaf: #7bb661;
+  --paper: #f4f1e8;
+  --ink: #16261c;
+  --danger: #b3453a;
+  --muted: rgba(244, 241, 232, 0.65);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1rem 4rem;
+  display: flex;
+  justify-content: center;
+  background: var(--forest-deep);
+  color: var(--paper);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+.card {
+  width: 100%;
+  max-width: 480px;
+  background: var(--forest);
+  border-radius: 12px;
+  padding: 1.75rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+}
+
+h1 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.step-count {
+  margin: 0.25rem 0 0.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.progress {
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--leaf);
+  transition: width 0.2s ease;
+}
+
+.step-title {
+  font-size: 1rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.intro {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-top: 0;
+}
+
+.field {
+  display: block;
+  margin-bottom: 1rem;
+}
+
+.field span {
+  display: block;
+  font-size: 0.8rem;
+  margin-bottom: 0.3rem;
+  color: var(--muted);
+}
+
+input[type="text"],
+input[type="password"] {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(0, 0, 0, 0.2);
+  color: var(--paper);
+  font-size: 0.95rem;
+}
+
+input:focus {
+  outline: 2px solid var(--leaf);
+  outline-offset: 1px;
+}
+
+.field small {
+  display: block;
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.choices {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+}
+
+.choice.selected {
+  border-color: var(--leaf);
+  background: rgba(123, 182, 97, 0.15);
+}
+
+.meter {
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  width: 0;
+  background: var(--leaf);
+  transition: width 0.1s linear;
+}
+
+.meter-note {
+  font-size: 0.75rem;
+  color: var(--muted);
+  min-height: 1.2em;
+}
+
+.error {
+  color: var(--danger);
+  background: rgba(179, 69, 58, 0.12);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+small.error {
+  background: none;
+  padding: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.button {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 0.9rem;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.button.primary {
+  margin-left: auto;
+  background: var(--leaf);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.button.ghost {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--paper);
+}
+
+a {
+  color: var(--leaf);
+}

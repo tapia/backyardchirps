@@ -7,6 +7,7 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': 'http://localhost:8000',
+      '/setup': 'http://localhost:8000',
       '/species-data': 'http://localhost:8000',
     },
   },

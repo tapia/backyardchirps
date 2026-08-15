@@ -1,0 +1,35 @@
+{% extends "setup/base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Where the station is" %}{% endblock %}
+
+{% block fields %}
+  <p class="intro">
+    {% translate "The coordinates decide which species can be here at all, so nothing works well without them." %}
+  </p>
+
+  <label class="field">
+    <span>{% translate "Latitude" %}</span>
+    <input type="text" id="location_lat" name="location_lat" value="{{ settings.location_lat|default_if_none:'' }}" required />
+    {% if errors.location_lat %}<small class="error">{% translate "That is not a latitude between -90 and 90." %}</small>{% endif %}
+  </label>
+
+  <label class="field">
+    <span>{% translate "Longitude" %}</span>
+    <input type="text" id="location_lon" name="location_lon" value="{{ settings.location_lon|default_if_none:'' }}" required />
+    {% if errors.location_lon %}<small class="error">{% translate "That is not a longitude between -180 and 180." %}</small>{% endif %}
+  </label>
+
+  <button type="button" class="button ghost" id="use-my-location">{% translate "Use my location" %}</button>
+{% endblock %}
+
+{% block script %}
+  <script>
+    document.getElementById('use-my-location').addEventListener('click', function () {
+      navigator.geolocation.getCurrentPosition(function (position) {
+        document.getElementById('location_lat').value = position.coords.latitude.toFixed(5)
+        document.getElementById('location_lon').value = position.coords.longitude.toFixed(5)
+      })
+    })
+  </script>
+{% endblock %}

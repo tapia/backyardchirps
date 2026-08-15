@@ -1,0 +1,34 @@
+{% load i18n static %}<!doctype html>
+<html lang="{{ language }}">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% translate "Set up your station" %}</title>
+    <link rel="stylesheet" href="{% static 'setup/wizard.css' %}" />
+  </head>
+  <body>
+    <main class="card">
+      <header class="card-header">
+        <h1>{% translate "Set up your station" %}</h1>
+        <p class="step-count">
+          {% blocktranslate %}Step {{ step_number }} of {{ step_total }}{% endblocktranslate %}
+        </p>
+        <div class="progress"><div class="progress-bar" style="width: {{ progress_percent }}%"></div></div>
+      </header>
+
+      <h2 class="step-title">{% block title %}{% endblock %}</h2>
+
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% block fields %}{% endblock %}
+        <div class="actions">
+          {% if previous_step %}
+            <a class="button ghost" href="/setup/{{ previous_step }}/">{% translate "Back" %}</a>
+          {% endif %}
+          <button type="submit" class="button primary">{% block submit %}{% translate "Next" %}{% endblock %}</button>
+        </div>
+      </form>
+    </main>
+    {% block script %}{% endblock %}
+  </body>
+</html>

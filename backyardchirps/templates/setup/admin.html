@@ -1,0 +1,44 @@
+{% extends "setup/base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Your account" %}{% endblock %}
+
+{% block fields %}
+  {% if has_admin %}
+    <p class="intro">
+      {% translate "This station already has an account, and setup was never finished. Sign in to carry on." %}
+    </p>
+  {% else %}
+    <p class="intro">{% translate "This account is how you will log in from now on." %}</p>
+  {% endif %}
+
+  {% if errors.admin %}
+    <p class="error">
+      {% if errors.admin == "bad_token" %}{% translate "That token does not match the one on this machine." %}
+      {% elif errors.admin == "admin_exists" %}{% translate "That username and password did not match the account on this station." %}
+      {% elif errors.admin == "username_required" %}{% translate "Pick a username." %}
+      {% elif errors.admin == "weak_password" %}{% translate "That password is too easy to guess." %}
+      {% else %}{% translate "That did not work. Try again." %}{% endif %}
+    </p>
+  {% endif %}
+
+  {% if token_required and not has_admin %}
+    <label class="field">
+      <span>{% translate "Setup token" %}</span>
+      <input type="text" name="token" autocomplete="off" spellcheck="false" />
+      <small>{% translate "The installer printed this when it finished." %}</small>
+    </label>
+  {% endif %}
+
+  <label class="field">
+    <span>{% translate "Username" %}</span>
+    <input type="text" name="username" autocomplete="username" required />
+  </label>
+
+  <label class="field">
+    <span>{% translate "Password" %}</span>
+    <input type="password" name="password" autocomplete="{% if has_admin %}current-password{% else %}new-password{% endif %}" required />
+  </label>
+{% endblock %}
+
+{% block submit %}{% if has_admin %}{% translate "Sign in" %}{% else %}{% translate "Create account" %}{% endif %}{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "setup/base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Ready" %}{% endblock %}
+
+{% block fields %}
+  {% if errors.recorder %}
+    <p class="error">
+      {% translate "Setup is finished, but the recorder did not start. Check the server status page." %}
+    </p>
+    <p class="intro"><a href="/">{% translate "Go to the site" %}</a></p>
+  {% elif errors.done %}
+    <p class="error">{% translate "The station could not finish setting up. Try again." %}</p>
+  {% else %}
+    <p class="intro">
+      {% translate "That is everything. Finishing starts the recorder and puts the setup token beyond use, so this wizard will not open again." %}
+    </p>
+  {% endif %}
+{% endblock %}
+
+{% block submit %}{% translate "Finish" %}{% endblock %}

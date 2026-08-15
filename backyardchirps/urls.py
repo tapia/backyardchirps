@@ -24,13 +24,17 @@ urlpatterns = [
     path("api/auth/login/", auth_views.login_view, name="api-auth-login"),
     path("api/auth/logout/", auth_views.logout_view, name="api-auth-logout"),
     path("api/settings/", settings_views.app_settings, name="api-settings"),
+    # The wizard is server-rendered: one URL per step, a POST to move on, and the step a
+    # visitor is on is the URL they are at. The SPA asks setup_status whether to send
+    # them here at all, and the settings page reuses audio_devices.
+    #
+    # audio-level is listed before the step route because "audio-level" would otherwise
+    # match <slug:step> and be looked up as a step of the wizard.
+    path("setup/", setup_views.wizard, name="setup"),
+    path("setup/audio-level/", setup_views.audio_level, name="setup-audio-level"),
+    path("setup/<slug:step>/", setup_views.wizard_step, name="setup-step"),
     path("api/setup/status/", setup_views.setup_status, name="api-setup-status"),
-    path("api/setup/claim/", setup_views.claim, name="api-setup-claim"),
-    path("api/setup/admin/", setup_views.create_admin, name="api-setup-admin"),
     path("api/setup/audio-devices/", setup_views.audio_devices, name="api-setup-audio-devices"),
-    path("api/setup/audio-device/", setup_views.choose_audio_device, name="api-setup-audio-device"),
-    path("api/setup/audio-level/", setup_views.audio_level, name="api-setup-audio-level"),
-    path("api/setup/complete/", setup_views.complete, name="api-setup-complete"),
     path("api/server-status/", server_status_views.server_status, name="api-server-status"),
     path("api/weather/current/", weather_views.current_weather, name="api-weather-current"),
     path(

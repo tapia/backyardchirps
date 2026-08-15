@@ -94,6 +94,16 @@ die() {
     exit 1
 }
 
+# The one-time token the wizard trades for the first admin account. Sets SETUP_TOKEN so
+# the summary at the end can print it, since the file itself is only readable by the
+# service user.
+write_setup_token() {
+    SETUP_TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
+    printf '%s\n' "$SETUP_TOKEN" > "$DATA_DIR/setup-token"
+    chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/setup-token"
+    chmod 600 "$DATA_DIR/setup-token"
+}
+
 # Checked before anything is written, because a half-finished install is worse than
 # one that never started. A function rather than a straight run of statements so
 # --preflight-only can call it on a machine that is not a Pi, against fixtures.
@@ -316,7 +326,31 @@ bash "$APP_DIR/deploy/provision-data-dir.sh" "$DATA_DIR" --user "$SERVICE_USER" 
 info "$SERVICE_USER owns $DATA_DIR"
 
 # ---------------------------------------------------------------------------
-# 5. .env
+# 5. Setup token, for a station that is new
+# ---------------------------------------------------------------------------
+# A station with no database has never run a migration, so it cannot have an admin
+# and it needs a token. That is knowable here, without Django, which is why this
+# runs now rather than after the build.
+#
+# The order matters more than it looks. Everything between here and the end of the
+# build is slow and can fail: a package download, a wheel that will not compile, an
+# ssh session that drops. A failure in there used to leave a station with no token
+# and no admin, which is a station anyone on the network can claim, and one whose
+# wizard closes itself after the account step because "no token" is also how a
+# finished setup looks. Writing the token first means its absence has one meaning.
+say "Checking whether the station needs a setup token"
+SETUP_TOKEN=
+STATION_IS_NEW=no
+if [ ! -f "$DATA_DIR/detections.db" ]; then
+    STATION_IS_NEW=yes
+    write_setup_token
+    info "$DATA_DIR/setup-token"
+else
+    info "this station already has a database, so the token is decided after the build"
+fi
+
+# ---------------------------------------------------------------------------
+# 6. .env
 # ---------------------------------------------------------------------------
 # Written only once. Running the installer again on a configured station must not
 # throw away its secret key and hostnames.
@@ -349,7 +383,7 @@ EOF
 fi
 
 # ---------------------------------------------------------------------------
-# 6. sudoers
+# 7. sudoers
 # ---------------------------------------------------------------------------
 # Narrow on purpose. Root installs and the updater runs as root, so no human needs
 # sudo at all.
@@ -370,7 +404,7 @@ visudo -cf /etc/sudoers.d/backyardchirps > /dev/null \
 info "$SERVICE_USER may restart its own units"
 
 # ---------------------------------------------------------------------------
-# 7. Build and start
+# 8. Build and start
 # ---------------------------------------------------------------------------
 say "Building and starting the station"
 info "This is the slow part: Python packages and the acoustic model."
@@ -390,51 +424,57 @@ if ! BACKYARDCHIRPS_APP_DIR="$APP_DIR" \
 fi
 
 # ---------------------------------------------------------------------------
-# 8. Setup token
+# 9. Setup token, for a station that already had a database
 # ---------------------------------------------------------------------------
-# The wizard trades this for an admin account, then deletes it. Its absence is what
-# tells a later deploy that the station has an owner and may start recording.
+# Re-running the installer is how a station updates, so most runs land here with an
+# owner already in place and nothing to do. The one case worth catching is a station
+# whose database exists but whose setup never finished, which is what an install
+# interrupted after the migrations leaves behind.
 #
-# So it is written only when nobody owns the station yet. Writing one onto a station
-# that already has an admin would undo its setup: completion is derived rather than
-# stored, as "has an admin and no longer has a token", so a fresh token flips the
-# station back to unconfigured. The router then sends every route to the wizard, and
-# the wizard refuses to create a second admin, which leaves the owner locked out of
-# their own site with no way forward in the UI.
+# A token is never written onto a station that has an admin. That would undo its
+# setup: completion is "has an admin and no longer has a token", so a fresh token
+# flips a working station back to unconfigured and its owner is sent to a wizard that
+# refuses to create a second account.
 #
-# Re-running the installer is how a station updates, so this is the ordinary path,
-# not an edge case.
-say "Checking whether the station has an owner"
-station_has_admin="$(
-    sudo -u "$SERVICE_USER" env BACKYARDCHIRPS_DATA_DIR="$DATA_DIR" \
-        "$APP_DIR/.venv/bin/python" "$APP_DIR/manage.py" shell -c \
-        'from backyardchirps.features.setup.logic import get_status
+# Nothing here can fail the install. By this point the station is built, migrated and
+# serving, and the only question left is whether to write one small file. Saying so
+# and carrying on beats reporting a failed install that actually succeeded.
+if [ "$STATION_IS_NEW" = no ] && [ -f "$DATA_DIR/setup-token" ]; then
+    # A token from an earlier run that nobody has spent yet. Read it back so the
+    # summary prints it again, which is the answer to having lost it.
+    SETUP_TOKEN="$(cat "$DATA_DIR/setup-token")"
+    say "This station still has an unused setup token"
+    info "setup was never finished, so the wizard is still waiting"
+elif [ "$STATION_IS_NEW" = no ]; then
+    say "Checking whether the station has an owner"
+    station_has_admin="$(
+        sudo -u "$SERVICE_USER" env BACKYARDCHIRPS_DATA_DIR="$DATA_DIR" \
+            "$APP_DIR/.venv/bin/python" "$APP_DIR/manage.py" shell -c \
+            'from backyardchirps.features.setup.logic import get_status
 print("yes" if get_status().has_admin else "no")' | tail -n 1
-)" || die "Could not ask the station whether it has an admin account. See $LOG_FILE."
+    )" || station_has_admin=unknown
 
-case "$station_has_admin" in
-    yes)
-        SETUP_TOKEN=
-        info "it does, so no setup token is needed"
-        ;;
-    no)
-        say "Generating the setup token"
-        SETUP_TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n')"
-        printf '%s\n' "$SETUP_TOKEN" > "$DATA_DIR/setup-token"
-        chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/setup-token"
-        chmod 600 "$DATA_DIR/setup-token"
-        info "$DATA_DIR/setup-token"
-        ;;
-    *)
-        # Django answered something else, which means the question was not really
-        # answered. Guessing either way is worse than stopping: guess "no" and the
-        # owner is locked out, guess "yes" and a fresh station can never be claimed.
-        die "Could not tell whether the station has an admin account (got '$station_has_admin'). See $LOG_FILE."
-        ;;
-esac
+    case "$station_has_admin" in
+        yes)
+            info "it does, so no setup token is needed"
+            ;;
+        no)
+            write_setup_token
+            info "setup was never finished, so a fresh token is at $DATA_DIR/setup-token"
+            ;;
+        *)
+            # Never guess. Guessing "no" writes a token onto what may be a working
+            # station and undoes its setup; guessing "yes" is harmless but silent.
+            # So do neither, and say how to write one by hand if it turns out to be
+            # needed.
+            info "could not tell, so nothing was written"
+            info "if the wizard asks for a token you do not have, see docs/installation.md"
+            ;;
+    esac
+fi
 
 # ---------------------------------------------------------------------------
-# 9. Old releases
+# 10. Old releases
 # ---------------------------------------------------------------------------
 # Kept so a bad version can be rolled back by pointing the symlink at the one
 # before it, and pruned so a station that installs often does not fill its card.
@@ -462,7 +502,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 10. Done
+# 11. Done
 # ---------------------------------------------------------------------------
 # Built from the machine rather than read back out of .env, so a station whose
 # hostname changed after it was installed still prints an address that works.

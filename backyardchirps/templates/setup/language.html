@@ -1,0 +1,16 @@
+{% extends "setup/base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Language" %}{% endblock %}
+
+{% block fields %}
+  <p class="intro">{% translate "Which language should this wizard use? You can change the site language later." %}</p>
+  <div class="choices">
+    {% for code, label in language_options %}
+      <label class="choice {% if code == language %}selected{% endif %}">
+        <input type="radio" name="language" value="{{ code }}" {% if code == language %}checked{% endif %} />
+        {{ label }}
+      </label>
+    {% endfor %}
+  </div>
+{% endblock %}

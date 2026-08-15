@@ -80,7 +80,7 @@ There is no `api/`, `domain/`, `repositories/`, `services/`, or `use_cases/` lay
 | `recording` | Audio capture and the acoustic model pipeline (the recorder process) |
 | `notifications` | Notification rules and the notifier |
 | `settings` | `AppSetting` reads and writes, with parsing and defaults |
-| `setup` | The first-run wizard: the one-time token, the first admin account, the microphone picker |
+| `setup` | The first-run wizard: the one-time token, the first admin account, the microphone picker. The only feature that renders HTML |
 | `weather` | Current weather and sunrise/sunset, both cached |
 | `auth`, `server_status` | Session endpoints, and the machine metrics behind the status page |
 
@@ -114,6 +114,33 @@ names, and never pass a raw scientific-name string between modules.
 **`detections/queries` imports `overrides/queries`**, so overrides cannot import detections at
 module load. That is why the override workflow that clears the pending queue lives in
 `overrides/logic.py` rather than on the `StoredSpeciesOverride` model.
+
+### The setup wizard is server-rendered
+
+Every other feature answers JSON and the Vue app draws it. `setup` is the exception: it serves
+HTML from `templates/setup/`, one page per step, at `/setup/`. nginx proxies that prefix to
+Django like `/api/` and `/admin/`.
+
+The flow is a URL and a session, nothing else. `GET /setup/` redirects to the step you are on,
+each step POSTs to its own URL and redirects to the next, and the furthest step reached is in
+the session. So a reload repeats nothing, the back button works, and closing the browser
+half way through loses at most the step being filled in.
+
+Which is the point. The wizard was a Vue component holding the current step in memory while
+the server decided separately whether setup was finished, and the two could disagree. An
+install interrupted before it wrote the token was enough: the account step created the
+account, the step never advanced, and the station then looked finished to the server while
+having no coordinates and a stopped recorder, with no way back in through the UI.
+
+Two endpoints survive as JSON because the SPA calls them: `setup/status/`, which the router
+guard reads to decide whether to send a visitor to `/setup/` at all, and `setup/audio-devices/`,
+which the settings page reuses. The level meter on the microphone step polls `setup/audio-level/`,
+the one part of the wizard a page load cannot do.
+
+A station is set up once it has an admin and no longer has a token. `install.sh` writes that
+token as soon as the data directory exists, before the slow part of the install, so a failure
+in between cannot leave a station whose missing token means "finished" when it means "never
+written".
 
 ## The audio pipeline
 

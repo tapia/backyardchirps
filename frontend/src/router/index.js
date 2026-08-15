@@ -9,7 +9,6 @@ import LoginPage from '../pages/LoginPage.vue'
 import SettingsPage from '../pages/SettingsPage.vue'
 import DetectionSettingsPage from '../pages/DetectionSettingsPage.vue'
 import ServerStatusPage from '../pages/ServerStatusPage.vue'
-import SetupWizardPage from '../pages/SetupWizardPage.vue'
 import { useAuth } from '../composables/useAuth.js'
 import { useSetup } from '../composables/useSetup.js'
 
@@ -34,7 +33,6 @@ const routes = [
     component: ServerStatusPage,
     meta: { requiresAdmin: true },
   },
-  { path: '/setup', name: 'setup', component: SetupWizardPage },
 ]
 
 const router = createRouter({
@@ -44,15 +42,17 @@ const router = createRouter({
 
 // An unconfigured station has no coordinates and is not even recording yet, so there is
 // nothing to look at anywhere else. Everything goes to the wizard until it is finished.
-router.beforeEach(async (to) => {
+//
+// The wizard is served by Django at /setup/ rather than being part of this app, so going
+// there is a page load and not a route change. Returning false stops the navigation this
+// one replaces.
+router.beforeEach(async () => {
   const { status, ready: setupReady } = useSetup()
   await setupReady()
 
   if (!status.value.is_complete) {
-    return to.name === 'setup' ? true : { name: 'setup' }
-  }
-  if (to.name === 'setup') {
-    return { name: 'recent' }
+    window.location.href = '/setup/'
+    return false
   }
   return true
 })

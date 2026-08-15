@@ -1,0 +1,28 @@
+{% extends "setup/base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Notifications and keys" %}{% endblock %}
+
+{% block fields %}
+  <p class="intro">{% translate "All optional. Leave anything blank and set it later on the settings page." %}</p>
+
+  <label class="field">
+    <span>{% translate "Telegram bot token" %}</span>
+    <input type="text" name="telegram_token" value="{{ settings.telegram_token }}" autocomplete="off" />
+  </label>
+
+  <label class="field">
+    <span>{% translate "Telegram chat id" %}</span>
+    <input type="text" name="telegram_chat_id" value="{{ settings.telegram_chat_id }}" autocomplete="off" />
+  </label>
+
+  <label class="field">
+    <span>{% translate "xeno-canto API key" %}</span>
+    <input type="text" name="xeno_canto_api_key" value="{{ settings.xeno_canto_api_key }}" autocomplete="off" />
+  </label>
+
+  <label class="field">
+    <span>{% translate "ipgeolocation.io API key" %}</span>
+    <input type="text" name="ipgeolocation_api_key" value="{{ settings.ipgeolocation_api_key }}" autocomplete="off" />
+  </label>
+{% endblock %}

@@ -87,16 +87,19 @@ calculated as the app runs and has no meaningful name, such as a pixel position.
 API calls, so the backend returns localised common names. Interface strings live in
 `locales/en.js` and `locales/es.js`, which must always define the same keys.
 
-## The setup wizard
+## The setup wizard is not part of this app
 
-`SetupWizardPage.vue` and `components/setup/` are the first-run flow, and a router guard sends
-every route to it until `/api/setup/status/` reports the station configured. `App.vue` drops the
-navbar and the footer there, so the wizard has the page to itself.
+The first-run wizard is server-rendered by Django at `/setup/`, with its own templates and
+stylesheet. Nothing about it lives here.
 
-Only two of its steps are its own. The account step talks to `api/setup.js`; everything after it
-loads and saves through the ordinary settings API, reusing `useSettingsForm` and the field
-components from `components/settings/`. That is deliberate: a field that exists in both places
-must not be able to validate differently in each, and the wizard is not a second settings page.
+All this app does is ask `/api/setup/status/` once, in a router guard, and send the browser to
+`/setup/` with a full page load while the station is unconfigured. The wizard used to be Vue,
+and moving it out is why: which step a visitor was on lived in component state while whether
+setup was finished lived on the server, and the two could disagree. An interrupted install was
+enough to make them, leaving an account created, a wizard that would not advance, and no way
+back in. A step that is a URL and a POST cannot drift from the server that serves it.
+
+See [architecture.md](architecture.md) for the flow itself.
 
 ## Two visual systems
 

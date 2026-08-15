@@ -1,0 +1,28 @@
+{% extends "setup/base.html" %}
+{% load i18n %}
+
+{% block title %}{% translate "Detection thresholds" %}{% endblock %}
+
+{% block fields %}
+  <p class="intro">
+    {% translate "How sure BirdNET has to be before a detection counts. The defaults are a good start." %}
+  </p>
+
+  <label class="field">
+    <span>{% translate "Low" %}</span>
+    <input type="text" name="analysis_low_confidence" value="{{ settings.analysis_low_confidence }}" />
+    {% if errors.analysis_low_confidence %}<small class="error">{% translate "Give a number between 0 and 1." %}</small>{% endif %}
+  </label>
+
+  <label class="field">
+    <span>{% translate "Medium" %}</span>
+    <input type="text" name="analysis_medium_confidence" value="{{ settings.analysis_medium_confidence }}" />
+    {% if errors.analysis_medium_confidence %}<small class="error">{% translate "Give a number between 0 and 1." %}</small>{% endif %}
+  </label>
+
+  <label class="field">
+    <span>{% translate "High" %}</span>
+    <input type="text" name="analysis_high_confidence" value="{{ settings.analysis_high_confidence }}" />
+    {% if errors.analysis_high_confidence %}<small class="error">{% translate "Give a number between 0 and 1." %}</small>{% endif %}
+  </label>
+{% endblock %}

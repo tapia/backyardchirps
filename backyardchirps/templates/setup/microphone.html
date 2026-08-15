@@ -1,0 +1,28 @@
+{% extends "setup/base.html" %}
+{% load i18n static %}
+
+{% block title %}{% translate "Microphone" %}{% endblock %}
+
+{% block fields %}
+  <p class="intro">{% translate "Pick the input to record from. The meter moves when it hears you." %}</p>
+
+  {% if devices %}
+    <div class="choices">
+      {% for device in devices %}
+        <label class="choice {% if settings.audio_device == device.index %}selected{% endif %}">
+          <input type="radio" name="audio_device" value="{{ device.index }}"
+                 {% if settings.audio_device == device.index %}checked{% endif %} />
+          {{ device.name }}{% if device.is_default %} ({% translate "default" %}){% endif %}
+        </label>
+      {% endfor %}
+    </div>
+    <div class="meter"><div class="meter-fill" id="meter-fill"></div></div>
+    <p class="meter-note" id="meter-note"></p>
+  {% else %}
+    <p class="error">{% translate "This machine has no recording device, so there is nothing to listen with." %}</p>
+  {% endif %}
+{% endblock %}
+
+{% block script %}
+  <script src="{% static 'setup/wizard.js' %}" defer></script>
+{% endblock %}
