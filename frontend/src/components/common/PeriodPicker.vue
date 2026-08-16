@@ -235,7 +235,7 @@ function _emitCustomRange(range) {
 }
 
 // Emit the parent-provided starting selection on mount so it receives the
-// window without duplicating the preset math. Does not persist — the parent
+// window without duplicating the preset math. Does not persist, because the parent
 // decides what the starting selection is (stored value or a page default).
 function _applyInitialSelection(selection) {
   if (selection.preset === 'custom' && selection.range?.length === 2) {

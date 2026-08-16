@@ -167,7 +167,7 @@ function onMediaChange(event) {
 }
 mediaQuery.addEventListener('change', onMediaChange)
 
-// Monday-first for Spanish, Sunday-first otherwise — mirrors the previous
+// Monday-first for Spanish, Sunday-first otherwise, mirroring the previous
 // date-fns locale behaviour.
 const weekStart = computed(() => (locale.value === 'es' ? 1 : 0))
 
@@ -662,7 +662,7 @@ function teardown() {
   opacity: 0.55;
 }
 
-/* Range strip — half fills paint the connecting band under start/end. */
+/* Range strip: half fills paint the connecting band under start/end. */
 .prp-day--between {
   background: var(--lichen-pale);
 }

@@ -1,11 +1,11 @@
 import { Tooltip } from 'bootstrap'
 
-// v-bs-tooltip="text" — Bootstrap hover tooltip. Registered globally in main.js.
+// v-bs-tooltip="text" is a Bootstrap hover tooltip. Registered globally in main.js.
 // container: 'body' keeps the tooltip from being clipped by overflow parents
 // (dropdowns, modals).
 //
 // Add the `.html` modifier (v-bs-tooltip.html="markup") to render trusted HTML
-// content — e.g. a colour-gradient legend. Sanitisation is disabled in that
+// content, for example a colour-gradient legend. Sanitisation is disabled in that
 // mode, so only ever pass markup the app itself builds, never user input.
 // Add the `.wide` modifier to widen the bubble past the default 200px cap
 // (see `.bs-tooltip-wide .tooltip-inner` in style.css).

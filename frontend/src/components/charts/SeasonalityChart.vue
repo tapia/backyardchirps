@@ -116,7 +116,7 @@ function _currentWeekIndex(entries) {
   return bestIndex
 }
 
-// The colour ramp maps the absolute occurrence probability (0–100%), so a
+// The colour ramp maps the absolute occurrence probability (0 to 100%), so a
 // species that never exceeds 1% stays at the low end of the ramp rather than
 // being stretched to its own peak.
 function _colorForEntry(entry) {
@@ -124,7 +124,7 @@ function _colorForEntry(entry) {
   return _colorForRatio(ratio)
 }
 
-// Linear interpolation across the seasonality colour ramp for a 0–1 ratio.
+// Linear interpolation across the seasonality colour ramp for a 0 to 1 ratio.
 function _colorForRatio(ratio) {
   const stops = CHART_COLORS.seasonalityGradient
   const scaled = Math.max(0, Math.min(1, ratio)) * (stops.length - 1)

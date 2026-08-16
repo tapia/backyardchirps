@@ -277,7 +277,7 @@ export default {
     tabDetections: 'Detections',
     tabRecordings: 'Recordings',
     noData: 'No detections recorded for this species yet.',
-    blacklistedNoData: 'This species is blacklisted — its detections are ignored and hidden.',
+    blacklistedNoData: 'This species is blacklisted: its detections are ignored and hidden.',
     noRecordings: 'No recordings for this period.',
     allRecordings: 'All recordings',
     needsReview: 'Needs review',

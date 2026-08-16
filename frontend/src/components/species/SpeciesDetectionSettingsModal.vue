@@ -120,7 +120,7 @@ const thresholdField = ref(null)
 const saving = ref(false)
 
 // The global auto-confirm bar, used to prefill the input when a species has no
-// custom threshold yet — so switching it on starts from the value in effect
+// custom threshold yet, so switching it on starts from the value in effect
 // today rather than a blank field. Loaded lazily the first time it's needed.
 const defaultThresholdPercent = ref(null)
 let defaultLoaded = false
@@ -136,7 +136,7 @@ async function loadDefaultThreshold() {
   }
 }
 
-// The threshold is stored as a 0–1 confidence but edited here as a whole
+// The threshold is stored as a 0 to 1 confidence but edited here as a whole
 // percentage, matching how it reads on the status badge.
 const thresholdPercent = computed(() => {
   const raw = thresholdInput.value

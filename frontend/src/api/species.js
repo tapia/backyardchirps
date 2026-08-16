@@ -29,7 +29,7 @@ export async function fetchSpeciesSeasonality(speciesSlug) {
   return data.timeline
 }
 
-// Detection settings — a species' blacklisted state and custom auto-confirm
+// Detection settings: a species' blacklisted state and custom auto-confirm
 // threshold. GET is public (drives badges/banners); PUT/DELETE are staff only.
 export async function fetchSpeciesDetectionSettings(speciesSlug) {
   const { data } = await client.get(speciesUrl(speciesSlug, 'detection-settings/'))

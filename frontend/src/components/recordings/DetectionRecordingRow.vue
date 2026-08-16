@@ -42,7 +42,7 @@ import ShareRecordingButton from './ShareRecordingButton.vue'
 // One captured-detection row: time · length · confidence · (optional) action.
 // Shared by the species page Recordings tab (day-grouped, with a play button
 // and an edit/review action) and the pending-review species view (full date,
-// no action — the whole row opens the validation dialog).
+// no action, since the whole row opens the validation dialog).
 defineProps({
   recording: { type: Object, required: true },
   // Show the review/edit action button. Off where the whole row is clickable.

@@ -124,7 +124,7 @@ const highlightCards = computed(() =>
 )
 
 // Compact on-the-hour time for the peak value slot: drops the ":00" minutes so
-// the range fits the big value size ("3 AM–6 AM" / "3–6"), locale-aware via LT.
+// the range fits the big value size ("3 AM to 6 AM" / "3-6"), locale-aware via LT.
 function formatHour(hour) {
   return dayjs().hour(hour).minute(0).format('LT').replace(':00', '')
 }

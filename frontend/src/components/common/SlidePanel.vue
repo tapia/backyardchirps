@@ -36,7 +36,7 @@
 import { useI18n } from 'vue-i18n'
 
 // Shared panel: a full-height sheet on mobile, a centered modal on desktop.
-// Purely presentational — it renders the header chrome (a back arrow on mobile,
+// Purely presentational: it renders the header chrome (a back arrow on mobile,
 // a close button on desktop) plus optional footer, and emits `close` from those
 // controls or a backdrop tap. The parent owns the open state (mount it with
 // v-if) and any Back-button / Escape handling, so hosts that stack several

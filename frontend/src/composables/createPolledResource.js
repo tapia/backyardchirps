@@ -12,7 +12,7 @@ export function createPolledResource(fetchResource, intervalMs) {
     try {
       data.value = await fetchResource()
     } catch {
-      // ignore — polled data is non-critical and the next tick retries
+      // Ignored: polled data is non-critical and the next tick retries
     }
   }
 

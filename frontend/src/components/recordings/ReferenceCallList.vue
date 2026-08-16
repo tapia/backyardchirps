@@ -58,7 +58,7 @@ import InlineAudioRow from './InlineAudioRow.vue'
 import PlayButton from '../audio/PlayButton.vue'
 
 // Reference calls for a species (external example recordings from Xeno-Canto),
-// shown with their type / sex / stage metadata. Read-only, illustrative — the
+// shown with their type / sex / stage metadata. Read-only and illustrative: the
 // user's own captures live in DetectionRecordingList.
 const props = defineProps({
   sounds: { type: Array, default: () => [] },

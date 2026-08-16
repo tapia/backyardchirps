@@ -1,11 +1,11 @@
-/* ── Root font size — scales all rem values ──────────────────────── */
+/* ── Root font size: scales all rem values ──────────────────────── */
 html {
   font-size: 17px;
 }
 
 /* ── Observatory Design System ──────────────────────────────────── */
 :root {
-  /* Core palette — old paper, limestone, graphite, lichen */
+  /* Core palette: old paper, limestone, graphite, lichen */
   --paper: #f4f1eb;
   --sheet: #fdfcfa;
   --sheet-rgb: 253, 252, 250;
@@ -20,7 +20,7 @@ html {
   --sand-pale: #ecdfc4;
   --danger-muted: #8b3a3a;
 
-  /* Species hero stat accents — earthy jay-blue + ochre, tuned to the palette */
+  /* Species hero stat accents: earthy jay-blue + ochre, tuned to the palette */
   --jay-blue: #3f6188;
   --jay-blue-rgb: 63, 97, 136;
   --ochre: #8a6d38;
@@ -54,7 +54,7 @@ html {
   --status-card-border: #2e2e2e;
   --status-card-alert-bg: #1e0a0a;
 
-  /* Legacy names remapped — components using these get updated automatically */
+  /* Legacy names remapped, so components using these get updated automatically */
   --forest: #4a5940;
   --forest-dark: #3d4c35;
   /* Day/night chart zones */
@@ -70,7 +70,7 @@ html {
   --warm-border: #dad6ce;
   --spectrogram-dark: #0e0d0c;
 
-  /* "This week" marker on the seasonality band — dark neutral so it
+  /* "This week" marker on the seasonality band: dark neutral so it
      stays legible over both the warm and the blue ends of the ramp */
   --seasonality-marker: #252320;
 
@@ -166,7 +166,7 @@ h6,
   border-color: var(--limestone);
 }
 
-/* Remove default shadows — hierarchy comes from spacing and borders */
+/* Remove default shadows: hierarchy comes from spacing and borders */
 .shadow-sm {
   box-shadow: none !important;
 }

@@ -372,7 +372,7 @@ watch(chartSpeciesCount, (count) => {
 })
 
 // The period picker emits the restored (or default) window on mount, which
-// flows through onPeriodChange and triggers the initial fetch via this watch —
+// flows through onPeriodChange and triggers the initial fetch via this watch,
 // so no separate onMounted fetch is needed.
 watch([start, end, sort, lang, confidenceLevel], fetchSpecies)
 

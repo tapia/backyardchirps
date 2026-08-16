@@ -26,7 +26,7 @@ import { useI18n } from 'vue-i18n'
 import ReferenceCallList from './ReferenceCallList.vue'
 
 // The reference-calls panel: a toggle that opens a floating list of example
-// recordings for the selected species. Self-contained — it owns its open state,
+// recordings for the selected species. Self-contained: it owns its open state,
 // stops playback when it closes, and dismisses itself on an outside click, so
 // callers just pass the sounds and (optionally) call close().
 defineProps({
@@ -125,7 +125,7 @@ defineExpose({ close })
   border-top: none;
   border-radius: 0 0 12px 12px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.12);
-  /* Scroll shadows — see SpeciesSearchPicker for how the layers work. */
+  /* Scroll shadows. See SpeciesSearchPicker for how the layers work. */
   background-color: var(--sheet);
   background-image:
     linear-gradient(var(--sheet) 30%, rgba(var(--sheet-rgb), 0)),

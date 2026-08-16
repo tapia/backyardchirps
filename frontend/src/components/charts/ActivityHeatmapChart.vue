@@ -123,7 +123,7 @@ function render() {
       ctx.lineTo(areaRight, areaTop - 8)
       ctx.stroke()
 
-      // "Totals" Y-axis label — anchored to where Chart.js actually renders tick labels.
+      // "Totals" Y-axis label, anchored to where Chart.js actually renders tick labels.
       // Chart.js computes x = scale.right - (tickLength + tickPadding) for left-axis labels.
       const yScale = ch.scales.y
       const gridTickLength =

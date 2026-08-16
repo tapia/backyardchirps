@@ -93,7 +93,7 @@ const props = defineProps({
   recordings: { type: Array, default: () => [] },
   validate: { type: Boolean, default: false },
   // Group into collapsible day cards (date sort). When false, a plain flat
-  // list — used for confidence sort, where day grouping would fight the order.
+  // list. Used for confidence sort, where day grouping would fight the order.
   groupByDay: { type: Boolean, default: false },
 })
 
