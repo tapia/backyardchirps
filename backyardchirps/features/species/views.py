@@ -19,10 +19,10 @@ from backyardchirps.features.species import queries
 from backyardchirps.features.species.entity import Species
 from backyardchirps.features.species.seasonality import get_yearly_seasonality
 from backyardchirps.integrations.xeno_canto import get_recordings as get_xeno_canto_recordings
-from backyardchirps.shared.http import _parse_dt
-from backyardchirps.shared.http import _resolve_confidence_level
 from backyardchirps.shared.http import get_detected_species_or_404
 from backyardchirps.shared.http import get_species_or_404
+from backyardchirps.shared.http import parse_dt
+from backyardchirps.shared.http import resolve_confidence_level
 
 
 class SpeciesListOrder(Enum):
@@ -34,8 +34,8 @@ class SpeciesListOrder(Enum):
 @api_view(["GET"])
 def species_list(request):
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
-    start, end = _parse_dt(request.GET.get("start")), _parse_dt(request.GET.get("end"))
-    min_confidence = _resolve_confidence_level(request)
+    start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
+    min_confidence = resolve_confidence_level(request)
     order = _parse_species_order(request.GET.get("sort"))
 
     db_order = order.value if order != SpeciesListOrder.ALPHABETICAL else None
@@ -78,8 +78,8 @@ def taxonomy_search(request):
 @api_view(["GET"])
 def species_detail(request, slug):
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
-    start, end = _parse_dt(request.GET.get("start")), _parse_dt(request.GET.get("end"))
-    min_confidence = _resolve_confidence_level(request)
+    start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
+    min_confidence = resolve_confidence_level(request)
     species = get_species_or_404(slug)
 
     override = override_queries.get(species)
@@ -117,7 +117,7 @@ def species_detail(request, slug):
 
 @api_view(["GET"])
 def species_recordings(request, slug):
-    start, end = _parse_dt(request.GET.get("start")), _parse_dt(request.GET.get("end"))
+    start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     sort = request.GET.get("sort", "date")
     direction = request.GET.get("direction", "desc")
     offset = _parse_int(request.GET.get("offset"), default=0)

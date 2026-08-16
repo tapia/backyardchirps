@@ -4,8 +4,8 @@ from django.test import RequestFactory
 from backyardchirps.features.detections.views import _parse_range
 from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.shared import http as utils
-from backyardchirps.shared.http import _parse_dt
-from backyardchirps.shared.http import _resolve_confidence_level
+from backyardchirps.shared.http import parse_dt
+from backyardchirps.shared.http import resolve_confidence_level
 
 _FILE_SIZE = 1000
 
@@ -33,24 +33,24 @@ def test_parse_range(header: str | None, expected: tuple[int, int] | None) -> No
 
 @pytest.mark.parametrize("value", [None, "", "not-a-date"])
 def test_parse_dt_returns_none_for_missing_or_invalid(value: str | None) -> None:
-    assert _parse_dt(value) is None
+    assert parse_dt(value) is None
 
 
 def test_parse_dt_makes_naive_datetime_aware() -> None:
-    result = _parse_dt("2024-06-15T08:00:00")
+    result = parse_dt("2024-06-15T08:00:00")
     assert result is not None
     assert result.tzinfo is not None
 
 
 def test_parse_dt_preserves_aware_datetime() -> None:
-    result = _parse_dt("2024-06-15T08:00:00+00:00")
+    result = parse_dt("2024-06-15T08:00:00+00:00")
     assert result is not None
     assert result.utcoffset() is not None
 
 
 def test_resolve_confidence_level_low_returns_none() -> None:
     request = RequestFactory().get("/", {"min_confidence": "low"})
-    assert _resolve_confidence_level(request) is None
+    assert resolve_confidence_level(request) is None
 
 
 @pytest.mark.parametrize(
@@ -76,5 +76,5 @@ def test_resolve_confidence_level_maps_to_setting_key(
     params = {} if raw is None else {"min_confidence": raw}
     request = RequestFactory().get("/", params)
 
-    assert _resolve_confidence_level(request) == 0.9
+    assert resolve_confidence_level(request) == 0.9
     assert requested_keys == [expected_key]

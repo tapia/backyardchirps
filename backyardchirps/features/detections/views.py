@@ -24,7 +24,7 @@ from backyardchirps.features.detections.queries import list_detections
 from backyardchirps.features.detections.queries import species_identified_in_same_recording
 from backyardchirps.features.overrides import queries as override_queries
 from backyardchirps.features.species.entity import Species
-from backyardchirps.shared.http import _parse_dt
+from backyardchirps.shared.http import parse_dt
 from backyardchirps.shared.http import request_body
 
 
@@ -74,8 +74,8 @@ def detections_list(request):
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     offset = _parse_int(request.GET.get("offset"), default=0)
     limit = _parse_int(request.GET.get("limit"), default=50)
-    start = _parse_dt(request.GET.get("start"))
-    end = _parse_dt(request.GET.get("end"))
+    start = parse_dt(request.GET.get("start"))
+    end = parse_dt(request.GET.get("end"))
 
     scientific_name = request.GET.get("species")
     if scientific_name:

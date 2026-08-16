@@ -60,7 +60,7 @@ class ConfidenceLevel(Enum):
     HIGH = "high"
 
 
-def _parse_dt(value: str | None) -> datetime | None:
+def parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
     dt = parse_datetime(value)
@@ -69,7 +69,7 @@ def _parse_dt(value: str | None) -> datetime | None:
     return timezone.make_aware(dt) if timezone.is_naive(dt) else dt
 
 
-def _resolve_confidence_level(request: HttpRequest) -> float | None:
+def resolve_confidence_level(request: HttpRequest) -> float | None:
     """
     Turn the 'min_confidence' query parameter, one of low, medium or high, into the
     threshold it stands for. Anything else is treated as high. "low" means no threshold
