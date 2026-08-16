@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Iterator
 from typing import Any
 
@@ -6,13 +7,17 @@ from django.core.exceptions import ValidationError
 
 from backyardchirps.features.recording.audio import devices
 from backyardchirps.features.settings.logic import Settings
+from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.setup import queries as setup_queries
 from backyardchirps.features.setup import token_file
 from backyardchirps.features.setup.entity import AudioDevice
 from backyardchirps.features.setup.entity import AudioLevel
 from backyardchirps.features.setup.entity import SetupErrorCode
 from backyardchirps.features.setup.entity import SetupStatus
+from backyardchirps.features.species.maintenance import refresh_species_list
 from backyardchirps.integrations.systemd import restart_unit
+
+logger = logging.getLogger(__name__)
 
 # The unit holding the microphone. Restarted after the device changes, since the recorder
 # opens it once at startup and never looks again.
@@ -116,11 +121,41 @@ def complete(answers: dict[str, Any]) -> bool:
     because a recorder with no coordinates matches against every species on earth. The
     settings go in before the recorder starts, since it reads the coordinates once at
     startup, and the token goes before that: the recorder has to see a finished setup to
-    stay started across the next deploy.
+    stay started across the next deploy. The species list is built in the same gap, for
+    the same reason, and cannot stop any of this: see _build_species_list.
     """
     if not setup_queries.superuser_exists():
         raise SetupError(SetupErrorCode.NO_ADMIN)
     for key, value in answers.items():
         Settings.set(key, value)
+    _build_species_list()
     token_file.delete()
     return restart_unit(RECORDER_UNIT)
+
+
+def _build_species_list() -> None:
+    """
+    Work out which species live here, now that there are coordinates to ask about.
+
+    Without this a new station waits for the daily timer, so its first day, the one day
+    its owner is certainly watching, is spent searching the whole taxonomy and calling
+    nothing rare. Every one of those is a working state, which is why it went unnoticed
+    for so long, but it is the worst day to be in it.
+
+    It runs before the recorder starts, because the recorder reads the list once at
+    startup. It never raises: a station that cannot build a list is in the state it was
+    already in, and refusing to finish setup over it would be far worse than the problem.
+
+    The taxonomy is deliberately left alone. Refreshing it needs the network and is slow,
+    and the copy that ships with the release is exactly what a fresh station should use.
+    The daily timer picks it up later.
+    """
+    latitude = Settings.get(SettingsKey.LOCATION_LAT)
+    longitude = Settings.get(SettingsKey.LOCATION_LON)
+    if latitude is None or longitude is None:
+        logger.warning("Setup finished with no coordinates, so no species list was built")
+        return
+    try:
+        refresh_species_list(latitude, longitude)
+    except Exception:
+        logger.exception("Could not build the species list while finishing setup")

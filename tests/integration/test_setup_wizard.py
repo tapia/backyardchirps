@@ -488,3 +488,86 @@ def _readings(body: str) -> list[Any]:
     The JSON payload of every data event in a server-sent event stream.
     """
     return [json.loads(line[len("data: ") :]) for line in body.splitlines() if line.startswith("data: ")]
+
+
+# --- the species list ---------------------------------------------------------
+
+
+@pytest.fixture
+def species_list_builds(monkeypatch: pytest.MonkeyPatch) -> list[tuple[float, float]]:
+    """
+    The coordinates the species list was built for, if it was built at all. The real one
+    needs GeoModel, which no test machine has.
+    """
+    built: list[tuple[float, float]] = []
+    monkeypatch.setattr(
+        setup_logic,
+        "refresh_species_list",
+        lambda latitude, longitude: built.append((latitude, longitude)),
+    )
+    return built
+
+
+def test_finishing_builds_the_species_list_for_the_coordinates_just_given(
+    claimed_client: Client, restarts: list[str], species_list_builds: list[tuple[float, float]]
+) -> None:
+    """
+    Finishing is the first moment a station knows where it is. Left to the daily timer,
+    its first day is spent searching the whole taxonomy and calling nothing rare.
+    """
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    claimed_client.post("/setup/done/", {})
+
+    assert species_list_builds == [(40.4, -3.7)]
+
+
+def test_the_species_list_is_built_before_the_recorder_starts(
+    claimed_client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    The recorder reads the list once at startup, so building it afterwards would leave
+    the first run without one.
+    """
+    order: list[str] = []
+    monkeypatch.setattr(setup_logic, "refresh_species_list", lambda latitude, longitude: order.append("species list"))
+    monkeypatch.setattr(setup_logic, "restart_unit", lambda unit: order.append("recorder") or True)
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    claimed_client.post("/setup/done/", {})
+
+    assert order == ["species list", "recorder"]
+
+
+def test_setup_still_finishes_when_the_species_list_cannot_be_built(
+    claimed_client: Client, token_file: Path, restarts: list[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A station that cannot build a list is in the state it was already in. Refusing to
+    finish setup over it would strand its owner in the wizard for no gain.
+    """
+
+    def _explode(latitude: float, longitude: float) -> None:
+        raise OSError("no room on the card")
+
+    monkeypatch.setattr(setup_logic, "refresh_species_list", _explode)
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    response = claimed_client.post("/setup/done/", {})
+
+    assert response.headers["Location"] == "/"
+    assert not token_file.exists()
+    assert restarts == [setup_logic.RECORDER_UNIT]
+
+
+def test_no_coordinates_means_no_species_list(
+    claimed_client: Client, restarts: list[str], species_list_builds: list[tuple[float, float]]
+) -> None:
+    """
+    Building one for 0, 0 would describe the Atlantic off Africa and hand it to search
+    and the rare-species rule. Having none is the honest state.
+    """
+    claimed_client.post("/setup/done/", {})
+
+    assert species_list_builds == []
+    assert restarts == [setup_logic.RECORDER_UNIT]
