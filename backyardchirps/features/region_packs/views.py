@@ -15,6 +15,7 @@ from backyardchirps.features.region_packs.entity import RegionPackChoice
 from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.setup.permissions import IsSetupAuthorised
+from backyardchirps.integrations import region_packs
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +44,7 @@ def region_pack(request: Request) -> Response:
     except (requests.RequestException, ValueError):
         # A station with no internet during setup is a working station. It gets no pack,
         # which is a state everything downstream already copes with.
-        logger.warning("Could not read the region pack index", exc_info=True)
+        logger.warning("Could not read the region pack index from %s", region_packs.INDEX_URL, exc_info=True)
         return Response({"error": "index_unavailable"}, status=503)
 
     return Response(_as_choice(choice))
@@ -81,7 +82,7 @@ def install_region_pack(request: Request) -> Response:
     try:
         packs = region_packs_logic.available_packs()
     except (requests.RequestException, ValueError):
-        logger.warning("Could not read the region pack index", exc_info=True)
+        logger.warning("Could not read the region pack index from %s", region_packs.INDEX_URL, exc_info=True)
         return Response({"error": "index_unavailable"}, status=503)
 
     # Looked up in the index rather than taken from the request. The URL and the checksum

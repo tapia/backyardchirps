@@ -18,7 +18,11 @@
         {{ t('page.settings.regionPackUnavailable') }}
       </p>
 
-      <template v-else-if="offered">
+      <p v-else-if="brokeWith" class="text-muted small mb-0">
+        {{ t('page.settings.regionPackBroken', { status: brokeWith }) }}
+      </p>
+
+      <template v-else-if="offered && !brokeWith">
         <p v-if="!covers" class="pack-line pack-line--miss mb-2">
           {{ t('page.settings.regionPackMiss', { name: offered.name, distance: distanceKm }) }}
           <a :href="requestUrl" target="_blank" rel="noopener">{{
@@ -84,6 +88,7 @@ const SETTLE_MS = 600
 
 const loading = ref(true)
 const unavailable = ref(false)
+const brokeWith = ref(null)
 const offered = ref(null)
 const covers = ref(false)
 const distanceKm = ref(null)
@@ -120,9 +125,13 @@ async function load() {
     offered.value = choice.region_pack
     covers.value = choice.covers
     distanceKm.value = choice.distance_km
-  } catch {
-    // A station with no internet still shows what it has installed.
-    unavailable.value = true
+  } catch (error) {
+    // 503 is the one failure the station can explain: it could not read the index. Every
+    // other status means something else went wrong, and saying "could not be reached"
+    // for all of them sends whoever is reading it to look at the wrong thing.
+    unavailable.value = error?.response?.status === 503
+    brokeWith.value = unavailable.value ? null : (error?.response?.status ?? 'network')
+    console.error('Region pack lookup failed', error)
   } finally {
     loading.value = false
   }

@@ -117,6 +117,8 @@ export default {
       regionPackWorking: 'Downloading...',
       regionPackFailed: 'That did not work. You can try again.',
       regionPackUnavailable: 'The list of region packs could not be reached.',
+      regionPackBroken:
+        'Could not ask this station about region packs (error {status}). The browser console has the details.',
       lon: 'Longitude',
       weather: 'Weather',
       weatherTemperatureUnit: 'Temperature unit',

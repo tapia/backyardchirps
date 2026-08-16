@@ -118,6 +118,8 @@ export default {
       regionPackWorking: 'Descargando...',
       regionPackFailed: 'No ha funcionado. Puedes intentarlo otra vez.',
       regionPackUnavailable: 'No se ha podido acceder a la lista de paquetes de región.',
+      regionPackBroken:
+        'No se ha podido consultar los paquetes de región en esta estación (error {status}). La consola del navegador tiene los detalles.',
       lon: 'Longitud',
       weather: 'Clima',
       weatherTemperatureUnit: 'Unidad de temperatura',
