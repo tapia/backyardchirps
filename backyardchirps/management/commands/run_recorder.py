@@ -72,33 +72,40 @@ class Command(BaseCommand):
                 except queue.Empty:
                     continue
 
-                notifier.flush(detection_queries.get_block_time(clip.recorded_at))
+                # A microphone that comes and goes, a model that chokes on one clip, a
+                # database locked by the web process: none of those are worth ending the
+                # process for. The clip is lost, the consistency window survives, and the
+                # next clip is already being recorded.
+                try:
+                    notifier.flush(detection_queries.get_block_time(clip.recorded_at))
 
-                started_at = time.perf_counter()
-                analysis = analyzer.analyze(clip)
-                analysis_time_ms = round((time.perf_counter() - started_at) * 1000)
+                    started_at = time.perf_counter()
+                    analysis = analyzer.analyze(clip)
+                    analysis_time_ms = round((time.perf_counter() - started_at) * 1000)
 
-                queue_monitor.record(recorder.pending_clips(), analysis_time_ms)
-                if time.monotonic() - last_heartbeat_at >= _HEARTBEAT_WRITE_INTERVAL_SECONDS:
-                    write_heartbeat(queue_monitor.to_heartbeat())
-                    last_heartbeat_at = time.monotonic()
+                    queue_monitor.record(recorder.pending_clips(), analysis_time_ms)
+                    if time.monotonic() - last_heartbeat_at >= _HEARTBEAT_WRITE_INTERVAL_SECONDS:
+                        write_heartbeat(queue_monitor.to_heartbeat())
+                        last_heartbeat_at = time.monotonic()
 
-                analysis_results = process_recording.discard_non_birds(
-                    process_recording.discard_blacklisted(analysis.results)
-                )
-                confirmed_results = consistency_filter.add(
-                    clip, analysis_results, analysis.raw_candidates, analysis_time_ms
-                )
-                logger.info(
-                    f"Clip processed in {analysis_time_ms}ms. {len(analysis_results)} BirdNET result(s), "
-                    f"{len(confirmed_results)} confirmed"
-                )
+                    analysis_results = process_recording.discard_non_birds(
+                        process_recording.discard_blacklisted(analysis.results)
+                    )
+                    confirmed_results = consistency_filter.add(
+                        clip, analysis_results, analysis.raw_candidates, analysis_time_ms
+                    )
+                    logger.info(
+                        f"Clip processed in {analysis_time_ms}ms. {len(analysis_results)} BirdNET result(s), "
+                        f"{len(confirmed_results)} confirmed"
+                    )
 
-                for confirmed in confirmed_results:
-                    detection = process_recording.process_confirmed_detection(confirmed)
-                    if detection:
-                        notifier.maybe_notify(detection, confirmed.clip)
-                    self._log(confirmed.result, detection)
+                    for confirmed in confirmed_results:
+                        detection = process_recording.process_confirmed_detection(confirmed)
+                        if detection:
+                            notifier.maybe_notify(detection, confirmed.clip)
+                        self._log(confirmed.result, detection)
+                except Exception:
+                    logger.exception("Could not process the clip recorded at %s", clip.recorded_at)
 
     def _log_initialization_messages(self) -> None:
         overlap_pct = (1 - settings.RECORDING["step_duration"] / settings.RECORDING["clip_duration"]) * 100

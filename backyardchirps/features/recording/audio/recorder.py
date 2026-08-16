@@ -1,3 +1,4 @@
+import logging
 import queue
 from datetime import datetime
 from datetime import timezone
@@ -8,6 +9,8 @@ import numpy as np
 import sounddevice as sd
 
 from backyardchirps.features.recording.audio.clip import AudioClip
+
+logger = logging.getLogger(__name__)
 
 
 class AudioRecorder:
@@ -74,6 +77,11 @@ class AudioRecorder:
           clip 2: from t=1.5s  to t=4.5s  (shares 1.5s with clip 1)
           clip 3: from t=3.0s to t=6.0s  (shares 1.5s with clip 2)
         """
+        # sounddevice reports input overflow here, which means the machine could not keep
+        # up and audio was lost. Without this line that loss leaves no trace at all.
+        if status:
+            logger.warning("Audio input problem: %s", status)
+
         self._buffer = np.concatenate([self._buffer, indata[:, 0]])
         while len(self._buffer) >= self._clip_samples:
             audio = self._buffer[: self._clip_samples].copy()
