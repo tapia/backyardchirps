@@ -47,6 +47,8 @@ covers what it does, how to update, and what to do when something goes wrong.
 | [Architecture](docs/devel/architecture.md) | Developers: local setup, how it runs, how the code is laid out |
 | [Frontend](docs/devel/frontend.md) | Developers: the Vue app |
 | [Deployment](docs/devel/deployment.md) | Developers: getting your own build onto a Pi |
+| [Releases](docs/devel/releases.md) | Developers: cutting a version and what ships in one |
+| [Species data](docs/devel/species-data.md) | Developers: taxonomy, assets, adding a location |
 
 ## Contributing
 
