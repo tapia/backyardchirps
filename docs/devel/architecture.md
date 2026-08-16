@@ -303,6 +303,23 @@ One trap: `tests/` has no `__init__.py`, which is what pytest's import mode need
 that **every test filename must be unique across the whole suite**. Two files named
 `test_queries.py` in different features collide. Qualify them: `test_detection_queries.py`.
 
+### The environment a test run sees
+
+`django_settings.py` calls `load_dotenv()` while it is imported, so a `.env` in the checkout
+reaches the tests. Two things follow.
+
+**Credentials are blanked in `tests/conftest.py`.** Migration 0002 copies `TELEGRAM_TOKEN`,
+`TELEGRAM_CHAT_ID`, `XENO_CANTO_API_KEY` and `IPGEOLOCATION_API_KEY` into `AppSetting` rows
+when the test database is built. Without the blanking, a developer with real credentials
+would run the suite against a database holding them, and row counts would differ from one
+machine to the next. That works because migrations run long after conftest is imported.
+
+**Anything read at settings-import time cannot be pinned from a conftest.** pytest-django
+calls `django.setup()` from `pytest_load_initial_conftests`, before any conftest is imported,
+so `SECRET_KEY`, `DEBUG` and `ACTIVE_LOCATION` are already decided by then. `SECRET_KEY` has
+to come from the real environment: `.env` locally, and the `SECRET_KEY` value the CI workflow
+sets. Setting it in a conftest has no effect.
+
 ## Linting
 
 ```bash

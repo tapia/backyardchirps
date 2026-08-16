@@ -1,15 +1,27 @@
 """
-Shared pytest fixtures, and the setup the test environment needs.
+Shared pytest fixtures, and the part of the environment the tests can still pin.
 
-This module runs before pytest-django calls ``django.setup()``, which makes it the place
-to set the environment variables the settings read as they are imported. In particular
-``django_settings.py`` does ``os.environ["SECRET_KEY"]``, raising KeyError when it is
-unset. Without this, no machine lacking a ``.env`` file could run the tests, CI included.
+pytest-django calls ``django.setup()`` from ``pytest_load_initial_conftests``, before any
+conftest is imported, so by the time this module runs the settings have already been read.
+Nothing set here can change a value that ``django_settings.py`` took from the environment
+as it was imported: SECRET_KEY, DEBUG and ACTIVE_LOCATION are all decided before this
+point, from the real environment or from the ``.env`` that ``load_dotenv`` picks up.
+
+What this module can still pin is anything read later than settings import. The
+credentials below are read by migration 0002 when the test database is built, which is
+well after this runs.
 """
 
 import os
 
-os.environ.setdefault("SECRET_KEY", "test-secret-key")
+# Blanked so that neither the developer's .env nor an exported shell variable reaches the
+# tests. Migration 0002 copies whatever these hold into AppSetting rows as the test
+# database is built, so without this the suite would run against a database holding real
+# Telegram and API credentials, and row counts would differ from machine to machine.
+os.environ["TELEGRAM_TOKEN"] = ""
+os.environ["TELEGRAM_CHAT_ID"] = ""
+os.environ["XENO_CANTO_API_KEY"] = ""
+os.environ["IPGEOLOCATION_API_KEY"] = ""
 
 from datetime import datetime
 from datetime import timezone
