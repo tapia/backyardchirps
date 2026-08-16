@@ -2,6 +2,7 @@ import importlib
 import sys
 from types import ModuleType
 from typing import Any
+from typing import ClassVar
 
 import numpy as np
 import pytest
@@ -16,6 +17,37 @@ _PI_DEVICES: list[dict[str, Any]] = [
 ]
 
 
+class FakeInputStream:
+    """
+    A microphone that hands out the same block of samples every time it is read.
+
+    Records whether it was closed, which is what the leak tests look at: a stream left
+    open is a microphone the recorder cannot have back.
+    """
+
+    block: ClassVar["np.ndarray[Any, Any]"] = np.zeros((1, 1), dtype=np.float32)
+    instances: ClassVar[list["FakeInputStream"]] = []
+
+    def __init__(self, **kwargs: Any) -> None:
+        self.closed = False
+        self.fail_next_read = False
+        FakeInputStream.instances.append(self)
+
+    def __enter__(self) -> "FakeInputStream":
+        return self
+
+    def __exit__(self, *exc_info: object) -> None:
+        self.close()
+
+    def read(self, frames: int) -> tuple["np.ndarray[Any, Any]", bool]:
+        if self.fail_next_read:
+            raise RuntimeError("Error reading from InputStream: Device unavailable")
+        return FakeInputStream.block, False
+
+    def close(self) -> None:
+        self.closed = True
+
+
 @pytest.fixture
 def fake_sounddevice(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     """
@@ -26,11 +58,12 @@ def fake_sounddevice(monkeypatch: pytest.MonkeyPatch) -> ModuleType:
     this run at all on a machine with no PortAudio, which is every Linux box that has
     not installed libportaudio2, CI included.
     """
+    FakeInputStream.block = np.zeros((1, 1), dtype=np.float32)
+    FakeInputStream.instances = []
     module = ModuleType("sounddevice")
     module.query_devices = lambda: _PI_DEVICES  # type: ignore[attr-defined]
     module.default = type("_Default", (), {"device": (0, 1)})()  # type: ignore[attr-defined]
-    module.rec = lambda *args, **kwargs: np.zeros((1, 1), dtype=np.float32)  # type: ignore[attr-defined]
-    module.wait = lambda: None  # type: ignore[attr-defined]
+    module.InputStream = FakeInputStream  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "sounddevice", module)
     return module
 
@@ -61,15 +94,52 @@ def test_the_system_default_is_marked(fake_sounddevice: ModuleType) -> None:
     assert [is_default for _, _, _, _, is_default in listed] == [True, False]
 
 
-def test_level_measures_peak_and_rms(fake_sounddevice: ModuleType) -> None:
-    samples = np.array([[0.0], [0.5], [-1.0], [0.5]], dtype=np.float32)
-    fake_sounddevice.rec = lambda *args, **kwargs: samples  # type: ignore[attr-defined]
+def test_a_reading_carries_peak_and_rms(fake_sounddevice: ModuleType) -> None:
+    FakeInputStream.block = np.array([[0.0], [0.5], [-1.0], [0.5]], dtype=np.float32)
 
-    peak, rms = devices.measure_input_level(device=0)
+    levels = devices.stream_input_levels(device=0, seconds=60)
+    peak, rms = next(levels)
+    levels.close()
 
     assert peak == 1.0
     # A loud click and a steady hum differ here, which is why both are reported.
     assert rms == pytest.approx(0.6123724)
+
+
+def test_the_device_is_opened_once_for_the_whole_stream(fake_sounddevice: ModuleType) -> None:
+    """
+    What the stream exists for. Opening the device per reading left it shut in between,
+    so a sound could fall in a gap and never show on the meter.
+    """
+    levels = devices.stream_input_levels(device=0, seconds=60)
+    next(levels)
+    next(levels)
+    next(levels)
+    levels.close()
+
+    assert len(FakeInputStream.instances) == 1
+
+
+def test_stopping_early_hands_the_device_back(fake_sounddevice: ModuleType) -> None:
+    """
+    The browser closing the connection is the ordinary way a stream ends, and the
+    recorder cannot start until the device it leaves behind is closed.
+    """
+    levels = devices.stream_input_levels(device=0, seconds=60)
+    next(levels)
+    opened_stream = FakeInputStream.instances[-1]
+
+    levels.close()
+
+    assert opened_stream.closed
+
+
+def test_the_stream_stops_at_its_cap(fake_sounddevice: ModuleType) -> None:
+    """
+    A tab left on the microphone step has to give the device back on its own.
+    """
+    assert list(devices.stream_input_levels(device=0, seconds=0)) == []
+    assert FakeInputStream.instances[-1].closed
 
 
 def test_a_device_that_will_not_open_is_reported_as_busy(fake_sounddevice: ModuleType) -> None:
@@ -78,13 +148,29 @@ def test_a_device_that_will_not_open_is_reported_as_busy(fake_sounddevice: Modul
     a time, and the recorder already has it.
     """
 
-    def _raise(*args: object, **kwargs: object) -> None:
+    def _raise(**kwargs: object) -> None:
         raise RuntimeError("Error opening InputStream: Device unavailable")
 
-    fake_sounddevice.rec = _raise  # type: ignore[attr-defined]
+    fake_sounddevice.InputStream = _raise  # type: ignore[attr-defined]
 
     with pytest.raises(devices.DeviceBusy):
-        devices.measure_input_level(device=0)
+        next(devices.stream_input_levels(device=0, seconds=60))
+
+
+def test_a_device_that_stops_working_is_reported_as_busy(fake_sounddevice: ModuleType) -> None:
+    """
+    A USB microphone unplugged half way through setup, which is a thing people do while
+    working out which socket the thing is in.
+    """
+    levels = devices.stream_input_levels(device=0, seconds=60)
+    next(levels)
+    opened_stream = FakeInputStream.instances[-1]
+    opened_stream.fail_next_read = True
+
+    with pytest.raises(devices.DeviceBusy):
+        next(levels)
+
+    assert opened_stream.closed
 
 
 def test_importing_the_module_does_not_load_portaudio() -> None:

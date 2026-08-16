@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 20:29+0200\n"
+"POT-Creation-Date: 2026-08-16 16:50+0200\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -263,7 +263,19 @@ msgstr ""
 msgid "default"
 msgstr "por defecto"
 
-#: backyardchirps/templates/setup/microphone.html:22
+#: backyardchirps/templates/setup/microphone.html:27
+msgid "The microphone is in use by something else."
+msgstr "Otro programa está usando el micrófono."
+
+#: backyardchirps/templates/setup/microphone.html:30
+msgid "That device could not be opened."
+msgstr "No se ha podido abrir ese dispositivo."
+
+#: backyardchirps/templates/setup/microphone.html:33
+msgid "That is loud enough to distort. Turn the microphone gain down."
+msgstr "Suena tan alto que se distorsiona. Baja la ganancia del micrófono."
+
+#: backyardchirps/templates/setup/microphone.html:37
 msgid ""
 "This machine has no recording device, so there is nothing to listen with."
 msgstr ""

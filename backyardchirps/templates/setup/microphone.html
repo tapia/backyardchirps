@@ -17,7 +17,21 @@
       {% endfor %}
     </div>
     <div class="meter"><div class="meter-fill" id="meter-fill"></div></div>
-    <p class="meter-note" id="meter-note"></p>
+    {% comment %}
+      One paragraph per state rather than text the script writes, so every string is
+      translated where all the others are and the script only picks which one shows.
+    {% endcomment %}
+    <div class="meter-notes">
+      <p class="meter-note" id="meter-busy" hidden>
+        {% translate "The microphone is in use by something else." %}
+      </p>
+      <p class="meter-note" id="meter-unopenable" hidden>
+        {% translate "That device could not be opened." %}
+      </p>
+      <p class="meter-note" id="meter-clipping" hidden>
+        {% translate "That is loud enough to distort. Turn the microphone gain down." %}
+      </p>
+    </div>
   {% else %}
     <p class="error">{% translate "This machine has no recording device, so there is nothing to listen with." %}</p>
   {% endif %}

@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from typing import Any
 
 from django.contrib.auth.password_validation import validate_password
@@ -16,6 +17,11 @@ from backyardchirps.integrations.systemd import restart_unit
 # The unit holding the microphone. Restarted after the device changes, since the recorder
 # opens it once at startup and never looks again.
 RECORDER_UNIT = "backyardchirps-recorder"
+
+# How long one meter stream lasts before the browser opens the next one. A cap rather
+# than an endless response, so a tab forgotten on the microphone step gives the device
+# back instead of holding it all day.
+_METER_STREAM_SECONDS = 300.0
 
 
 class SetupError(Exception):
@@ -78,16 +84,18 @@ def list_audio_devices() -> list[AudioDevice]:
     ]
 
 
-def measure_audio_level(device: int | None) -> AudioLevel:
+def stream_audio_levels(device: int | None) -> Iterator[AudioLevel]:
     """
+    What the microphone is hearing, ten readings a second, until the cap runs out.
+
     Raises SetupError(DEVICE_BUSY) when the microphone is already taken, which is the
     normal state of a running station: the recorder holds it.
     """
     try:
-        peak, rms = devices.measure_input_level(device)
+        for peak, rms in devices.stream_input_levels(device, seconds=_METER_STREAM_SECONDS):
+            yield AudioLevel(peak=peak, rms=rms)
     except devices.DeviceBusy as exc:
         raise SetupError(SetupErrorCode.DEVICE_BUSY, messages=[str(exc)]) from None
-    return AudioLevel(peak=peak, rms=rms)
 
 
 def complete(answers: dict[str, Any]) -> bool:

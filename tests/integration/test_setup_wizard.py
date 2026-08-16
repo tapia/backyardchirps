@@ -6,7 +6,9 @@ testing. Which step a visitor is on is a URL and a session, never anything a cli
 remembers on its own, so a test that follows redirects is testing the real mechanism.
 """
 
+import json
 import re
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -14,6 +16,7 @@ import pytest
 from django.test import Client
 from rest_framework.test import APIClient
 
+from backyardchirps.features.recording.audio import devices
 from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.setup import logic as setup_logic
@@ -59,6 +62,7 @@ def stub_devices(monkeypatch: pytest.MonkeyPatch) -> None:
         "list_audio_devices",
         lambda: [AudioDevice(index=1, name="USB mic", channels=1, sample_rate=48000.0, is_default=True)],
     )
+    monkeypatch.setattr(devices, "stream_input_levels", lambda device, seconds: iter([]))
 
 
 @pytest.fixture
@@ -433,3 +437,54 @@ def test_audio_devices_lists_inputs_for_an_admin(admin_client: APIClient, no_tok
 
     assert response.status_code == 200
     assert response.data["devices"][0]["name"] == "USB mic"
+
+
+# --- the level meter ---------------------------------------------------------
+
+
+def test_the_meter_is_closed_to_a_stranger(client: Client, token_file: Path) -> None:
+    assert client.get("/setup/audio-level/").status_code == 403
+
+
+def test_the_meter_streams_a_reading_at_a_time(claimed_client: Client, monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    One reading per event, so the bar can move as each arrives rather than when the
+    response finishes. A response that ends is a response nginx is free to buffer.
+    """
+    monkeypatch.setattr(devices, "stream_input_levels", lambda device, seconds: iter([(0.5, 0.25), (0.1, 0.05)]))
+
+    response = claimed_client.get("/setup/audio-level/?device=1")
+
+    assert response["Content-Type"] == "text/event-stream"
+    body = b"".join(response.streaming_content).decode()
+    # Every stream ends sooner or later, so the browser has to be told how soon to open
+    # the next one. Left to itself it waits three seconds, and the meter dies meanwhile.
+    assert body.startswith("retry: ")
+    assert _readings(body) == [{"peak": 0.5, "rms": 0.25}, {"peak": 0.1, "rms": 0.05}]
+
+
+def test_a_busy_microphone_is_reported_inside_the_stream(
+    claimed_client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Not as a status code. The response has already started by the time anything opens the
+    device, so the only place left to say so is the stream itself.
+    """
+    monkeypatch.setattr(devices, "stream_input_levels", _refuse_to_open)
+
+    response = claimed_client.get("/setup/audio-level/?device=1")
+
+    assert response.status_code == 200
+    assert _readings(b"".join(response.streaming_content).decode()) == [{"error": "device_busy"}]
+
+
+def _refuse_to_open(device: int | None, seconds: float) -> Iterator[tuple[float, float]]:
+    raise devices.DeviceBusy("Error opening InputStream: Device unavailable")
+    yield  # pragma: no cover
+
+
+def _readings(body: str) -> list[Any]:
+    """
+    The JSON payload of every data event in a server-sent event stream.
+    """
+    return [json.loads(line[len("data: ") :]) for line in body.splitlines() if line.startswith("data: ")]

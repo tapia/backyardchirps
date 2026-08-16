@@ -161,8 +161,22 @@ having no coordinates and a stopped recorder, with no way back in through the UI
 
 Two endpoints survive as JSON because the SPA calls them: `setup/status/`, which the router
 guard reads to decide whether to send a visitor to `/setup/` at all, and `setup/audio-devices/`,
-which the settings page reuses. The level meter on the microphone step polls `setup/audio-level/`,
-the one part of the wizard a page load cannot do.
+which the settings page reuses. The level meter on the microphone step reads
+`setup/audio-level/`, the one part of the wizard a page load cannot do.
+
+That one is a stream of server-sent events rather than something to poll, and the reason is
+worth knowing before anyone turns it back into a request per reading. Each reading covers a
+tenth of a second, and the device stays open for the whole stream, so nothing that happens in
+front of the microphone falls between two readings. Polling opened the device once per
+request, which left it shut in between, and on a Pi 3 a round trip outlasted the interval, so
+two readings met on a device that ALSA gives to one process at a time and one of them failed
+as busy. Both faults look the same from the outside: a microphone that seems not to work.
+
+Three things hold that up. `stream_input_levels` in `recording/audio/devices.py` closes the
+device in a `finally`, which is what hands it back when the browser goes away mid-stream. The
+stream stops after five minutes and the browser opens the next one, so a tab left on the step
+does not hold the microphone all day. And nginx buffering is off for that one location, since
+buffered readings would arrive in bursts.
 
 A station is set up once it has an admin and no longer has a token. `install.sh` writes that
 token as soon as the data directory exists, before the slow part of the install, so a failure

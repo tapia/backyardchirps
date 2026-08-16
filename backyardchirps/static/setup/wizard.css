@@ -137,10 +137,21 @@ input:focus {
   transition: width 0.1s linear;
 }
 
+.meter-fill.clipping {
+  background: var(--danger);
+}
+
+/* Holds the space whichever note is showing, and the space none of them takes, so the
+   form does not jump when one appears. */
+.meter-notes {
+  min-height: 1.2em;
+  margin: 0.35rem 0 0;
+}
+
 .meter-note {
   font-size: 0.75rem;
   color: var(--muted);
-  min-height: 1.2em;
+  margin: 0;
 }
 
 .error {

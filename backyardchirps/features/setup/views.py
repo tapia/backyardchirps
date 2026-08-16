@@ -1,3 +1,5 @@
+import json
+from collections.abc import Iterator
 from typing import Any
 
 from django.contrib.auth import authenticate
@@ -6,6 +8,8 @@ from django.http import Http404
 from django.http import HttpRequest
 from django.http import HttpResponse
 from django.http import JsonResponse
+from django.http import StreamingHttpResponse
+from django.http.response import HttpResponseBase
 from django.shortcuts import redirect
 from django.shortcuts import render
 from django.utils import translation
@@ -28,6 +32,11 @@ from backyardchirps.features.setup.permissions import IsSetupAuthorised
 # followed by a redirect, so reloading repeats nothing and a dropped connection costs at
 # most the step being filled in. Nothing about the flow lives in a browser.
 STEPS = ("language", "admin", "location", "microphone", "detection", "notifications", "done")
+
+# How long the browser waits before opening the next meter stream, in milliseconds. Every
+# stream ends sooner or later, so this is the width of the gap in a meter that is working
+# normally, not an error path.
+_METER_RECONNECT_MS = 500
 
 # What each step answers, by the names the settings API already uses. Both ends therefore
 # agree on field names and validation, because both finish at Settings.set.
@@ -104,25 +113,31 @@ def wizard_step(request: HttpRequest, step: str) -> HttpResponse:
         return _render_step(request, step, status, errors={})
 
 
-def audio_level(request: HttpRequest) -> JsonResponse:
+def audio_level(request: HttpRequest) -> HttpResponseBase:
     """
-    What the microphone heard over about a second, for the meter on the microphone step.
+    A live reading of what the microphone hears, for the meter on the microphone step.
 
-    The one part of the wizard a page reload cannot do, so it stays a JSON endpoint that
-    a few lines of script poll.
+    The one part of the wizard a page reload cannot do. It is a stream of server-sent
+    events rather than something to poll: the device stays open for as long as the
+    browser is listening, so nothing that happens in front of the microphone falls
+    between two readings, and no two readings ever fight over the device.
     """
     if not _is_authorised(request):
         return JsonResponse({"error": "forbidden"}, status=403)
 
     raw_device = request.GET.get("device")
     try:
-        level = setup_logic.measure_audio_level(int(raw_device) if raw_device else None)
+        device = int(raw_device) if raw_device else None
     except ValueError:
         return JsonResponse({"error": SetupErrorCode.UNKNOWN_DEVICE.value}, status=400)
-    except SetupError as error:
-        return JsonResponse({"error": error.code.value}, status=409)
 
-    return JsonResponse({"peak": level.peak, "rms": level.rms})
+    response = StreamingHttpResponse(_audio_level_events(device), content_type="text/event-stream")
+    response["Cache-Control"] = "no-cache"
+    # Tell nginx not to collect the readings into a buffer, which would deliver them in
+    # bursts and make the bar jump. deploy/nginx.conf says the same thing, but a response
+    # that asks for itself also works behind a proxy this project did not write.
+    response["X-Accel-Buffering"] = "no"
+    return response
 
 
 @api_view(["GET"])
@@ -167,6 +182,23 @@ def audio_devices(request: Request) -> Response:
             "selected": Settings.get(SettingsKey.AUDIO_DEVICE),
         }
     )
+
+
+def _audio_level_events(device: int | None) -> Iterator[str]:
+    """
+    The meter stream, as server-sent events.
+
+    A device that will not open is reported inside the stream rather than as a status
+    code. The response has already begun by the time anything reaches for the device, and
+    opening it earlier, to find out in time to pick a status, would leave a device open
+    that nothing closes if the browser never reads the answer.
+    """
+    yield f"retry: {_METER_RECONNECT_MS}\n\n"
+    try:
+        for level in setup_logic.stream_audio_levels(device):
+            yield f"data: {json.dumps({'peak': level.peak, 'rms': level.rms})}\n\n"
+    except SetupError as error:
+        yield f"data: {json.dumps({'error': error.code.value})}\n\n"
 
 
 def _current_step(request: HttpRequest) -> str:

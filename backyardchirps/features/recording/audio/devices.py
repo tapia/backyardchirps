@@ -1,3 +1,6 @@
+import time
+from collections.abc import Iterator
+
 import numpy as np
 
 # sounddevice is imported inside each function below rather than here, the same way
@@ -10,9 +13,9 @@ import numpy as np
 # The recorder imports sounddevice eagerly, which is right: a recorder that cannot
 # open a microphone has nothing to do.
 
-# How long to listen for when measuring a level. Long enough to catch a syllable of
-# speech or a passing car, short enough that the wizard's meter still feels live.
-_MEASURE_SECONDS = 1.0
+# How much sound one reading covers. Ten readings a second is faster than anyone can see
+# a bar move, and each one costs a peak and a mean over 4800 numbers, which is nothing.
+_READING_SECONDS = 0.1
 _MEASURE_SAMPLE_RATE = 48000
 
 
@@ -54,29 +57,40 @@ def list_input_devices() -> list[tuple[int, str, int, float, bool]]:
     return devices
 
 
-def measure_input_level(device: int | None) -> tuple[float, float]:
+def stream_input_levels(device: int | None, seconds: float) -> Iterator[tuple[float, float]]:
     """
-    Listen briefly to a device and return (peak, rms) of what it heard.
+    Listen on a device and yield (peak, rms) ten times a second, for up to `seconds`.
 
-    Raises DeviceBusy when the device cannot be opened, which the caller has to expect:
-    the recorder is normally running and holding the microphone already.
+    The device stays open for the whole stream, and that is the point. Opening it once
+    per reading leaves the microphone shut between them, so a clap that lands in one of
+    the gaps is never heard: the meter then looks broken on a station whose microphone is
+    fine. Holding the device also keeps two readings from racing each other for it.
+
+    Raises DeviceBusy when the device will not open, or stops working part way through.
+    On a Pi that is almost always the recorder holding it.
+
+    The caller has to consume this to the end or close it. Whichever it does, the device
+    is handed back.
     """
     import sounddevice as sd
 
-    frames = int(_MEASURE_SECONDS * _MEASURE_SAMPLE_RATE)
+    frames = int(_READING_SECONDS * _MEASURE_SAMPLE_RATE)
+    deadline = time.monotonic() + seconds
     try:
-        recording = sd.rec(
-            frames,
+        # The `with` is what hands the device back, and it does so when the caller stops
+        # early too. That is the case that matters: the browser closing the connection is
+        # the ordinary way this ends, and the recorder cannot start until the device is
+        # free again.
+        with sd.InputStream(
             samplerate=_MEASURE_SAMPLE_RATE,
             channels=1,
             device=device,
             dtype=np.float32,
-        )
-        sd.wait()
+            blocksize=frames,
+        ) as stream:
+            while time.monotonic() < deadline:
+                block, _overflowed = stream.read(frames)
+                samples = block[:, 0]
+                yield float(np.max(np.abs(samples))), float(np.sqrt(np.mean(np.square(samples))))
     except Exception as exc:
         raise DeviceBusy(str(exc)) from exc
-
-    samples = recording[:, 0]
-    peak = float(np.max(np.abs(samples))) if samples.size else 0.0
-    rms = float(np.sqrt(np.mean(np.square(samples)))) if samples.size else 0.0
-    return peak, rms
