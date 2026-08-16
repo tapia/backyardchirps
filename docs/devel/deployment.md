@@ -174,12 +174,13 @@ restoring the old units and pointing them at the checkout again.
 ## Testing the preflight checks
 
 ```bash
-bash tools/test-preflight.sh
+uv run pytest tests/unit/test_preflight.py
 ```
 
-Seconds, no container, and it runs anywhere. `install.sh` reads the machine through five
-overridable values (`DEVICE_TREE_MODEL_FILE`, `OS_RELEASE_FILE`, `ASOUND_PCM_FILE`,
-`RPI_ISSUE_FILE`, `SYSTEM_ARCHITECTURE`), so the test points them at fixtures and asserts both
+Fast, no container, and it runs anywhere, so it is part of the ordinary test suite.
+`install.sh` reads the machine through five overridable values (`DEVICE_TREE_MODEL_FILE`,
+`OS_RELEASE_FILE`, `ASOUND_PCM_FILE`, `RPI_ISSUE_FILE`, `SYSTEM_ARCHITECTURE`), so the test
+writes fixture files to a temporary directory, points those values at them, and asserts both
 that a good machine is accepted and that a bad one is refused **for the right reason**.
 
 This exists because preflight is the one part of `install.sh` the container test cannot reach: a

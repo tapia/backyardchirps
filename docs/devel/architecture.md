@@ -299,6 +299,14 @@ and `tests/integration/features/<feature>/`. Endpoint and permission tests go in
 builders, HTTP clients) in `tests/integration/conftest.py`. Test-only code may import
 `backyardchirps.models` directly to arrange state.
 
+One test sits outside that mirror, because what it tests is not in `backyardchirps/`.
+`tests/unit/test_preflight.py` runs `install.sh --preflight-only` against fixture files in a
+temporary directory, which is the only way to reach the installer's hardware checks: the
+container test is not a Raspberry Pi, and the one machine that is cannot be a fixture. It writes
+files, so the rule above would make it an integration test, but it needs no database and finishes
+in well under a second, so it stays with the fast suite. See
+[deployment.md](deployment.md).
+
 One trap: `tests/` has no `__init__.py`, which is what pytest's import mode needs. The result is
 that **every test filename must be unique across the whole suite**. Two files named
 `test_queries.py` in different features collide. Qualify them: `test_detection_queries.py`.

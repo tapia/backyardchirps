@@ -36,7 +36,7 @@ PREFLIGHT_ONLY=no
 # Preflight looks at the machine through these four values. They are overridable so the
 # checks can be run against fixtures, which is the only way to exercise them: the
 # container test is not a Raspberry Pi, and the one machine that is cannot be a test
-# fixture. See tools/test-preflight.sh.
+# fixture. See tests/unit/test_preflight.py.
 DEVICE_TREE_MODEL_FILE="${DEVICE_TREE_MODEL_FILE:-/proc/device-tree/model}"
 OS_RELEASE_FILE="${OS_RELEASE_FILE:-/etc/os-release}"
 ASOUND_PCM_FILE="${ASOUND_PCM_FILE:-/proc/asound/pcm}"
@@ -197,7 +197,7 @@ check_free_disk() {
     info "${available_mb} MB free on /"
 }
 
-# Run the machine checks and stop. For tools/test-preflight.sh, which points the
+# Run the machine checks and stop. For tests/unit/test_preflight.py, which points the
 # four inputs above at fixtures. Deliberately before the root check and the log
 # file below, so the checks can be exercised without either.
 if [ "$PREFLIGHT_ONLY" = yes ]; then
