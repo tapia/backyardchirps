@@ -22,7 +22,7 @@ from backyardchirps.features.detections.queries import get_by_id
 from backyardchirps.features.detections.queries import get_dubious_detections
 from backyardchirps.features.detections.queries import list_detections
 from backyardchirps.features.detections.queries import species_identified_in_same_recording
-from backyardchirps.features.overrides import queries as species_override_repository
+from backyardchirps.features.overrides import queries as override_queries
 from backyardchirps.features.species.entity import Species
 from backyardchirps.shared.http import _parse_dt
 from backyardchirps.shared.http import request_body
@@ -122,7 +122,7 @@ def detection_detail(request, pk):
 
     # A blacklisted species looks like it was never detected at all, so even a direct
     # link to one of its detections has to 404 until it leaves the blacklist.
-    if species_override_repository.is_blacklisted(detection.species):
+    if override_queries.is_blacklisted(detection.species):
         raise NotFound() from None
 
     # Only the review dialog needs the rest of the recording, and it opens one detection

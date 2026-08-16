@@ -4,7 +4,7 @@ from typing import Callable
 import pytest
 from rest_framework.test import APIClient
 
-from backyardchirps.features.overrides import queries as species_override_repository
+from backyardchirps.features.overrides import queries as override_queries
 from backyardchirps.features.species.entity import Species
 
 pytestmark = pytest.mark.django_db
@@ -30,7 +30,7 @@ def test_admin_put_sets_override(admin_client: APIClient, create_detection: Call
 
     assert response.status_code == 200
     assert response.data == {"blacklisted": True, "auto_confirm_threshold": 0.6}
-    override = species_override_repository.get(Species(BLACKBIRD))
+    override = override_queries.get(Species(BLACKBIRD))
     assert override is not None
     assert override.auto_confirm_threshold == 0.6
     assert override.blacklisted is True
@@ -54,7 +54,7 @@ def test_admin_delete_clears_override(
     response = admin_client.delete(_PATH)
 
     assert response.status_code == 204
-    assert species_override_repository.get(Species(BLACKBIRD)) is None
+    assert override_queries.get(Species(BLACKBIRD)) is None
 
 
 def test_detection_settings_list_returns_customized_species(

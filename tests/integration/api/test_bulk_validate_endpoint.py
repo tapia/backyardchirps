@@ -5,7 +5,7 @@ from typing import Callable
 import pytest
 from rest_framework.test import APIClient
 
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import ValidationStatus
 from backyardchirps.models.stored_detection import StoredDetection
 
@@ -27,7 +27,7 @@ def test_bulk_confirm_confirms_every_detection(admin_client: APIClient, create_d
     assert response.status_code == 200
     assert sorted(response.json()["processed"]) == sorted([first.id, second.id])
     for detection_id in (first.id, second.id):
-        assert detection_repository.get_by_id(detection_id).validation_status == ValidationStatus.HUMAN_CONFIRMED
+        assert detection_queries.get_by_id(detection_id).validation_status == ValidationStatus.HUMAN_CONFIRMED
 
 
 def test_bulk_discard_removes_rows_and_clips(

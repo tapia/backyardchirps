@@ -1,6 +1,6 @@
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import Detection
-from backyardchirps.features.overrides import queries as species_override_repository
+from backyardchirps.features.overrides import queries as override_queries
 from backyardchirps.features.recording.audio.consistency_filter import ConfirmedDetection
 from backyardchirps.features.recording.audio.detection import AnalysisResult
 
@@ -13,7 +13,7 @@ def process_confirmed_detection(confirmed: ConfirmedDetection) -> Detection | No
     Returns None when a record already exists and is at least as confident, as there is
     then nothing to update.
     """
-    return detection_repository.upsert(
+    return detection_queries.upsert(
         confirmed.clip,
         confirmed.result,
         analysis_time_ms=confirmed.analysis_time_ms,
@@ -26,7 +26,7 @@ def discard_blacklisted(analysis_results: list[AnalysisResult]) -> list[Analysis
     Drop blacklisted species before they reach the consistency window or the database.
     The other species BirdNET heard in the same clip carry on as normal.
     """
-    blacklisted = species_override_repository.blacklisted_species()
+    blacklisted = override_queries.blacklisted_species()
     return [result for result in analysis_results if result.species not in blacklisted]
 
 

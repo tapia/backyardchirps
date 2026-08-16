@@ -3,10 +3,10 @@ from typing import Callable
 
 import pytest
 
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import ValidationStatus
 from backyardchirps.features.overrides import logic as species_overrides
-from backyardchirps.features.overrides import queries as species_override_repository
+from backyardchirps.features.overrides import queries as override_queries
 from backyardchirps.features.species.entity import Species
 
 pytestmark = pytest.mark.django_db
@@ -17,7 +17,7 @@ BLACKBIRD = "Turdus merula"
 
 
 def _status(detection_id: int) -> ValidationStatus:
-    return detection_repository.get_by_id(detection_id).validation_status
+    return detection_queries.get_by_id(detection_id).validation_status
 
 
 def test_set_override_with_no_customization_clears_it(
@@ -29,7 +29,7 @@ def test_set_override_with_no_customization_clears_it(
     result = species_overrides.set_override(Species(BLACKBIRD), auto_confirm_threshold=None, blacklisted=False)
 
     assert result is None
-    assert species_override_repository.get(Species(BLACKBIRD)) is None
+    assert override_queries.get(Species(BLACKBIRD)) is None
 
 
 def test_lowering_the_bar_clears_the_pending_queue(
@@ -69,5 +69,5 @@ def test_clear_override_reverts_to_global_and_clears_queue_if_lowered(
     # Clearing drops the bar from 0.9 back to the global 0.7, auto-confirming the 0.75 row.
     species_overrides.clear_override(Species(BLACKBIRD))
 
-    assert species_override_repository.get(Species(BLACKBIRD)) is None
+    assert override_queries.get(Species(BLACKBIRD)) is None
     assert _status(pending.id) == ValidationStatus.AUTO_CONFIRMED

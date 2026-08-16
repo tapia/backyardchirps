@@ -7,7 +7,7 @@ from typing import Callable
 import pytest
 from rest_framework.test import APIClient
 
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import ValidationStatus
 from backyardchirps.models.stored_detection import StoredDetection
 
@@ -23,7 +23,7 @@ def test_admin_post_confirms_detection(admin_client: APIClient, create_detection
     response = admin_client.post(f"/api/detections/{detection.id}/validate/")
 
     assert response.status_code == 200
-    assert detection_repository.get_by_id(detection.id).validation_status == ValidationStatus.HUMAN_CONFIRMED
+    assert detection_queries.get_by_id(detection.id).validation_status == ValidationStatus.HUMAN_CONFIRMED
 
 
 def test_admin_post_reassigning_into_the_same_recording_is_rejected(
@@ -49,7 +49,7 @@ def test_admin_post_reassigning_into_the_same_recording_is_rejected(
 
     assert response.status_code == 400
     assert "species_scientific_name" in response.json()
-    unchanged = detection_repository.get_by_id(blackbird.id)
+    unchanged = detection_queries.get_by_id(blackbird.id)
     assert unchanged.validation_status == ValidationStatus.PENDING
     assert StoredDetection.objects.filter(species__scientific_name=ROBIN).count() == 1
 

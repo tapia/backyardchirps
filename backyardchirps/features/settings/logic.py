@@ -5,7 +5,7 @@ from typing import Callable
 
 from django.conf import settings
 
-from backyardchirps.features.settings import queries as settings_repository
+from backyardchirps.features.settings import queries as settings_queries
 
 
 class SettingsKey(StrEnum):
@@ -253,7 +253,7 @@ def _serialize(value: object) -> str:
 class Settings:
     """
     The way to read and write application settings. Nothing else should reach for
-    AppSetting or settings_repository on its own.
+    AppSetting or settings_queries on its own.
 
     Reading a key with no row yet writes its default to the database, so every later
     read sees the same value.
@@ -266,9 +266,9 @@ class Settings:
         default.
         """
         definition = DEFAULTS[key]
-        stored = settings_repository.get(key)
+        stored = settings_queries.get(key)
         if stored is None:
-            settings_repository.set_value(key, _serialize(definition.default))
+            settings_queries.set_value(key, _serialize(definition.default))
             return definition.default
         return definition.parser(stored)
 
@@ -297,7 +297,7 @@ class Settings:
         """
         parsed = cls.parse(key, value)
         # parse accepted the key, so this cannot raise.
-        settings_repository.set_value(SettingsKey(key), _serialize(parsed))
+        settings_queries.set_value(SettingsKey(key), _serialize(parsed))
 
     @classmethod
     def as_dict(cls) -> dict[str, Any]:
@@ -305,7 +305,7 @@ class Settings:
         Every setting, keyed by name. Unlike get, a key with no row falls back to its
         default without writing anything.
         """
-        stored = settings_repository.get_all(list(DEFAULTS.keys()))
+        stored = settings_queries.get_all(list(DEFAULTS.keys()))
         result: dict[str, Any] = {}
         for key, definition in DEFAULTS.items():
             raw = stored.get(key)

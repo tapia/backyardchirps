@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from django.utils import timezone
 
-from backyardchirps.features.analytics import queries as analytics_repository
+from backyardchirps.features.analytics import queries as analytics_queries
 from backyardchirps.features.analytics.queries import TimeGranularity
 from backyardchirps.features.species.entity import Species
 
@@ -27,7 +27,7 @@ def test_species_detections_by_hour_of_day_buckets_and_zero_fills(create_detecti
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 16, 9, 30, tzinfo=_MADRID))
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 14, 0, tzinfo=_MADRID))
 
-    hourly = analytics_repository.species_detections_by_hour_of_day(Species(BLACKBIRD), start=None, end=None)
+    hourly = analytics_queries.species_detections_by_hour_of_day(Species(BLACKBIRD), start=None, end=None)
 
     assert len(hourly) == 24  # continuous, zero-filled series
     assert hourly[0] == 0  # gaps filled with zero
@@ -42,7 +42,7 @@ def test_species_detections_by_hour_of_day_respects_min_confidence(create_detect
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 9, 0, tzinfo=_MADRID), confidence=0.9)
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 9, 0, tzinfo=_MADRID), confidence=0.4)
 
-    hourly = analytics_repository.species_detections_by_hour_of_day(
+    hourly = analytics_queries.species_detections_by_hour_of_day(
         Species(BLACKBIRD), start=None, end=None, min_confidence=0.8
     )
 
@@ -57,7 +57,7 @@ def test_over_time_hourly_granularity_zero_filled(create_detection: Callable[...
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 11, 30, tzinfo=_MADRID))
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 13, 0, tzinfo=_MADRID))
 
-    rows, granularity = analytics_repository.species_detections_over_time(
+    rows, granularity = analytics_queries.species_detections_over_time(
         Species(BLACKBIRD),
         start=datetime(2024, 6, 15, 10, 0, tzinfo=_MADRID),
         end=datetime(2024, 6, 15, 14, 0, tzinfo=_MADRID),
@@ -72,7 +72,7 @@ def test_over_time_daily_granularity_zero_filled(create_detection: Callable[...,
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 2, 18, 0, tzinfo=_MADRID))
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 4, 9, 0, tzinfo=_MADRID))
 
-    rows, granularity = analytics_repository.species_detections_over_time(
+    rows, granularity = analytics_queries.species_detections_over_time(
         Species(BLACKBIRD),
         start=datetime(2024, 6, 1, tzinfo=_MADRID),
         end=datetime(2024, 6, 5, tzinfo=_MADRID),
@@ -87,7 +87,7 @@ def test_over_time_monthly_granularity_zero_filled(create_detection: Callable[..
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 2, 20, tzinfo=_MADRID))
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 4, 10, tzinfo=_MADRID))
 
-    rows, granularity = analytics_repository.species_detections_over_time(
+    rows, granularity = analytics_queries.species_detections_over_time(
         Species(BLACKBIRD),
         start=datetime(2024, 1, 1, tzinfo=_MADRID),
         end=datetime(2024, 6, 1, tzinfo=_MADRID),
@@ -102,7 +102,7 @@ def test_over_time_unbounded_returns_only_populated_months(create_detection: Cal
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 2, 20, tzinfo=_MADRID))
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 5, 10, tzinfo=_MADRID))
 
-    rows, granularity = analytics_repository.species_detections_over_time(Species(BLACKBIRD), start=None, end=None)
+    rows, granularity = analytics_queries.species_detections_over_time(Species(BLACKBIRD), start=None, end=None)
 
     assert granularity == TimeGranularity.MONTH
     assert [row["count"] for row in rows] == [2, 1]  # only Feb and May, sorted, no gap-fill
@@ -116,7 +116,7 @@ def test_by_date_and_hour_daily(create_detection: Callable[..., Any]) -> None:
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 9, 0, tzinfo=_MADRID))
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 16, 9, 0, tzinfo=_MADRID))
 
-    cells, x_labels, granularity = analytics_repository.species_detections_by_date_and_hour(
+    cells, x_labels, granularity = analytics_queries.species_detections_by_date_and_hour(
         Species(BLACKBIRD),
         start=datetime(2024, 6, 15, tzinfo=_MADRID),
         end=datetime(2024, 6, 17, tzinfo=_MADRID),
@@ -131,7 +131,7 @@ def test_by_date_and_hour_daily(create_detection: Callable[..., Any]) -> None:
 def test_by_date_and_hour_unbounded_is_monthly(create_detection: Callable[..., Any]) -> None:
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 9, 0, tzinfo=_MADRID))
 
-    cells, x_labels, granularity = analytics_repository.species_detections_by_date_and_hour(
+    cells, x_labels, granularity = analytics_queries.species_detections_by_date_and_hour(
         Species(BLACKBIRD), start=None, end=None
     )
 
@@ -149,7 +149,7 @@ def test_by_day_yearly_counts_recent_days_and_excludes_old(create_detection: Cal
     create_detection(scientific_name=BLACKBIRD, recorded_at=now - timedelta(days=2))
     create_detection(scientific_name=BLACKBIRD, recorded_at=now - timedelta(days=400))  # older than a year
 
-    by_day = analytics_repository.species_detections_by_day_yearly(Species(BLACKBIRD))
+    by_day = analytics_queries.species_detections_by_day_yearly(Species(BLACKBIRD))
 
     assert len(by_day) == 2  # the 400-day-old detection is excluded
     assert sum(by_day.values()) == 3
@@ -168,7 +168,7 @@ def test_detections_by_species_hourly_structure_and_blacklist(
     create_detection(scientific_name=ROBIN, recorded_at=recent)
     create_override(scientific_name=ROBIN, blacklisted=True)
 
-    result = analytics_repository.detections_by_species_hourly()
+    result = analytics_queries.detections_by_species_hourly()
 
     assert len(result) == 24
     assert sum(entry["count"] for entry in result) == 2  # robin excluded
@@ -189,7 +189,7 @@ def test_species_by_hour_of_day_buckets_and_zero_fills(create_detection: Callabl
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 14, 0, tzinfo=_MADRID))
     create_detection(scientific_name=ROBIN, recorded_at=datetime(2024, 6, 15, 6, 30, tzinfo=_MADRID))
 
-    result = analytics_repository.species_by_hour_of_day([Species(BLACKBIRD), Species(ROBIN)], "en", None, None)
+    result = analytics_queries.species_by_hour_of_day([Species(BLACKBIRD), Species(ROBIN)], "en", None, None)
 
     entries = result["species"]
     assert [entry["scientific_name"] for entry in entries] == [BLACKBIRD, ROBIN]
@@ -209,7 +209,7 @@ def test_species_by_hour_of_day_keeps_requested_order(create_detection: Callable
     create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at)
     create_detection(scientific_name=ROBIN, recorded_at=recorded_at)
 
-    result = analytics_repository.species_by_hour_of_day([Species(ROBIN), Species(BLACKBIRD)], "en", None, None)
+    result = analytics_queries.species_by_hour_of_day([Species(ROBIN), Species(BLACKBIRD)], "en", None, None)
 
     assert [entry["scientific_name"] for entry in result["species"]] == [ROBIN, BLACKBIRD]
 
@@ -223,7 +223,7 @@ def test_species_by_hour_of_day_skips_blacklisted_and_undetected(
     create_override(scientific_name=ROBIN, blacklisted=True)
 
     requested = [Species(BLACKBIRD), Species(ROBIN), Species(HOUSE_SPARROW)]  # sparrow never detected
-    result = analytics_repository.species_by_hour_of_day(requested, "en", None, None)
+    result = analytics_queries.species_by_hour_of_day(requested, "en", None, None)
 
     assert [entry["scientific_name"] for entry in result["species"]] == [BLACKBIRD]
 
@@ -233,7 +233,7 @@ def test_species_by_hour_of_day_respects_min_confidence(create_detection: Callab
     create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at, confidence=0.9)
     create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at, confidence=0.4)
 
-    result = analytics_repository.species_by_hour_of_day([Species(BLACKBIRD)], "en", None, None, min_confidence=0.8)
+    result = analytics_queries.species_by_hour_of_day([Species(BLACKBIRD)], "en", None, None, min_confidence=0.8)
 
     assert result["species"][0]["hours"][9] == 1
     assert result["species"][0]["total"] == 1
@@ -243,10 +243,10 @@ def test_species_by_hour_of_day_days_for_bounded_range(create_detection: Callabl
     start = datetime(2024, 6, 10, 0, 0, tzinfo=_MADRID)
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 11, 9, 0, tzinfo=_MADRID))
 
-    full_weeks = analytics_repository.species_by_hour_of_day(
+    full_weeks = analytics_queries.species_by_hour_of_day(
         [Species(BLACKBIRD)], "en", start, start + timedelta(days=7)
     )
-    partial_days = analytics_repository.species_by_hour_of_day(
+    partial_days = analytics_queries.species_by_hour_of_day(
         [Species(BLACKBIRD)], "en", start, start + timedelta(days=2, hours=12)
     )
 
@@ -258,7 +258,7 @@ def test_species_by_hour_of_day_days_defaults_to_first_detection(create_detectio
     first_recorded_at = datetime(2024, 6, 10, 8, 0, tzinfo=_MADRID)
     create_detection(scientific_name=BLACKBIRD, recorded_at=first_recorded_at)
 
-    result = analytics_repository.species_by_hour_of_day(
+    result = analytics_queries.species_by_hour_of_day(
         [Species(BLACKBIRD)], "en", None, first_recorded_at + timedelta(days=4)
     )
 
@@ -266,7 +266,7 @@ def test_species_by_hour_of_day_days_defaults_to_first_detection(create_detectio
 
 
 def test_species_by_hour_of_day_empty_selection_returns_no_species_and_one_day() -> None:
-    result = analytics_repository.species_by_hour_of_day([], "en", None, None)
+    result = analytics_queries.species_by_hour_of_day([], "en", None, None)
 
     assert result == {"species": [], "days": 1}
 
@@ -282,7 +282,7 @@ def test_multi_species_timelines_skips_blacklisted_and_undetected(
     create_override(scientific_name=ROBIN, blacklisted=True)
 
     requested = [Species(BLACKBIRD), Species(ROBIN), Species(HOUSE_SPARROW)]  # sparrow never detected
-    series, _ = analytics_repository.multi_species_timelines(requested, lang="en", start=None, end=None)
+    series, _ = analytics_queries.multi_species_timelines(requested, lang="en", start=None, end=None)
 
     assert [entry["scientific_name"] for entry in series] == [BLACKBIRD]
     assert isinstance(series[0]["data"], list)

@@ -36,13 +36,13 @@ def test_deletes_until_usage_drops_below_quota(
     deleted_ids: list[int] = []
     cleared_ids: list[int] = []
     monkeypatch.setattr(
-        enforce_clip_disk_quota.detection_repository,
+        enforce_clip_disk_quota.detection_queries,
         "get_oldest_clips",
         lambda limit: [{"id": 1, "clip_path": "/a.wav"}, {"id": 2, "clip_path": "/b.wav"}],
     )
     monkeypatch.setattr(enforce_clip_disk_quota.AudioClip, "delete_clip", lambda path: deleted_ids.append(path))
     monkeypatch.setattr(
-        enforce_clip_disk_quota.detection_repository, "clear_clip_path", lambda pk: cleared_ids.append(pk)
+        enforce_clip_disk_quota.detection_queries, "clear_clip_path", lambda pk: cleared_ids.append(pk)
     )
 
     deleted_count = enforce_clip_disk_quota.enforce_quota()
@@ -57,7 +57,7 @@ def test_stops_when_no_candidates_remain(
 ) -> None:
     # Perpetually over quota, but nothing left to delete: the loop must break.
     usage_sequence([90])
-    monkeypatch.setattr(enforce_clip_disk_quota.detection_repository, "get_oldest_clips", lambda limit: [])
+    monkeypatch.setattr(enforce_clip_disk_quota.detection_queries, "get_oldest_clips", lambda limit: [])
 
     def _unexpected_delete(path: str) -> None:
         raise AssertionError("should not delete when there are no candidates")

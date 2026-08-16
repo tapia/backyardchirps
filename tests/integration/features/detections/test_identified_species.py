@@ -11,7 +11,7 @@ from typing import Callable
 
 import pytest
 
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.species.entity import Species
 
 pytestmark = pytest.mark.django_db
@@ -29,7 +29,7 @@ def test_lists_the_other_species_in_the_same_recording(create_detection: Callabl
     create_detection(scientific_name=HOUSE_SPARROW, recorded_at=RECORDING)
     blackbird = create_detection(scientific_name=BLACKBIRD, recorded_at=RECORDING)
 
-    identified = detection_repository.species_identified_in_same_recording(blackbird.to_entity())
+    identified = detection_queries.species_identified_in_same_recording(blackbird.to_entity())
 
     assert set(identified) == {Species(ROBIN), Species(HOUSE_SPARROW)}
 
@@ -41,7 +41,7 @@ def test_a_recording_with_one_bird_lists_nothing(create_detection: Callable[...,
     """
     blackbird = create_detection(scientific_name=BLACKBIRD, recorded_at=RECORDING)
 
-    identified = detection_repository.species_identified_in_same_recording(blackbird.to_entity())
+    identified = detection_queries.species_identified_in_same_recording(blackbird.to_entity())
 
     assert identified == []
 
@@ -54,7 +54,7 @@ def test_a_different_recording_is_not_listed(create_detection: Callable[..., Any
     create_detection(scientific_name=ROBIN, recorded_at=ANOTHER_RECORDING)
     blackbird = create_detection(scientific_name=BLACKBIRD, recorded_at=RECORDING)
 
-    identified = detection_repository.species_identified_in_same_recording(blackbird.to_entity())
+    identified = detection_queries.species_identified_in_same_recording(blackbird.to_entity())
 
     assert identified == []
 
@@ -66,7 +66,7 @@ def test_blacklisted_species_are_left_out(
     create_detection(scientific_name=ROBIN, recorded_at=RECORDING)
     blackbird = create_detection(scientific_name=BLACKBIRD, recorded_at=RECORDING)
 
-    identified = detection_repository.species_identified_in_same_recording(blackbird.to_entity())
+    identified = detection_queries.species_identified_in_same_recording(blackbird.to_entity())
 
     assert identified == []
 
@@ -83,6 +83,6 @@ def test_capture_times_a_fraction_apart_are_different_recordings(create_detectio
     create_detection(scientific_name=ROBIN, recorded_at=RECORDING)
     blackbird = create_detection(scientific_name=BLACKBIRD, recorded_at=RECORDING + timedelta(microseconds=1))
 
-    identified = detection_repository.species_identified_in_same_recording(blackbird.to_entity())
+    identified = detection_queries.species_identified_in_same_recording(blackbird.to_entity())
 
     assert identified == []

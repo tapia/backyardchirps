@@ -6,7 +6,7 @@ from typing import Callable
 
 import pytest
 
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import SpeciesAlreadyIdentifiedException
 from backyardchirps.features.detections.entity import ValidationStatus
 from backyardchirps.features.species.entity import Species
@@ -21,9 +21,9 @@ ROBIN = "Erithacus rubecula"
 def test_confirm_marks_human_confirmed(create_detection: Callable[..., Any]) -> None:
     detection = create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.PENDING, confidence=0.6)
 
-    detection_repository.confirm(detection.id)
+    detection_queries.confirm(detection.id)
 
-    updated = detection_repository.get_by_id(detection.id)
+    updated = detection_queries.get_by_id(detection.id)
     assert updated.validation_status == ValidationStatus.HUMAN_CONFIRMED
     assert updated.confidence == 1.0
 
@@ -31,9 +31,9 @@ def test_confirm_marks_human_confirmed(create_detection: Callable[..., Any]) -> 
 def test_confirm_with_reassignment(create_detection: Callable[..., Any]) -> None:
     detection = create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.PENDING)
 
-    detection_repository.confirm(detection.id, reassigned_species=Species(ROBIN))
+    detection_queries.confirm(detection.id, reassigned_species=Species(ROBIN))
 
-    updated = detection_repository.get_by_id(detection.id)
+    updated = detection_queries.get_by_id(detection.id)
     assert updated.species == Species(ROBIN)
     assert updated.validation_status == ValidationStatus.HUMAN_CONFIRMED
 
@@ -59,13 +59,13 @@ def test_reassigning_to_a_species_the_recording_already_holds_is_refused(
     )
 
     with pytest.raises(SpeciesAlreadyIdentifiedException):
-        detection_repository.confirm(blackbird.id, reassigned_species=Species(ROBIN))
+        detection_queries.confirm(blackbird.id, reassigned_species=Species(ROBIN))
 
     assert blackbird_clip.exists()  # nothing deleted
-    reviewed = detection_repository.get_by_id(blackbird.id)
+    reviewed = detection_queries.get_by_id(blackbird.id)
     assert reviewed.species == Species(BLACKBIRD)  # nor reassigned
     assert reviewed.validation_status == ValidationStatus.PENDING  # still queued
-    assert detection_repository.get_by_id(robin.id).validation_status == ValidationStatus.AUTO_CONFIRMED
+    assert detection_queries.get_by_id(robin.id).validation_status == ValidationStatus.AUTO_CONFIRMED
 
 
 def test_reassigning_is_allowed_when_the_recording_differs(create_detection: Callable[..., Any]) -> None:
@@ -83,10 +83,10 @@ def test_reassigning_is_allowed_when_the_recording_differs(create_detection: Cal
         validation_status=ValidationStatus.PENDING,
     )
 
-    detection_repository.confirm(blackbird.id, reassigned_species=Species(ROBIN))
+    detection_queries.confirm(blackbird.id, reassigned_species=Species(ROBIN))
 
-    assert detection_repository.get_by_id(blackbird.id).species == Species(ROBIN)
-    assert detection_repository.get_by_id(robin.id).validation_status == ValidationStatus.AUTO_CONFIRMED
+    assert detection_queries.get_by_id(blackbird.id).species == Species(ROBIN)
+    assert detection_queries.get_by_id(robin.id).validation_status == ValidationStatus.AUTO_CONFIRMED
 
 
 def test_discard_deletes_clip_file_and_row(create_detection: Callable[..., Any], tmp_path: Path) -> None:
@@ -94,8 +94,8 @@ def test_discard_deletes_clip_file_and_row(create_detection: Callable[..., Any],
     clip_file.write_bytes(b"audio")
     detection = create_detection(scientific_name=BLACKBIRD, clip_path=str(clip_file))
 
-    detection_repository.discard(detection.id)
+    detection_queries.discard(detection.id)
 
     assert not clip_file.exists()  # clip removed from disk
     with pytest.raises(StoredDetection.DoesNotExist):
-        detection_repository.get_by_id(detection.id)  # row removed
+        detection_queries.get_by_id(detection.id)  # row removed

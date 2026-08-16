@@ -1,6 +1,6 @@
 from typing import cast
 
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.overrides import queries
 from backyardchirps.features.overrides.entity import SpeciesOverride
 from backyardchirps.features.settings.logic import Settings
@@ -35,7 +35,7 @@ def clear_override(species: Species) -> None:
 
 def _clear_queue_if_lowered(species: Species, old_bar: float, new_bar: float) -> None:
     if new_bar < old_bar:
-        detection_repository.auto_confirm_pending_above(species, new_bar)
+        detection_queries.auto_confirm_pending_above(species, new_bar)
 
 
 def _effective_bar(override: SpeciesOverride | None) -> float:

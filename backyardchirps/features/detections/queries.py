@@ -17,7 +17,7 @@ from backyardchirps.features.detections.entity import AnalysisCandidate
 from backyardchirps.features.detections.entity import Detection
 from backyardchirps.features.detections.entity import SpeciesAlreadyIdentifiedException
 from backyardchirps.features.detections.entity import ValidationStatus
-from backyardchirps.features.overrides import queries as species_override_repository
+from backyardchirps.features.overrides import queries as override_queries
 from backyardchirps.features.recording.audio.clip import AudioClip
 from backyardchirps.features.recording.audio.detection import AnalysisResult
 from backyardchirps.features.recording.audio.detection import RawCandidate
@@ -482,7 +482,7 @@ def _auto_confirm_bar(species: Species) -> float:
     review. The species' own threshold wins when it has one, otherwise the global bar
     applies.
     """
-    custom_threshold = species_override_repository.auto_confirm_threshold(species)
+    custom_threshold = override_queries.auto_confirm_threshold(species)
     if custom_threshold is not None:
         return custom_threshold
     return cast(float, Settings.get(SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE))

@@ -11,7 +11,7 @@ from backyardchirps.features.detections.queries import count_species_recordings
 from backyardchirps.features.detections.queries import get_species_recordings
 from backyardchirps.features.detections.queries import get_species_stats
 from backyardchirps.features.detections.queries import species_with_detection_counts
-from backyardchirps.features.overrides import queries as species_override_repository
+from backyardchirps.features.overrides import queries as override_queries
 from backyardchirps.features.overrides.views import detection_settings_state
 from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
@@ -82,7 +82,7 @@ def species_detail(request, slug):
     min_confidence = _resolve_confidence_level(request)
     species = get_species_or_404(slug)
 
-    override = species_override_repository.get(species)
+    override = override_queries.get(species)
     # A blacklisted species looks like it was never detected. Its history is still in the
     # database, but stays hidden until it leaves the blacklist.
     blacklisted = override is not None and override.blacklisted

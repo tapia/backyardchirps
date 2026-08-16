@@ -12,9 +12,9 @@ from django.utils import timezone
 from django.utils import translation
 from django.utils.translation import gettext as _
 
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import Detection
-from backyardchirps.features.overrides import queries as species_override_repository
+from backyardchirps.features.overrides import queries as override_queries
 from backyardchirps.features.recording.audio.clip import AudioClip
 from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
@@ -65,7 +65,7 @@ class NewSpeciesRule(NotificationRule):
         min_confidence = Settings.get(SettingsKey.NOTIFICATIONS_NEW_SPECIES_CONFIDENCE)
         if detection.confidence < min_confidence:
             return False
-        return not detection_repository.has_detection_before(detection.species, detection.recorded_at)
+        return not detection_queries.has_detection_before(detection.species, detection.recorded_at)
 
     def build_label(self, language: str) -> str:
         with translation.override(language):
@@ -89,7 +89,7 @@ class FirstDetectionTodayRule(NotificationRule):
             return False
         local_dt = timezone.localtime(detection.recorded_at)
         today_start = local_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        return not detection_repository.has_detection_in_range(
+        return not detection_queries.has_detection_in_range(
             detection.species, today_start, detection.recorded_at, min_confidence
         )
 
@@ -117,7 +117,7 @@ class RareSpeciesRule(NotificationRule):
             return False
         local_dt = timezone.localtime(detection.recorded_at)
         today_start = local_dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        return not detection_repository.has_detection_in_range(
+        return not detection_queries.has_detection_in_range(
             detection.species, today_start, detection.recorded_at, min_confidence
         )
 
@@ -144,7 +144,7 @@ class FirstDetectionThisYearRule(NotificationRule):
             return False
         local_dt = timezone.localtime(detection.recorded_at)
         year_start = local_dt.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        return not detection_repository.has_detection_in_range(
+        return not detection_queries.has_detection_in_range(
             detection.species, year_start, detection.recorded_at, min_confidence
         )
 
@@ -171,9 +171,9 @@ class LongAbsentSpeciesRule(NotificationRule):
             return False
         absence_days = Settings.get(SettingsKey.NOTIFICATIONS_LONG_ABSENT_DAYS)
         absence_cutoff = detection.recorded_at - timedelta(days=absence_days)
-        if not detection_repository.has_detection_before(detection.species, absence_cutoff):
+        if not detection_queries.has_detection_before(detection.species, absence_cutoff):
             return False
-        return not detection_repository.has_detection_in_range(
+        return not detection_queries.has_detection_in_range(
             detection.species, absence_cutoff, detection.recorded_at, min_confidence
         )
 
@@ -245,7 +245,7 @@ class Notifier:
         chat_id = Settings.get(SettingsKey.TELEGRAM_CHAT_ID)
         if not token or not chat_id:
             return
-        if species_override_repository.is_blacklisted(detection.species):
+        if override_queries.is_blacklisted(detection.species):
             return
         language = Settings.get(SettingsKey.NOTIFICATIONS_LANGUAGE)
         matching_labels: list[str] = []

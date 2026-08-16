@@ -6,7 +6,7 @@ import time
 from django.conf import settings
 from django.core.management.base import BaseCommand
 
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import Detection
 from backyardchirps.features.notifications.logic import Notifier
 from backyardchirps.features.recording import logic as process_recording
@@ -71,7 +71,7 @@ class Command(BaseCommand):
                 except queue.Empty:
                     continue
 
-                notifier.flush(detection_repository.get_block_time(clip.recorded_at))
+                notifier.flush(detection_queries.get_block_time(clip.recorded_at))
 
                 started_at = time.perf_counter()
                 analysis = analyzer.analyze(clip)

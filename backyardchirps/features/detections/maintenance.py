@@ -2,7 +2,7 @@ import logging
 
 from django.conf import settings
 
-from backyardchirps.features.detections import queries as detection_repository
+from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.recording.audio.clip import AudioClip
 from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
@@ -24,12 +24,12 @@ def enforce_quota() -> int:
     deleted_count = 0
 
     while disk_usage.get_usage_percent(clips_dir) > quota:
-        candidates = detection_repository.get_oldest_clips(_BATCH_SIZE)
+        candidates = detection_queries.get_oldest_clips(_BATCH_SIZE)
         if not candidates:
             break
         for candidate in candidates:
             AudioClip.delete_clip(candidate["clip_path"])
-            detection_repository.clear_clip_path(candidate["id"])
+            detection_queries.clear_clip_path(candidate["id"])
             deleted_count += 1
 
     logger.info(
