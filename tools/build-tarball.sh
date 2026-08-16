@@ -134,7 +134,6 @@ RELEASE_PATHS=(
     uv.lock
     .env.example
     LICENSE
-    NOTICE
     README.md
 )
 
