@@ -254,21 +254,16 @@ class Settings:
     """
     The way to read and write application settings. Nothing else should reach for
     AppSetting or settings_queries on its own.
-
-    Reading a key with no row yet writes its default to the database, so every later
-    read sees the same value.
     """
 
     @classmethod
     def get(cls, key: SettingsKey) -> Any:
         """
-        On the first access the row does not exist yet, so it is created holding the
-        default.
+        A key with no row yet falls back to its default.
         """
         definition = DEFAULTS[key]
         stored = settings_queries.get(key)
         if stored is None:
-            settings_queries.set_value(key, _serialize(definition.default))
             return definition.default
         return definition.parser(stored)
 
