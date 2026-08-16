@@ -125,7 +125,7 @@ def detections_by_species_hourly(
     end: datetime | None = None,
 ) -> list[dict]:
     """
-    What was heard in each of 24 hours, the last 24 by default.
+    What was heard in each hour of the period, the last 24 hours by default.
 
     Every hour comes back with its total, the busiest few species in full (names and
     image), and species_counts, which holds the count of every species that hour without
@@ -133,6 +133,7 @@ def detections_by_species_hourly(
     """
     effective_end = end or timezone.now()
     effective_start = start or (effective_end - timedelta(hours=24))
+    hours_in_period = max(1, round((effective_end - effective_start) / timedelta(hours=1)))
 
     per_species = (
         StoredDetection.objects.excluding_blacklisted()
@@ -156,7 +157,7 @@ def detections_by_species_hourly(
 
     first_hour = effective_start.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
     result = []
-    for index in range(24):
+    for index in range(hours_in_period):
         hour_dt = first_hour + timedelta(hours=index)
         entries = sorted(by_hour.get(hour_dt, []), key=lambda entry: entry["count"], reverse=True)
         top_species = []
