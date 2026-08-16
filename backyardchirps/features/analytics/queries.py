@@ -52,7 +52,10 @@ def species_detections_over_time(
 
     if not start:
         rows = sorted(
-            [{"day": k.isoformat(), "count": v["count"]} for k, v in detections_grouped_by_period.items()],
+            [
+                {"day": period_start.isoformat(), "count": row["count"]}
+                for period_start, row in detections_grouped_by_period.items()
+            ],
             key=lambda row: row["day"],
         )
         return rows, granularity
@@ -275,6 +278,20 @@ def multi_species_timelines(
     return series, granularity
 
 
+def species_detections_by_day_yearly(
+    species: Species,
+    min_confidence: float | None = None,
+) -> dict[str, int]:
+    """
+    Detections per day over the past year, keyed by ISO date. Unlike the series builders
+    above, a day with nothing heard is left out rather than set to zero.
+    """
+    since = timezone.now() - timedelta(days=364)
+    queryset = StoredDetection.objects.of_species(species).in_period(since, None).with_min_confidence(min_confidence)
+    rows = queryset.annotate(day=TruncDay("recorded_at")).values("day").annotate(count=Count("id")).order_by("day")
+    return {row["day"].date().isoformat(): row["count"] for row in rows}
+
+
 def _group_by_time_period(
     queryset: QuerySet, trunc_fn: type[TruncHour] | type[TruncDay] | type[TruncMonth]
 ) -> QuerySet:
@@ -365,11 +382,11 @@ def _complete_month_series(
     """
     One entry per month from local_start to local_end, with the empty months set to zero.
     """
-    by_ym = {(k.year, k.month): v for k, v in by_period_start.items()}
+    by_year_and_month = {(period_start.year, period_start.month): row for period_start, row in by_period_start.items()}
     result = []
     for label in _month_labels(local_start.date(), local_end.date()):
         label_date = date.fromisoformat(label)
-        period = by_ym.get((label_date.year, label_date.month), {})
+        period = by_year_and_month.get((label_date.year, label_date.month), {})
         result.append({"day": label, "count": period.get("count", 0)})
     return result
 
@@ -394,20 +411,6 @@ def _complete_bounded_series(
         }
         for index in range(period_count)
     ]
-
-
-def species_detections_by_day_yearly(
-    species: Species,
-    min_confidence: float | None = None,
-) -> dict[str, int]:
-    """
-    Detections per day over the past year, keyed by ISO date. Unlike the series builders
-    above, a day with nothing heard is left out rather than set to zero.
-    """
-    since = timezone.now() - timedelta(days=364)
-    queryset = StoredDetection.objects.of_species(species).in_period(since, None).with_min_confidence(min_confidence)
-    rows = queryset.annotate(day=TruncDay("recorded_at")).values("day").annotate(count=Count("id")).order_by("day")
-    return {row["day"].date().isoformat(): row["count"] for row in rows}
 
 
 def _date_axis_labels(
