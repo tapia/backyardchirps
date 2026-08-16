@@ -30,7 +30,26 @@ class GeoModel:
         The species whose occurrence probability at this location and week reaches
         threshold, resolved against the taxonomy.
         """
-        scores = self._run(latitude, longitude, week_48)
+        return self.species_above(self.occurrence_scores(latitude, longitude, week_48), threshold)
+
+    def occurrence_scores(self, latitude: float, longitude: float, week_48: int) -> np.ndarray:
+        """
+        The occurrence probability of every class at this location and week, in label
+        order.
+
+        allowed_species is the answer most callers want. This is for a caller covering
+        many points and weeks, which is cheaper as one array kept at its element-wise
+        maximum than as thousands of sets to union: the label list is around eleven
+        thousand long, so resolving it once at the end rather than once per call is the
+        difference between seconds and minutes.
+        """
+        return self._run(latitude, longitude, week_48)
+
+    def species_above(self, scores: np.ndarray, threshold: float) -> set[Species]:
+        """
+        The species whose score reaches threshold, resolved against the taxonomy. Takes
+        the scores of a single run, or the maximum taken over several.
+        """
         return {
             species
             for class_index, species in self._species_by_index.items()

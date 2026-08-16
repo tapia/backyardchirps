@@ -113,6 +113,24 @@ Worth knowing for the updater: `0.1.0+main.a1b2c3d` sorts **above** `0.1.0` unde
 station tracking `main` is therefore ahead of the newest stable release by that comparison, which
 is true but not what a plain "is there something newer" check should conclude.
 
+## Region packs
+
+The data that only makes sense for one part of the world does not ship in a release. It comes in
+a **region pack**: a box, not a country, holding eBird occurrence rasters cropped to it and a
+range map per species framed on it. A station resolves its coordinates against a packs index and
+downloads the one covering it.
+
+Packs and the code that builds them live in their own repository,
+[tapia/backyardchirps-regional-packs](https://github.com/tapia/backyardchirps-regional-packs).
+Two reasons they are not here. Drawing a range map needs contextily, geopandas and shapely, and a
+station would install that stack on a Pi and never open it. And a release is tagged in semver
+while a pack is dated and gets rebuilt whenever eBird publishes a new data year, so tying the two
+together would force a station tag every time a pack changes.
+
+That repository depends on this one and imports it, never the other way round. The call deciding
+which species are plausible somewhere, `plausible_species_names_over`, is shared rather than
+copied, so a pack cannot end up missing a raster that the station at its centre goes looking for.
+
 ## How many releases a station keeps
 
 `install.sh` keeps the newest three directories under `releases/`, plus whatever `current` points

@@ -91,32 +91,21 @@ under `generated/`:
 uv run python manage.py update_species_data
 ```
 
-**4. Download occurrence rasters** for any species that has none yet. The downloader works out
-which species those are the same way the station does, by asking GeoModel about the
-coordinates, and takes their eBird codes from the taxonomy. So it needs the coordinates and an
-eBird Status & Trends access key, and nothing else:
+**4. Get the occurrence rasters and the range maps.** Both come from eBird Status & Trends, and
+neither is fetched from this repository any more: they are what a **region pack** carries, and
+the tooling that downloads, crops and draws them lives in
+[tapia/backyardchirps-regional-packs](https://github.com/tapia/backyardchirps-regional-packs)
+along with an eBird access key.
 
-```bash
-EBIRD_API_KEY=<your-key> uv run python tools/ebird_downloader.py --latitude <lat> --longitude <lon>
-```
+The quickest path is to build a pack for a box around the new location and unpack it. Point
+`EBIRD_DATA_DIR` at its `ebird_occurrence/` and `SPECIES_RANGE_MAPS_DIR` at its `range_maps/`,
+or copy the contents into the directories above.
 
-It writes wherever `EBIRD_DATA_DIR` points, which is the same setting the seasonality timeline
-reads, and prints the path as it starts. That is `assets/ebird_occurrence/` in a plain checkout
-and `$BACKYARDCHIRPS_DATA_DIR/species/ebird_occurrence/` on a station with a data directory.
+Rasters are keyed by eBird code and are the same everywhere, so any species you already have is
+reused. Range maps are framed on one box and cannot be shared between regions.
 
-Rasters are global, so any species you already have from another location is skipped.
-
-**5. Render the range maps** into `locations/<slug>/range_maps/`, one `<slug>.webp` per species.
-These are drawn around the region, so they cannot be shared between locations. Same downloader,
-different product:
-
-```bash
-EBIRD_API_KEY=<your-key> uv run python tools/ebird_downloader.py \
-    --latitude <lat> --longitude <lon> --product range_smooth_9km
-```
-
-**6. Species photos are optional.** `assets/images/` is global; add any missing `<slug>.jpg` if
+**5. Species photos are optional.** `assets/images/` is global; add any missing `<slug>.jpg` if
 you have one. Without it the app falls back to the BirdNET image API.
 
-**7. Restart the recorder.** The analyzer reads the coordinates only at startup, so `run_recorder`
+**6. Restart the recorder.** The analyzer reads the coordinates only at startup, so `run_recorder`
 has to be restarted after changing the location or the coordinates.

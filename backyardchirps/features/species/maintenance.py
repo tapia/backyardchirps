@@ -2,6 +2,7 @@ import json
 import logging
 from pathlib import Path
 
+import numpy as np
 from django.conf import settings
 
 from backyardchirps.features.recording.audio.birdnet3.geomodel import GeoModel
@@ -81,11 +82,33 @@ def plausible_species_names(latitude: float, longitude: float) -> list[str]:
     Shared with the eBird raster downloader, so a station and the tooling always agree on
     what counts as plausible here.
     """
+    return plausible_species_names_over([(latitude, longitude)])
+
+
+def plausible_species_names_over(points: list[tuple[float, float]]) -> list[str]:
+    """
+    The same list, for every species plausible at any of these points in any week of the
+    year. A station passes the one point it sits on; the region-pack builder passes a grid
+    covering a bounding box, and gets the union over the whole box.
+
+    One threshold serves both, which is the point of sharing this: a pack built here can
+    never be missing a raster for a species the station at its centre would go looking
+    for.
+    """
+    if not points:
+        return []
+
     geomodel = GeoModel(
         model_path=Path(settings.GEOMODEL_MODEL_FILE),
         labels_path=Path(settings.GEOMODEL_LABELS_FILE),
     )
-    plausible: set[Species] = set()
-    for week_48 in _WEEKS:
-        plausible |= geomodel.allowed_species(latitude, longitude, week_48, _SPECIES_LIST_THRESHOLD)
+    # Kept as the element-wise maximum rather than as a growing set of species. A score
+    # reaching the threshold in any week at any point is exactly a maximum reaching it,
+    # and the names are resolved once at the end instead of once per run.
+    runs = [(latitude, longitude, week_48) for latitude, longitude in points for week_48 in _WEEKS]
+    highest_scores = geomodel.occurrence_scores(*runs[0])
+    for latitude, longitude, week_48 in runs[1:]:
+        highest_scores = np.maximum(highest_scores, geomodel.occurrence_scores(latitude, longitude, week_48))
+
+    plausible: set[Species] = geomodel.species_above(highest_scores, _SPECIES_LIST_THRESHOLD)
     return sorted(species.scientific_name for species in plausible)
