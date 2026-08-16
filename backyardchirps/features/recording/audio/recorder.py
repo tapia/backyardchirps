@@ -53,14 +53,11 @@ class AudioRecorder:
 
     def next_clip(self, timeout: float = 1.0) -> AudioClip:
         """
-        Returns the next recorded clip. Raises queue.Empty on timeout.
+        Raises queue.Empty on timeout.
         """
         return self._queue.get(timeout=timeout)
 
     def pending_clips(self) -> int:
-        """
-        Returns the number of recorded clips waiting to be analyzed.
-        """
         return self._queue.qsize()
 
     def _callback(self, indata: np.ndarray, frames: int, time: Any, status: Any) -> None:

@@ -156,11 +156,8 @@ LOCALE_PATHS = [BASE_DIR / "backyardchirps" / "locale"]
 # ---------------------------------------------------------------------------
 # The taxonomy, photos and occurrence rasters are shared by every location. Only the
 # range maps differ, being drawn around one region, and ACTIVE_LOCATION picks the
-# locations/<slug>/ directory holding them.
-#
-# This is the last job it has, and a region pack takes it over in Phase 4 of the
-# installer plan. The species list used to live here too, until it became something each
-# station derives from its own coordinates.
+# locations/<slug>/ directory holding them. Picking the range maps is the only job it
+# has: a station derives its own species list from its coordinates.
 ACTIVE_LOCATION = os.environ.get("ACTIVE_LOCATION", "spain")
 
 SPECIES_DATA_DIR = BASE_DIR / "backyardchirps" / "species_data"

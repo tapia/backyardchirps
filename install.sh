@@ -33,11 +33,10 @@ LOCAL_TARBALL=
 IGNORE_PREFLIGHT=no
 PREFLIGHT_ONLY=no
 
-# Preflight looks at the machine through these four values, and they are overridable
-# so the checks can be run against fixtures. That is the only way to exercise them:
-# the container test is not a Raspberry Pi, and the one machine that is cannot be a
-# test fixture. Three of these checks shipped broken because nothing ever ran them.
-# See tools/test-preflight.sh.
+# Preflight looks at the machine through these four values. They are overridable so the
+# checks can be run against fixtures, which is the only way to exercise them: the
+# container test is not a Raspberry Pi, and the one machine that is cannot be a test
+# fixture. See tools/test-preflight.sh.
 DEVICE_TREE_MODEL_FILE="${DEVICE_TREE_MODEL_FILE:-/proc/device-tree/model}"
 OS_RELEASE_FILE="${OS_RELEASE_FILE:-/etc/os-release}"
 ASOUND_PCM_FILE="${ASOUND_PCM_FILE:-/proc/asound/pcm}"
@@ -140,16 +139,11 @@ check_this_machine() {
         [ "$SYSTEM_ARCHITECTURE" = arm64 ] \
             || die "This needs 64-bit Raspberry Pi OS. This system reports '${SYSTEM_ARCHITECTURE:-nothing}'."
 
-        # /etc/os-release on 64-bit Raspberry Pi OS is Debian's own, word for word: the
-        # 64-bit port is Debian arm64 with the Raspberry Pi archive layered on top, and
-        # nothing in that file mentions a Raspberry Pi. Only the 32-bit Raspbian sets
-        # ID=raspbian, and this installer requires arm64, so looking for the word
-        # "raspberry" in there could never have matched a machine it supports.
-        #
-        # What a station actually depends on is Debian 13 or newer, because that is
-        # where python3 is the 3.13 this project asks for and where every apt package
-        # below comes from. So check that, and let the board check above be what says
-        # this is a Pi.
+        # 64-bit Raspberry Pi OS reports itself as plain Debian: nothing in
+        # /etc/os-release mentions a Raspberry Pi, since the 64-bit port is Debian arm64
+        # with the Raspberry Pi archive on top. So check for Debian 13 or newer, which is
+        # what ships the Python 3.13 this project needs, and let the board check above be
+        # what says this is a Pi.
         os_pretty_name="$(read_os_release PRETTY_NAME)"
         os_id="$(read_os_release ID)"
         os_version_id="$(read_os_release VERSION_ID)"
@@ -177,10 +171,8 @@ check_this_machine() {
             info "no $RPI_ISSUE_FILE, so this is Debian rather than Raspberry Pi OS"
         fi
 
-        # Read the file rather than asking how big it is. Files under /proc are produced
-        # when they are read and report a size of zero whatever they contain, so an
-        # earlier `test -s /proc/asound/cards` here rejected every machine it ran on,
-        # including a Pi that was recording at the time.
+        # Read the file rather than asking how big it is: files under /proc are produced
+        # when they are read, and report a size of zero whatever they contain.
         #
         # /proc/asound/pcm rather than /proc/asound/cards, because cards counts
         # playback-only devices: a Pi with nothing plugged in but HDMI has two of those
@@ -359,12 +351,12 @@ info "$SERVICE_USER owns $DATA_DIR"
 # and it needs a token. That is knowable here, without Django, which is why this
 # runs now rather than after the build.
 #
-# The order matters more than it looks. Everything between here and the end of the
-# build is slow and can fail: a package download, a wheel that will not compile, an
-# ssh session that drops. A failure in there used to leave a station with no token
-# and no admin, which is a station anyone on the network can claim, and one whose
-# wizard closes itself after the account step because "no token" is also how a
-# finished setup looks. Writing the token first means its absence has one meaning.
+# The order matters. Everything between here and the end of the build is slow and can
+# fail: a package download, a wheel that will not compile, an ssh session that drops.
+# A station left with no token and no admin is one that anyone on the network can
+# claim, and its wizard closes itself after the account step, because "no token" is
+# also how a finished setup looks. Writing the token first means its absence has one
+# meaning.
 say "Checking whether the station needs a setup token"
 SETUP_TOKEN=
 STATION_IS_NEW=no
