@@ -203,7 +203,6 @@ user downloads. It covers everything except real audio.
 ```bash
 uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s
 uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s --keep-station
-uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s --runtime docker
 ```
 
 It is pytest, but it is not part of the project suite: `tools/container` is outside `testpaths`,
@@ -221,16 +220,15 @@ The image is `debian:trixie`, matching what Raspberry Pi OS is built on. That is
 station builds against the interpreter apt installs, so the Debian release decides which Python
 the whole thing runs on.
 
-Podman is preferred when both are installed, because it wires up cgroups for an init process on
-its own where docker needs a privileged container and the cgroup filesystem mounted in.
-`--runtime` overrides that.
+Docker runs the station, and it needs a privileged container with a private cgroup namespace to
+boot an init process. Those flags are in `RUN_FLAGS` in `station.py`, with a comment on the one
+thing not to add back.
 
 `.github/workflows/installer.yml` runs the same test on every change to `install.sh`,
 `uninstall.sh`, `deploy/`, the tarball builder or the locked dependencies. It runs on arm64,
-since an installer proves little from a different architecture, and pins docker because that is
-what the runner image is set up for. When it fails it prints the tail of the station's install
-log into the job output, so the reason is visible without opening a container that no longer
-exists.
+since an installer proves little from a different architecture. When it fails it prints the tail
+of the station's install log into the job output, so the reason is visible without opening a
+container that no longer exists.
 
 ## Where else to look
 

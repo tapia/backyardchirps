@@ -55,10 +55,7 @@ CREATE_ADMIN = (
 # cgroup v2 only. On v2 docker mounts a cgroup2 filesystem rooted at the container's own cgroup,
 # and bind-mounting the host tree over it leaves systemd looking at a root that is not its own,
 # where it never finishes booting. That is silent apart from the boot timeout below.
-RUN_FLAGS = {
-    "podman": ["--systemd=always"],
-    "docker": ["--privileged", "--cgroupns=private", "--tmpfs", "/run", "--tmpfs", "/run/lock", "--tmpfs", "/tmp"],
-}
+RUN_FLAGS = ["--privileged", "--cgroupns=private", "--tmpfs", "/run", "--tmpfs", "/run/lock", "--tmpfs", "/tmp"]
 
 # systemd is given this long to finish booting. `degraded` counts: this image deliberately
 # removes units that want hardware it does not have.
@@ -113,15 +110,14 @@ class Updated:
 @dataclasses.dataclass(frozen=True)
 class Station:
     """
-    A container running systemd, driven from outside through `podman exec` or `docker exec`.
+    A container running systemd, driven from outside through `docker exec`.
     """
 
-    runtime: str
     name: str
 
     def run(self, command: list[str]) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            [self.runtime, "exec", self.name, *command],
+            ["docker", "exec", self.name, *command],
             capture_output=True,
             text=True,
             check=False,
@@ -195,12 +191,12 @@ class Station:
 
     def copy_in(self, source: Path, destination: str) -> None:
         """
-        Written through `tee` on the far end of `exec -i`, which needs nothing from the runtime
+        Written through `tee` on the far end of `docker exec -i`, which needs nothing from docker
         beyond a pipe and lands the file owned by root, as a download would.
         """
         with source.open("rb") as handle:
             result = subprocess.run(
-                [self.runtime, "exec", "-i", self.name, "tee", destination],
+                ["docker", "exec", "-i", self.name, "tee", destination],
                 stdin=handle,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
@@ -222,7 +218,7 @@ class Station:
 
     def container_logs(self, lines: int = 40) -> str:
         result = subprocess.run(
-            [self.runtime, "logs", self.name],
+            ["docker", "logs", self.name],
             capture_output=True,
             text=True,
             check=False,
@@ -230,23 +226,13 @@ class Station:
         return "\n".join((result.stdout + result.stderr).splitlines()[-lines:])
 
 
-def pick_runtime(requested: str) -> str:
+def require_docker() -> None:
     """
-    Podman first when nothing is pinned: it knows what an init process needs and wires up cgroups
-    itself, where docker has to be told. CI pins docker with --runtime, because that is the
-    combination GitHub runners are set up for.
+    Checked once up front, because everything after this point fails as a missing command deep
+    inside a fixture otherwise.
     """
-    if requested:
-        if requested not in RUN_FLAGS:
-            raise RuntimeError(f"Unknown runtime '{requested}'. Use podman or docker.")
-        if not _is_installed(requested):
-            raise RuntimeError(f"{requested} is not installed.")
-        return requested
-
-    for candidate in RUN_FLAGS:
-        if _is_installed(candidate):
-            return candidate
-    raise RuntimeError("Neither podman nor docker is installed. See the header of test_container_install.py.")
+    if shutil.which("docker") is None:
+        raise RuntimeError("docker is not installed. See the header of test_container_install.py.")
 
 
 def build_release(output_dir: Path, version_suffix: str = "") -> Release:
@@ -285,9 +271,9 @@ def build_release(output_dir: Path, version_suffix: str = "") -> Release:
     )
 
 
-def build_image(runtime: str) -> None:
+def build_image() -> None:
     result = subprocess.run(
-        [runtime, "build", "-t", IMAGE, str(CONTAINER_DIR)],
+        ["docker", "build", "-t", IMAGE, str(CONTAINER_DIR)],
         capture_output=True,
         text=True,
         check=False,
@@ -296,15 +282,15 @@ def build_image(runtime: str) -> None:
         raise RuntimeError(f"Building the {IMAGE} image failed:\n{result.stdout}\n{result.stderr}")
 
 
-def boot(runtime: str) -> Station:
+def boot() -> Station:
     """
     A machine that has never worked before. Anything that only passes because of state left
     behind by an earlier attempt fails here, which is exactly the class of problem an installer
     has.
     """
-    remove(Station(runtime=runtime, name=CONTAINER_NAME))
+    remove(Station(name=CONTAINER_NAME))
     result = subprocess.run(
-        [runtime, "run", "-d", "--name", CONTAINER_NAME, *RUN_FLAGS[runtime], IMAGE],
+        ["docker", "run", "-d", "--name", CONTAINER_NAME, *RUN_FLAGS, IMAGE],
         capture_output=True,
         text=True,
         check=False,
@@ -312,14 +298,14 @@ def boot(runtime: str) -> Station:
     if result.returncode != 0:
         raise RuntimeError(f"Could not start the container:\n{result.stderr}")
 
-    station = Station(runtime=runtime, name=CONTAINER_NAME)
+    station = Station(name=CONTAINER_NAME)
     _wait_for_systemd(station)
     return station
 
 
 def remove(station: Station) -> None:
     subprocess.run(
-        [station.runtime, "rm", "-f", station.name],
+        ["docker", "rm", "-f", station.name],
         capture_output=True,
         check=False,
     )
@@ -370,10 +356,6 @@ def uninstall(station: Station) -> subprocess.CompletedProcess[str]:
     taken apart must not take the data with it by accident.
     """
     return station.run(["bash", f"{INSTALL_DIR}/uninstall.sh", "--data-dir", DATA_DIR])
-
-
-def _is_installed(runtime: str) -> bool:
-    return shutil.which(runtime) is not None
 
 
 def _wait_for_systemd(station: Station) -> None:

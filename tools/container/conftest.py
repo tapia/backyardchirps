@@ -32,8 +32,8 @@ from station import build_image
 from station import build_release
 from station import copy_release_in
 from station import install
-from station import pick_runtime
 from station import remove
+from station import require_docker
 from station import snapshot
 from station import uninstall
 
@@ -41,21 +41,11 @@ from station import uninstall
 def pytest_addoption(parser: pytest.Parser) -> None:
     group = parser.getgroup("station", "the throwaway station these tests install onto")
     group.addoption(
-        "--runtime",
-        default="",
-        help="container runtime: podman or docker. The default prefers podman.",
-    )
-    group.addoption(
         "--keep-station",
         action="store_true",
         default=False,
         help="leave the container running afterwards, to look around inside it",
     )
-
-
-@pytest.fixture(scope="session")
-def runtime(request: pytest.FixtureRequest) -> str:
-    return pick_runtime(str(request.config.getoption("--runtime")))
 
 
 @pytest.fixture(scope="session")
@@ -77,21 +67,22 @@ def upgrade_release(tmp_path_factory: pytest.TempPathFactory) -> Release:
 
 
 @pytest.fixture(scope="session")
-def booted_station(request: pytest.FixtureRequest, runtime: str) -> Iterator[Station]:
+def booted_station(request: pytest.FixtureRequest) -> Iterator[Station]:
+    require_docker()
     keep_station = bool(request.config.getoption("--keep-station"))
-    _say(f"building the image with {runtime}")
-    build_image(runtime)
+    _say("building the image")
+    build_image()
     _say("booting a clean station")
     try:
-        booted = boot(runtime)
+        booted = boot()
         _say(f"systemd is up, failed units: {', '.join(booted.failed_units()) or 'none'}")
         yield booted
     finally:
         if keep_station:
-            _say(f"still running. Look around with: {runtime} exec -it {CONTAINER_NAME} bash")
-            _say(f"then: {runtime} rm -f {CONTAINER_NAME}")
+            _say(f"still running. Look around with: docker exec -it {CONTAINER_NAME} bash")
+            _say(f"then: docker rm -f {CONTAINER_NAME}")
         else:
-            remove(Station(runtime=runtime, name=CONTAINER_NAME))
+            remove(Station(name=CONTAINER_NAME))
 
 
 @pytest.fixture(scope="session")

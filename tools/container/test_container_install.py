@@ -5,9 +5,8 @@ has to be tagged first.
 
   uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s
   uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s --keep-station
-  uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s --runtime docker
 
-Needs podman or docker, and it is slow: it builds two real tarballs, resolves every Python
+Needs docker, and it is slow: it builds two real tarballs, resolves every Python
 dependency inside the container and downloads the acoustic model. --no-project keeps it
 out of the project environment, which none of this needs, and -o addopts="" drops the coverage
 report the project suite asks for.
