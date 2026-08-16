@@ -10,12 +10,13 @@ from django.core.management.base import BaseCommand
 from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import Detection
 from backyardchirps.features.notifications.logic import Notifier
-from backyardchirps.features.recording import logic as process_recording
 from backyardchirps.features.recording.audio.acoustic_model import build_acoustic_model
 from backyardchirps.features.recording.audio.consistency_filter import ConsistencyFilter
 from backyardchirps.features.recording.audio.detection import AnalysisResult
+from backyardchirps.features.recording.audio.detection import discard_non_birds
 from backyardchirps.features.recording.audio.queue_monitor import QueueMonitor
 from backyardchirps.features.recording.audio.recorder import AudioRecorder
+from backyardchirps.features.recording.logic import discard_blacklisted
 from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.shared.recorder_heartbeat import write_heartbeat
@@ -88,9 +89,7 @@ class Command(BaseCommand):
                         write_heartbeat(queue_monitor.to_heartbeat())
                         last_heartbeat_at = time.monotonic()
 
-                    analysis_results = process_recording.discard_non_birds(
-                        process_recording.discard_blacklisted(analysis.results)
-                    )
+                    analysis_results = discard_non_birds(discard_blacklisted(analysis.results))
                     confirmed_results = consistency_filter.add(
                         clip, analysis_results, analysis.raw_candidates, analysis_time_ms
                     )
@@ -100,7 +99,14 @@ class Command(BaseCommand):
                     )
 
                     for confirmed in confirmed_results:
-                        detection = process_recording.process_confirmed_detection(confirmed)
+                        # None when a record for this block already exists and is at least
+                        # as confident, so there is nothing to update and nothing to say.
+                        detection = detection_queries.upsert(
+                            confirmed.clip,
+                            confirmed.result,
+                            analysis_time_ms=confirmed.analysis_time_ms,
+                            raw_candidates=confirmed.raw_candidates,
+                        )
                         if detection:
                             notifier.maybe_notify(detection, confirmed.clip)
                         self._log(confirmed.result, detection)

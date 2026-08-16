@@ -11,6 +11,7 @@ from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import ValidationStatus
 from backyardchirps.features.recording.audio.clip import AudioClip
 from backyardchirps.features.recording.audio.detection import AnalysisResult
+from backyardchirps.features.recording.audio.detection import RawCandidate
 from backyardchirps.features.species.entity import Species
 from backyardchirps.models.stored_detection import StoredDetection
 
@@ -119,6 +120,25 @@ def test_upsert_uses_per_species_override_threshold(
 
     assert detection is not None
     assert detection.validation_status == ValidationStatus.AUTO_CONFIRMED
+
+
+def test_upsert_keeps_the_analysis_time_and_the_raw_candidates(
+    make_audio_clip: Callable[..., AudioClip], clips_dir: Path
+) -> None:
+    detection = detection_queries.upsert(
+        _clip(make_audio_clip),
+        _result(0.8),
+        analysis_time_ms=175,
+        raw_candidates=[RawCandidate(label=BLACKBIRD, confidence=0.8), RawCandidate(label="Engine", confidence=0.2)],
+    )
+
+    assert detection is not None
+    assert detection.analysis_time_ms == 175
+    # The raw list keeps the non-bird token and its confidence, unresolved to a species.
+    assert [(candidate.label, candidate.species) for candidate in detection.analysis_candidates] == [
+        (BLACKBIRD, Species(BLACKBIRD)),
+        ("Engine", None),
+    ]
 
 
 # --- species_with_detection_counts ------------------------------------------

@@ -37,3 +37,12 @@ class Analysis:
 
     results: list[AnalysisResult]
     raw_candidates: list[RawCandidate] = field(default_factory=list)
+
+
+def discard_non_birds(analysis_results: list[AnalysisResult]) -> list[AnalysisResult]:
+    """
+    BirdNET's taxonomy also covers insects, mammals, amphibians and reptiles, and none
+    of those should become a detection. The caller still keeps the full raw candidate
+    list for the record.
+    """
+    return [result for result in analysis_results if result.species.is_bird()]
