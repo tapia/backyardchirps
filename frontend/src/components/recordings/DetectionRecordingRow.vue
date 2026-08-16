@@ -60,7 +60,7 @@ const { t } = useI18n()
 
 <style scoped>
 .rec-time {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--graphite);
@@ -69,7 +69,7 @@ const { t } = useI18n()
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   color: var(--slate);
 }
@@ -79,7 +79,7 @@ const { t } = useI18n()
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   line-height: 1.4;
   padding: 1px 8px;

@@ -474,7 +474,7 @@ watch([() => props.species, () => props.days, metric], render, { deep: true })
   border-radius: 2px;
   padding: 8px 10px;
   max-width: calc(100vw - 24px);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   opacity: 0;
   transition: opacity 0.12s ease;
 }
@@ -515,7 +515,7 @@ watch([() => props.species, () => props.days, metric], render, { deep: true })
   background: rgba(255, 255, 255, 0.13);
 }
 .hour-tooltip__name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 14px;
   white-space: nowrap;
   overflow: hidden;

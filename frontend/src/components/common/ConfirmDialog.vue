@@ -151,14 +151,14 @@ onUnmounted(() => {
   color: var(--bs-danger);
 }
 .confirm-title {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.15rem;
   font-weight: 600;
   color: var(--graphite);
   line-height: 1.25;
 }
 .confirm-message {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.88rem;
   color: var(--slate);
   margin-top: 6px;

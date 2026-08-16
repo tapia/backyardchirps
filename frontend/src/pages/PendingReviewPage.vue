@@ -481,12 +481,12 @@ onMounted(initializePage)
 
 <style scoped>
 .pending-bird-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.9rem;
   font-weight: 500;
 }
 .pending-sci-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.73rem;
 }
 
@@ -561,7 +561,7 @@ onMounted(initializePage)
   padding: 0 5px;
   border: 1px solid var(--limestone);
   border-radius: 1px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--slate);

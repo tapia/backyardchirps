@@ -20,6 +20,12 @@ html {
   --sand-pale: #ecdfc4;
   --danger-muted: #8b3a3a;
 
+  /* Type stacks. Newsreader is the display serif, Source Sans the interface face.
+     Canvas text in the charts cannot read a custom property, so those keep the
+     literal stack. */
+  --font-serif: 'Newsreader', Georgia, serif;
+  --font-sans: 'Source Sans 3', system-ui, sans-serif;
+
   /* Species hero stat accents: earthy jay-blue + ochre, tuned to the palette */
   --jay-blue: #3f6188;
   --jay-blue-rgb: 63, 97, 136;
@@ -81,7 +87,7 @@ html {
   --bs-secondary-rgb: 105, 101, 96;
   --bs-body-bg: #f4f1eb;
   --bs-body-color: #252320;
-  --bs-body-font-family: 'Source Sans 3', system-ui, sans-serif;
+  --bs-body-font-family: var(--font-sans);
   --bs-border-color: #dad6ce;
   --bs-card-bg: #fdfcfa;
   --bs-card-border-color: #dad6ce;
@@ -100,7 +106,7 @@ h4,
 h5,
 h6,
 .modal-title {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   color: var(--graphite);
   font-weight: 500;
 }
@@ -152,7 +158,7 @@ h6,
 
 /* ── Navbar ──────────────────────────────────────────────────────── */
 .navbar-brand {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.05rem;
   font-weight: 500;
   letter-spacing: 0.12em;
@@ -173,7 +179,7 @@ h6,
 
 /* ── Stat cards ──────────────────────────────────────────────────── */
 .stat-label {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -196,7 +202,7 @@ h6,
 
 /* ── Chart labels (shared across all chart components) ───────────── */
 .chart-label {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -205,7 +211,7 @@ h6,
 .chart-axis-label {
   display: block;
   margin-bottom: 2px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.58rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -267,7 +273,7 @@ h6,
   gap: 0;
 }
 .nav-tabs .nav-link {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.83rem;
   color: var(--slate);
   border: none;

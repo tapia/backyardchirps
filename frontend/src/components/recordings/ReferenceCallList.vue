@@ -93,7 +93,7 @@ defineExpose({ reset })
 }
 
 .sound-length {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.62rem;
   color: var(--slate);
 }
@@ -107,7 +107,7 @@ defineExpose({ reset })
   font-size: 0.75rem;
 }
 .rec-key {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.6rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;

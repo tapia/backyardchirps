@@ -76,13 +76,13 @@ defineEmits(['toggle'])
 }
 
 .bird-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.95rem;
   font-weight: 500;
   color: var(--graphite);
 }
 .scientific-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-style: italic;
   font-size: 0.8rem;
   color: var(--slate);
@@ -92,7 +92,7 @@ defineEmits(['toggle'])
   display: flex;
   align-items: baseline;
   justify-content: flex-end;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   color: var(--slate);
   white-space: nowrap;

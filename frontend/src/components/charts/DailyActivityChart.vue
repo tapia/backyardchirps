@@ -189,7 +189,7 @@ watch(
   display: flex;
   align-items: center;
   gap: 12px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
 }
 .astro-legend__item {
@@ -265,7 +265,7 @@ watch(
   padding: 8px 10px;
   min-width: 210px;
   max-width: 260px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   opacity: 0;
   transition: opacity 0.12s ease;
 }
@@ -307,7 +307,7 @@ watch(
   min-width: 0;
 }
 .chart-tooltip__common-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 15px;
   font-weight: 500;
   white-space: nowrap;
@@ -315,7 +315,7 @@ watch(
   text-overflow: ellipsis;
 }
 .chart-tooltip__sci-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 13px;
   font-style: italic;
   white-space: nowrap;

@@ -42,7 +42,7 @@ defineProps({
   display: flex;
   align-items: baseline;
   gap: 8px;
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.95rem;
   color: var(--graphite);
   line-height: 1.45;

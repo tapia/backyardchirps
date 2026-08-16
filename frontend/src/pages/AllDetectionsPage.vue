@@ -207,13 +207,13 @@ watch(selectedSpecies, () => load(0))
 
 <style scoped>
 .page-title {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.4rem;
   color: var(--graphite);
   margin-top: 1rem;
 }
 .page-subtitle {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   color: var(--warm-muted);
   margin-bottom: 1rem;
@@ -237,7 +237,7 @@ watch(selectedSpecies, () => load(0))
   max-width: 360px;
 }
 .filter-label {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -263,7 +263,7 @@ watch(selectedSpecies, () => load(0))
   flex-shrink: 0;
 }
 .species-chip__name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.85rem;
   color: var(--graphite);
   flex-grow: 1;
@@ -293,7 +293,7 @@ watch(selectedSpecies, () => load(0))
 .detections-table {
   width: 100%;
   border-collapse: collapse;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
 }
 .detections-table th {
@@ -342,7 +342,7 @@ watch(selectedSpecies, () => load(0))
   gap: 8px;
 }
 .species-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   color: var(--graphite);
 }
 .species-sci {
@@ -376,7 +376,7 @@ watch(selectedSpecies, () => load(0))
   margin-top: 1rem;
 }
 .count {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   color: var(--warm-muted);
 }

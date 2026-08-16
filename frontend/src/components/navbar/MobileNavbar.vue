@@ -314,7 +314,7 @@ function onLogout() {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.15rem;
   font-weight: 600;
   color: var(--graphite);
@@ -351,7 +351,7 @@ function onLogout() {
 
 /* ── Quick filters ───────────────────────────────────── */
 .mobile-filters-title {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 1rem;
   font-weight: 600;
   color: var(--graphite);

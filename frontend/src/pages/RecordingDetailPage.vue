@@ -174,7 +174,7 @@ onMounted(load)
 }
 
 .species-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.95rem;
   font-weight: 500;
   color: var(--graphite);
@@ -185,13 +185,13 @@ onMounted(load)
   color: var(--lichen);
 }
 .species-sci {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-style: italic;
   font-size: 0.78rem;
   margin-top: 2px;
 }
 .species-date {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
 }
 
@@ -223,7 +223,7 @@ onMounted(load)
   background: var(--warm-card);
   border: 1px solid var(--warm-border);
   border-radius: 3px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 .detail-inline {
   display: flex;
@@ -286,7 +286,7 @@ onMounted(load)
   border-top: none;
 }
 .candidate-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.9rem;
   color: var(--graphite);
   text-decoration: none;
@@ -300,7 +300,7 @@ a.candidate-name:hover {
   color: var(--warm-muted);
 }
 .non-bird-tag {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-style: normal;
   font-size: 0.62rem;
   text-transform: uppercase;

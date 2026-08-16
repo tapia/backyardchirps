@@ -275,7 +275,7 @@ watch([confidenceLevel, lang], () => refresh())
 
 .species-table thead th {
   padding: 8px 10px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.58rem;
   text-transform: uppercase;
   letter-spacing: 0.09em;
@@ -326,13 +326,13 @@ watch([confidenceLevel, lang], () => refresh())
   padding: 10px 12px 10px 0;
 }
 .tbl-bird-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.93rem;
   font-weight: 500;
   color: var(--graphite);
 }
 .tbl-sci-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-style: italic;
   font-size: 0.73rem;
   color: var(--slate);
@@ -341,7 +341,7 @@ watch([confidenceLevel, lang], () => refresh())
 
 .species-table__count {
   text-align: right;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--graphite);
@@ -351,7 +351,7 @@ watch([confidenceLevel, lang], () => refresh())
 }
 .species-table__time {
   text-align: right;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.82rem;
   color: var(--slate);
   white-space: nowrap;

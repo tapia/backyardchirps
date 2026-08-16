@@ -18,7 +18,7 @@ const level = computed(() => {
 <style scoped>
 .confidence-badge {
   display: inline-block;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   line-height: 1.5;
   letter-spacing: 0.01em;

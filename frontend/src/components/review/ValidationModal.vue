@@ -800,14 +800,14 @@ defineExpose({ open })
 
 .species-name {
   min-width: 0;
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.25rem;
   font-weight: 600;
   color: var(--graphite);
   line-height: 1.2;
 }
 .species-sci {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-style: italic;
   font-size: 0.92rem;
   margin-top: 2px;
@@ -816,7 +816,7 @@ defineExpose({ open })
   display: flex;
   align-items: center;
   gap: 10px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   line-height: 1;
   margin-top: 4px;
@@ -891,7 +891,7 @@ defineExpose({ open })
 .species-chip {
   display: inline-flex;
   align-items: center;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   color: var(--graphite);
   background: var(--paper);
@@ -945,12 +945,12 @@ defineExpose({ open })
   color: var(--lichen);
 }
 .outcome__label {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.78rem;
   color: var(--slate);
 }
 .outcome__species {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   color: var(--graphite);
 }
@@ -971,7 +971,7 @@ defineExpose({ open })
 }
 .pending-change__name {
   min-width: 0;
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.95rem;
   color: var(--graphite);
 }
@@ -1018,14 +1018,14 @@ defineExpose({ open })
   margin-top: 16px;
 }
 .prompt-title {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1rem;
   font-weight: 600;
   color: var(--graphite);
   line-height: 1.2;
 }
 .prompt-subtitle {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   color: var(--slate);
   margin-top: 2px;
@@ -1087,7 +1087,7 @@ defineExpose({ open })
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 600;
 }
@@ -1169,7 +1169,7 @@ defineExpose({ open })
   border: none;
   background: none;
   padding: 4px 6px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--lichen);

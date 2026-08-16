@@ -167,14 +167,14 @@ function formatHour(hour) {
   text-overflow: ellipsis;
 }
 .hero-stat-value {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 1.5rem;
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.01em;
 }
 .hero-stat-label {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   color: var(--slate);
   margin-top: 2px;

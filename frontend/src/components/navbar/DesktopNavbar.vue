@@ -77,7 +77,7 @@ const searchExpanded = ref(false)
 }
 
 .site-nav .navbar-nav .nav-link {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   color: var(--slate);
   border-radius: 0;

@@ -198,13 +198,13 @@ defineEmits(['mouseenter', 'mouseleave'])
 }
 
 .bird-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.95rem;
   font-weight: 500;
   color: var(--graphite);
 }
 .scientific-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-style: italic;
   font-size: 0.78rem;
   color: var(--slate);

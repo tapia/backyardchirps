@@ -177,7 +177,7 @@ defineExpose({ toggle, stop })
 }
 
 .player-time {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   color: var(--slate);
   font-variant-numeric: tabular-nums;

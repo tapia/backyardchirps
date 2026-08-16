@@ -418,7 +418,7 @@ function teardown() {
   border-radius: 4px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14);
   overflow-y: auto;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .prp-tail {

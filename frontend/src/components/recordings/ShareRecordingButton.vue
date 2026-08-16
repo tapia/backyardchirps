@@ -56,7 +56,7 @@ const shareUrl = computed(() => `${window.location.origin}/recordings/${props.re
   color: var(--lichen);
 }
 .share-copied-label {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.72rem;
   font-weight: 600;
   color: var(--lichen);

@@ -241,7 +241,7 @@ defineExpose({ focus, clear })
 .search-input {
   border-color: var(--dust);
   border-radius: 2px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   padding-left: 2.2rem;
   padding-right: 2.2rem;
@@ -379,7 +379,7 @@ defineExpose({ focus, clear })
   flex-grow: 1;
 }
 .species-option__name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.83rem;
   font-weight: 500;
   color: var(--graphite);
@@ -389,7 +389,7 @@ defineExpose({ focus, clear })
   text-overflow: ellipsis;
 }
 .species-option__sci {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 0.72rem;
   font-style: italic;
   color: var(--slate);
@@ -435,7 +435,7 @@ defineExpose({ focus, clear })
   padding: 1px 7px;
   border: 1px solid var(--limestone);
   border-radius: 1px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.65rem;
   font-weight: 600;
   color: var(--warm-muted);

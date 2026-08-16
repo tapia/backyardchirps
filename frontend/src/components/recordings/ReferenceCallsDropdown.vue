@@ -104,7 +104,7 @@ defineExpose({ close })
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.85rem;
   font-weight: 600;
 }

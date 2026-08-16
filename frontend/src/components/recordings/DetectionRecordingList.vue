@@ -179,7 +179,7 @@ defineExpose({ reset })
   border-bottom: 1px solid var(--border-soft);
 }
 .day-label {
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.8rem;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -195,7 +195,7 @@ defineExpose({ reset })
   border-radius: 999px;
   background: var(--limestone);
   color: var(--slate);
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   font-size: 0.68rem;
   font-weight: 600;
   line-height: 1.5;

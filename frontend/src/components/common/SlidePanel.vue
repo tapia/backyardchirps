@@ -84,7 +84,7 @@ const { t } = useI18n()
 .panel-title {
   flex: 1;
   min-width: 0;
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.15rem;
   font-weight: 600;
   color: var(--graphite);

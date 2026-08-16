@@ -125,14 +125,14 @@ function onSettingsUpdated() {
 
 <style scoped>
 .species-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 2rem;
   font-weight: 500;
   letter-spacing: -0.01em;
   line-height: 1.1;
 }
 .sci-name {
-  font-family: 'Newsreader', Georgia, serif;
+  font-family: var(--font-serif);
   font-size: 1.1rem;
 }
 .name-row {

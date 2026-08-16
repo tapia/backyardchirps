@@ -155,7 +155,7 @@ const detailsHtml = computed(() => {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  font-family: 'Source Sans 3', system-ui, sans-serif;
+  font-family: var(--font-sans);
   padding: 0.3rem 0.7rem;
 }
 .weather-widget-compact {
