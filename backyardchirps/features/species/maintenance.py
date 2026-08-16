@@ -79,8 +79,9 @@ def plausible_species_names(latitude: float, longitude: float) -> list[str]:
     sorted. Each one is already resolved against the taxonomy, so callers never have to
     handle a name the rest of the app would reject.
 
-    Shared with the eBird raster downloader, so a station and the tooling always agree on
-    what counts as plausible here.
+    This is what a station asks about itself. The region-pack builder asks the same
+    question about a whole box through plausible_species_names_over, which is what stops
+    the two disagreeing.
     """
     return plausible_species_names_over([(latitude, longitude)])
 
@@ -88,12 +89,16 @@ def plausible_species_names(latitude: float, longitude: float) -> list[str]:
 def plausible_species_names_over(points: list[tuple[float, float]]) -> list[str]:
     """
     The same list, for every species plausible at any of these points in any week of the
-    year. A station passes the one point it sits on; the region-pack builder passes a grid
-    covering a bounding box, and gets the union over the whole box.
+    year. A station passes the one point it sits on and gets the answer above; the
+    region-pack builder passes a grid covering a bounding box and gets the union over it.
 
-    One threshold serves both, which is the point of sharing this: a pack built here can
-    never be missing a raster for a species the station at its centre would go looking
-    for.
+    **The other caller is in another repository**, backyardchirps-regional-packs, which
+    depends on this package and imports this function. Nothing here ever passes more than
+    one point, so from this side the function looks more general than it needs to be. It
+    is not. Both repositories have to use the same threshold, or a pack is built without a
+    raster for a species that the station at the centre of its box will then ask for. A
+    second copy over there would slowly stop matching this one, and the only sign of it
+    would be a single species, on a single station, with no seasonality chart.
     """
     if not points:
         return []
