@@ -189,6 +189,7 @@ import SpeciesComparisonViolinChart from '../components/charts/SpeciesComparison
 import SpeciesHourlyHeatmapChart from '../components/charts/SpeciesHourlyHeatmapChart.vue'
 import { useConfidenceFilter } from '../composables/useConfidenceFilter.js'
 import { readChartMode, writeChartMode } from '../chartModeStorage.js'
+import { formatShortDateRange } from '../dates.js'
 
 const { t, locale } = useI18n()
 const lang = inject('lang')
@@ -238,8 +239,7 @@ const navWindowLabel = computed(() => {
   if (!start.value) return ''
   const windowStart = new Date(start.value)
   const windowEnd = end.value ? new Date(end.value) : new Date()
-  const fmt = (d) => d.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
-  return `${fmt(windowStart)} – ${fmt(windowEnd)}`
+  return formatShortDateRange(windowStart, windowEnd, locale.value)
 })
 
 function onPeriodChange({ preset, start: s, end: e, label, stepMs: sMs, floorDay: fd }) {
@@ -267,8 +267,7 @@ function updateNavWindow() {
   }
   start.value = windowStart.toISOString()
   end.value = windowEnd.toISOString()
-  const fmt = (d) => d.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
-  periodLabel.value = `${fmt(windowStart)} – ${fmt(windowEnd)}`
+  periodLabel.value = formatShortDateRange(windowStart, windowEnd, locale.value)
 }
 
 function navigatePrev() {

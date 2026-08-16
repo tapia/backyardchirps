@@ -124,7 +124,7 @@
 import { ref, computed, inject, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as api from '../api/index.js'
-import { shortRelativeTime } from '../dates.js'
+import { formatShortDateRange, shortRelativeTime } from '../dates.js'
 import { speciesRoute } from '../links.js'
 import DetectionsFeedItem from '../components/feed/DetectionsFeedItem.vue'
 import DailyActivityChart from '../components/charts/DailyActivityChart.vue'
@@ -149,8 +149,7 @@ const navWindowLabel = computed(() => {
   const now = Date.now()
   const windowStart = new Date(now - (navOffset.value + 1) * STEP_MS)
   const windowEnd = isLive.value ? new Date(now) : new Date(now - navOffset.value * STEP_MS)
-  const fmt = (date) => date.toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
-  return `${fmt(windowStart)} – ${fmt(windowEnd)}`
+  return formatShortDateRange(windowStart, windowEnd, locale.value)
 })
 
 const navPeriodLabel = computed(() => (isLive.value ? '24h' : navWindowLabel.value))

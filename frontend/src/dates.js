@@ -15,6 +15,21 @@ export function formatTime(isoDate) {
   return isoDate ? dayjs(isoDate).format('LT') : ''
 }
 
+// Locale-aware short date for period labels, e.g. "Jul 4" / "4 jul". Accepts a Date or an
+// ISO string.
+//
+// The locale is passed in rather than read from dayjs because the month and day have to
+// come out in the order the locale uses: a fixed dayjs pattern like 'MMM D' would print
+// "jul 4" in Spanish, where the language wants "4 jul".
+export function formatShortDate(value, locale) {
+  return new Date(value).toLocaleDateString(locale, { month: 'short', day: 'numeric' })
+}
+
+// A period as two short dates, e.g. "Jul 4 – Jul 11".
+export function formatShortDateRange(start, end, locale) {
+  return `${formatShortDate(start, locale)} – ${formatShortDate(end, locale)}`
+}
+
 // Calendar-day key for grouping, e.g. "2026-07-04".
 export function dayKey(isoDate) {
   return isoDate ? dayjs(isoDate).format('YYYY-MM-DD') : ''

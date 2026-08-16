@@ -74,6 +74,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import PeriodRangePanel from './PeriodRangePanel.vue'
 import { writePeriodSelection } from '../../periodStorage.js'
+import { formatShortDateRange } from '../../dates.js'
 
 const { t, locale } = useI18n()
 
@@ -143,9 +144,7 @@ const activeMobileLabel = computed(() => {
 
 const customLabel = computed(() => {
   if (activePreset.value !== 'custom' || !customRange.value) return t('period.custom')
-  const fmt = (d) =>
-    new Date(d).toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
-  return `${fmt(customRange.value[0])} – ${fmt(customRange.value[1])}`
+  return formatShortDateRange(customRange.value[0], customRange.value[1], locale.value)
 })
 
 watch(

@@ -147,6 +147,7 @@ import SpeciesKpiCards from './SpeciesKpiCards.vue'
 import SpeciesPresence from './SpeciesPresence.vue'
 import SpeciesRecordingsTab from './SpeciesRecordingsTab.vue'
 import { useConfidenceFilter } from '../../composables/useConfidenceFilter.js'
+import { formatShortDateRange } from '../../dates.js'
 
 const props = defineProps({
   speciesSlug: { type: String, required: true },
@@ -211,14 +212,10 @@ const heroPeriodLabel = computed(() => {
   const labelKey = PRESET_PERIOD_LABEL_KEYS[currentPreset.value]
   if (labelKey) return t(labelKey)
   if (start.value && end.value) {
-    return `${_formatShortDate(start.value)} – ${_formatShortDate(end.value)}`
+    return formatShortDateRange(start.value, end.value, locale.value)
   }
   return t('period.allTime')
 })
-
-function _formatShortDate(isoDate) {
-  return new Date(isoDate).toLocaleDateString(locale.value, { month: 'short', day: 'numeric' })
-}
 
 // Hero highlights are period-independent: derived from the last year of data
 // (year-scoped hourly counts + the yearly daily counts already fetched for the
