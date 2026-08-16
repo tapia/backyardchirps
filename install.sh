@@ -60,7 +60,9 @@ while [ $# -gt 0 ]; do
         --ignore-preflight) IGNORE_PREFLIGHT=yes; shift ;;
         --preflight-only)   PREFLIGHT_ONLY=yes; shift ;;
         --help)
-            sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'
+            # The help text is the comment block between the shebang and the first line
+            # of code, so editing that block also updates --help.
+            awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"
             exit 0
             ;;
         *)
@@ -94,6 +96,15 @@ die() {
     exit 1
 }
 
+# One field out of the release manifest. The manifest is JSON, and the order of its
+# fields is not fixed, so read it with a JSON parser rather than a regex. python3 is
+# installed before this is first called. A missing file or missing key gives an empty
+# string, which the caller checks for.
+read_manifest_field() {
+    python3 -c 'import json, sys; print(json.load(open(sys.argv[1])).get(sys.argv[2], ""))' \
+        "$1" "$2" 2> /dev/null || true
+}
+
 # The one-time token the wizard trades for the first admin account. Sets SETUP_TOKEN so
 # the summary at the end can print it, since the file itself is only readable by the
 # service user.
@@ -110,79 +121,79 @@ write_setup_token() {
 check_this_machine() {
     say "Checking this machine"
 
-if [ "$IGNORE_PREFLIGHT" = yes ]; then
-    info "Hardware checks skipped."
-else
-    model="$(tr -d '\0' < "$DEVICE_TREE_MODEL_FILE" 2> /dev/null || true)"
-    case "$model" in
-        *"Raspberry Pi 4"*|*"Raspberry Pi 5"*)
-            info "$model"
-            ;;
-        "")
-            die "This does not look like a Raspberry Pi. Supported: Pi 4 and Pi 5."
-            ;;
-        *)
-            die "Unsupported board: $model. Supported: Pi 4 and Pi 5."
-            ;;
-    esac
+    if [ "$IGNORE_PREFLIGHT" = yes ]; then
+        info "Hardware checks skipped."
+    else
+        model="$(tr -d '\0' < "$DEVICE_TREE_MODEL_FILE" 2> /dev/null || true)"
+        case "$model" in
+            *"Raspberry Pi 4"*|*"Raspberry Pi 5"*)
+                info "$model"
+                ;;
+            "")
+                die "This does not look like a Raspberry Pi. Supported: Pi 4 and Pi 5."
+                ;;
+            *)
+                die "Unsupported board: $model. Supported: Pi 4 and Pi 5."
+                ;;
+        esac
 
-    [ "$SYSTEM_ARCHITECTURE" = arm64 ] \
-        || die "This needs 64-bit Raspberry Pi OS. This system reports '${SYSTEM_ARCHITECTURE:-nothing}'."
+        [ "$SYSTEM_ARCHITECTURE" = arm64 ] \
+            || die "This needs 64-bit Raspberry Pi OS. This system reports '${SYSTEM_ARCHITECTURE:-nothing}'."
 
-    # /etc/os-release on 64-bit Raspberry Pi OS is Debian's own, word for word: the
-    # 64-bit port is Debian arm64 with the Raspberry Pi archive layered on top, and
-    # nothing in that file mentions a Raspberry Pi. Only the 32-bit Raspbian sets
-    # ID=raspbian, and this installer requires arm64, so looking for the word
-    # "raspberry" in there could never have matched a machine it supports.
-    #
-    # What a station actually depends on is Debian 13 or newer, because that is
-    # where python3 is the 3.13 this project asks for and where every apt package
-    # below comes from. So check that, and let the board check above be what says
-    # this is a Pi.
-    os_pretty_name="$(read_os_release PRETTY_NAME)"
-    os_id="$(read_os_release ID)"
-    os_version_id="$(read_os_release VERSION_ID)"
+        # /etc/os-release on 64-bit Raspberry Pi OS is Debian's own, word for word: the
+        # 64-bit port is Debian arm64 with the Raspberry Pi archive layered on top, and
+        # nothing in that file mentions a Raspberry Pi. Only the 32-bit Raspbian sets
+        # ID=raspbian, and this installer requires arm64, so looking for the word
+        # "raspberry" in there could never have matched a machine it supports.
+        #
+        # What a station actually depends on is Debian 13 or newer, because that is
+        # where python3 is the 3.13 this project asks for and where every apt package
+        # below comes from. So check that, and let the board check above be what says
+        # this is a Pi.
+        os_pretty_name="$(read_os_release PRETTY_NAME)"
+        os_id="$(read_os_release ID)"
+        os_version_id="$(read_os_release VERSION_ID)"
 
-    # ID rather than ID_LIKE. Ubuntu and 32-bit Raspbian both say ID_LIKE=debian
-    # while shipping a different Python and a different package set, and neither is
-    # a system this has been tested on.
-    [ "$os_id" = debian ] \
-        || die "This needs Raspberry Pi OS, which reports itself as Debian. This system reports '${os_pretty_name:-nothing in /etc/os-release}'."
-    # Debian stable always numbers itself. Testing and unstable do not, and that is
-    # the case this cannot judge rather than one it should reject outright.
-    case "$os_version_id" in
-        "" | *[!0-9]*)
-            die "This needs Debian 13 (trixie) or newer, and '${os_pretty_name:-/etc/os-release}' gives no version to check. Use --ignore-preflight if you know it is new enough."
-            ;;
-    esac
-    [ "$os_version_id" -ge 13 ] \
-        || die "This needs Debian 13 (trixie) or newer, which is what ships Python 3.13. This system reports '$os_pretty_name'."
-    info "$os_pretty_name"
+        # ID rather than ID_LIKE. Ubuntu and 32-bit Raspbian both say ID_LIKE=debian
+        # while shipping a different Python and a different package set, and neither is
+        # a system this has been tested on.
+        [ "$os_id" = debian ] \
+            || die "This needs Raspberry Pi OS, which reports itself as Debian. This system reports '${os_pretty_name:-nothing in /etc/os-release}'."
+        # Debian stable always numbers itself. Testing and unstable do not, and that is
+        # the case this cannot judge rather than one it should reject outright.
+        case "$os_version_id" in
+            "" | *[!0-9]*)
+                die "This needs Debian 13 (trixie) or newer, and '${os_pretty_name:-/etc/os-release}' gives no version to check. Use --ignore-preflight if you know it is new enough."
+                ;;
+        esac
+        [ "$os_version_id" -ge 13 ] \
+            || die "This needs Debian 13 (trixie) or newer, which is what ships Python 3.13. This system reports '$os_pretty_name'."
+        info "$os_pretty_name"
 
-    # Not a requirement, just worth saying which it is. Pi OS images carry this
-    # file; plain Debian on a Pi does not, and that combination is untested rather
-    # than known broken.
-    if [ ! -f "$RPI_ISSUE_FILE" ]; then
-        info "no $RPI_ISSUE_FILE, so this is Debian rather than Raspberry Pi OS"
+        # Not a requirement, just worth saying which it is. Pi OS images carry this
+        # file; plain Debian on a Pi does not, and that combination is untested rather
+        # than known broken.
+        if [ ! -f "$RPI_ISSUE_FILE" ]; then
+            info "no $RPI_ISSUE_FILE, so this is Debian rather than Raspberry Pi OS"
+        fi
+
+        # Read the file rather than asking how big it is. Files under /proc are produced
+        # when they are read and report a size of zero whatever they contain, so an
+        # earlier `test -s /proc/asound/cards` here rejected every machine it ran on,
+        # including a Pi that was recording at the time.
+        #
+        # /proc/asound/pcm rather than /proc/asound/cards, because cards counts
+        # playback-only devices: a Pi with nothing plugged in but HDMI has two of those
+        # and no microphone. Each line of pcm names its directions, so counting the ones
+        # that can capture is the question actually being asked.
+        #
+        # grep -c prints 0 and exits 1 when nothing matches, and errors if there is no
+        # ALSA at all, so both land on the same answer.
+        capture_device_count="$(grep -c capture "$ASOUND_PCM_FILE" 2> /dev/null || true)"
+        [ "${capture_device_count:-0}" -ge 1 ] \
+            || die "No capture device found, so there is nothing to record from. Plug in a USB microphone and run this again, or pass --ignore-preflight if you are setting this up before the microphone arrives."
+        info "$capture_device_count capture device(s)"
     fi
-
-    # Read the file rather than asking how big it is. Files under /proc are produced
-    # when they are read and report a size of zero whatever they contain, so an
-    # earlier `test -s /proc/asound/cards` here rejected every machine it ran on,
-    # including a Pi that was recording at the time.
-    #
-    # /proc/asound/pcm rather than /proc/asound/cards, because cards counts
-    # playback-only devices: a Pi with nothing plugged in but HDMI has two of those
-    # and no microphone. Each line of pcm names its directions, so counting the ones
-    # that can capture is the question actually being asked.
-    #
-    # grep -c prints 0 and exits 1 when nothing matches, and errors if there is no
-    # ALSA at all, so both land on the same answer.
-    capture_device_count="$(grep -c capture "$ASOUND_PCM_FILE" 2> /dev/null || true)"
-    [ "${capture_device_count:-0}" -ge 1 ] \
-        || die "No capture device found, so there is nothing to record from. Plug in a USB microphone and run this again, or pass --ignore-preflight if you are setting this up before the microphone arrives."
-    info "$capture_device_count capture device(s)"
-fi
 }
 
 # The one check that has always run, since it is outside the block --ignore-preflight
@@ -260,10 +271,9 @@ else
     curl -fsSL "$MANIFEST_URL" -o "$download_dir/manifest.json" \
         || die "Could not download the release manifest from $MANIFEST_URL."
 
-    manifest="$(cat "$download_dir/manifest.json")"
-    manifest_version="$(printf '%s' "$manifest" | sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
-    manifest_url="$(printf '%s' "$manifest" | sed -n 's/.*"url"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
-    manifest_sha256="$(printf '%s' "$manifest" | sed -n 's/.*"sha256"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')"
+    manifest_version="$(read_manifest_field "$download_dir/manifest.json" version)"
+    manifest_url="$(read_manifest_field "$download_dir/manifest.json" url)"
+    manifest_sha256="$(read_manifest_field "$download_dir/manifest.json" sha256)"
     [ -n "$manifest_url" ] || die "The manifest at $MANIFEST_URL has no download URL in it."
     info "version $manifest_version"
 
@@ -288,8 +298,9 @@ tarball_listing="$(tar --zstd -tf "$tarball")" \
 first_entry="${tarball_listing%%$'\n'*}"
 release_name="${first_entry%%/*}"
 VERSION="${release_name#backyardchirps-}"
-[ -n "$VERSION" ] && [ "$VERSION" != "$release_name" ] \
-    || die "This does not look like a backyardchirps release: the tarball holds '$release_name'."
+if [ -z "$VERSION" ] || [ "$VERSION" = "$release_name" ]; then
+    die "This does not look like a backyardchirps release: the tarball holds '$release_name'."
+fi
 
 RELEASE_DIR="$INSTALL_ROOT/releases/$VERSION"
 LINK_DIR="$INSTALL_ROOT/current"
@@ -505,12 +516,17 @@ fi
 say "Removing old releases"
 current_target="$(readlink -f "$LINK_DIR")"
 pruned=0
-for candidate in $(ls -1dt "$INSTALL_ROOT/releases"/*/ 2>/dev/null | tail -n +$((KEEP_RELEASES + 1)) || true); do
-    candidate="${candidate%/}"
+while IFS= read -r candidate; do
+    [ -n "$candidate" ] || continue
     [ "$candidate" = "$current_target" ] && continue
     rm -rf "$candidate"
     pruned=$((pruned + 1))
-done
+done < <(
+    find "$INSTALL_ROOT/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' 2> /dev/null \
+        | sort -rn \
+        | tail -n +$((KEEP_RELEASES + 1)) \
+        | cut -d' ' -f2-
+)
 if [ "$pruned" -gt 0 ]; then
     info "removed $pruned, kept the newest $KEEP_RELEASES"
 else

@@ -59,7 +59,7 @@ SESSION_LANGUAGE = "setup_language"
 # without keeping anything.
 SESSION_ANSWERS = "setup_answers"
 
-LANGUAGE_OPTIONS = (("en", "English"), ("es", "Espanol"))
+LANGUAGE_OPTIONS = (("en", "English"), ("es", "Español"))
 
 # What the wizard opens in, and what the first step has selected before anybody chooses.
 # English rather than the station's own LANGUAGE_CODE, which is Spanish: whoever is holding
@@ -94,7 +94,7 @@ def wizard_step(request: HttpRequest, step: str) -> HttpResponse:
     if status.is_complete and not _is_mid_wizard(request):
         return redirect("/")
 
-    refused = _refuse_unauthorised(request, step, status)
+    refused = _refuse_unauthorised(request, step)
     if refused is not None:
         return refused
 
@@ -199,7 +199,7 @@ def _is_mid_wizard(request: HttpRequest) -> bool:
     return request.session.get("setup_step") in STEPS and _is_authorised(request)
 
 
-def _refuse_unauthorised(request: HttpRequest, step: str, status: SetupStatus) -> HttpResponse | None:
+def _refuse_unauthorised(request: HttpRequest, step: str) -> HttpResponse | None:
     """
     Everything past the account step writes settings, so it needs the token holder or the
     owner. The first two steps are open, since choosing a language and presenting the

@@ -71,7 +71,6 @@ if [ -z "$VERSION" ]; then
     echo "Could not read the version out of pyproject.toml." >&2
     exit 1
 fi
-RELEASE_VERSION="$VERSION"
 
 # Checked rather than trusted. A suffix that is not a PEP 440 local version could
 # name anything, including a version somebody would read as a release, and it ends
