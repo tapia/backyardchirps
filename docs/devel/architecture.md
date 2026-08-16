@@ -310,11 +310,20 @@ uv run ruff check backyardchirps --fix
 uv run ruff format backyardchirps
 uv run mypy backyardchirps
 
-cd frontend && npx eslint src --quiet && npx prettier --check src
+cd frontend && npx eslint src --quiet && npx prettier --check src && npm run build
+
+shellcheck --severity=style install.sh uninstall.sh deploy/*.sh tools/*.sh tools/container/*.sh
 ```
 
 All of it runs as pre-commit hooks and again in CI (`.github/workflows/ci.yml`) on every push
-and pull request. To run the hooks by hand: `pre-commit run --all-files`.
+and pull request, in three jobs: backend, frontend and shell. To run the hooks by hand:
+`pre-commit run --all-files`.
+
+The frontend build is checked as well as linted, because a release ships the frontend already
+compiled, so a build that fails would otherwise only be found when a tag is pushed.
+
+mypy runs with `allow_untyped_defs = false`, so every function needs a type annotation,
+including the return type. A view is `(request: Request, …) -> Response`.
 
 ## Code and data
 
