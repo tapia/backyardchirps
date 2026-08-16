@@ -315,6 +315,7 @@ import SlidePanel from '../common/SlidePanel.vue'
 import ConfirmDialog from '../common/ConfirmDialog.vue'
 import IdentifiedSpeciesList from './IdentifiedSpeciesList.vue'
 import { useMediaQuery } from '../../composables/useMediaQuery.js'
+import { useHistoryLayers } from '../../composables/useHistoryLayers.js'
 import ShareRecordingButton from '../recordings/ShareRecordingButton.vue'
 import { useAuth } from '../../composables/useAuth.js'
 import SpeciesDetectionSettingsModal from '../species/SpeciesDetectionSettingsModal.vue'
@@ -359,42 +360,18 @@ const confirmingDiscard = ref(false)
 
 let bsModal = null
 
-// Back-button handling across three layers (modal, then an optional mobile sheet
-// or delete confirmation). Each open layer pushes a history entry; a single
-// popstate handler dismisses the topmost one so the OS Back closes the sheet or
-// confirmation first, then the modal, without navigating the underlying route
-// away.
-let historyPushed = false
-let closingFromPopState = false
-let ignorePopStateCount = 0
+// Back closes the topmost layer: the delete confirmation, then an open mobile sheet,
+// then the dialog itself. Each layer pushes one history entry when it opens and hands
+// back that entry when it closes, whichever way it was closed.
+const historyLayers = useHistoryLayers()
 
-function pushHistoryLayer() {
-  history.pushState({ validateModal: true }, '')
+function dismissMobileSheet() {
+  mobileSoundsPlayer.value?.reset()
+  mobileSheet.value = null
 }
 
-function popHistoryLayer() {
-  ignorePopStateCount += 1
-  history.back()
-}
-
-function onPopState() {
-  if (ignorePopStateCount > 0) {
-    ignorePopStateCount -= 1
-    return
-  }
-  if (confirmingDiscard.value) {
-    // Back consumed the confirmation's entry; the layers below remain.
-    confirmingDiscard.value = false
-    return
-  }
-  if (mobileSheet.value) {
-    // Back consumed the sheet's entry; the modal's entry remains.
-    mobileSoundsPlayer.value?.reset()
-    mobileSheet.value = null
-    return
-  }
-  closingFromPopState = true
-  close()
+function dismissDiscardConfirmation() {
+  confirmingDiscard.value = false
 }
 
 // Switching to the desktop layout unmounts the sheets, so close any open one.
@@ -404,7 +381,6 @@ watch(isMobile, (mobile) => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', onKeydown, true)
-  window.removeEventListener('popstate', onPopState)
 })
 
 const isReassigned = computed(
@@ -527,34 +503,26 @@ function open(detectionData) {
 
   document.removeEventListener('keydown', onKeydown, true)
   document.addEventListener('keydown', onKeydown, true)
-  window.removeEventListener('popstate', onPopState)
-  window.addEventListener('popstate', onPopState)
-  if (!historyPushed) {
-    pushHistoryLayer()
-    historyPushed = true
-  }
+  historyLayers.start()
+  // Skipping to the next detection reuses the open dialog, which must not push a
+  // second entry for the same layer.
+  if (historyLayers.depth() === 0) historyLayers.push(close)
 }
 
 function close() {
   document.removeEventListener('keydown', onKeydown, true)
-  // Drop the popstate listener before unwinding history so the back() calls
-  // below don't trigger our own handler.
-  window.removeEventListener('popstate', onPopState)
+  // Stop listening before giving the entries back, so our own handler does not run
+  // on the way out.
+  historyLayers.stop()
   speciesPicker.value?.clear()
   spectrogramPlayer.value?.stop()
   referenceDropdown.value?.close()
   mobileSoundsPlayer.value?.reset()
   referenceSounds.value = []
 
-  if (!closingFromPopState) {
-    let layersToPop =
-      (historyPushed ? 1 : 0) + (mobileSheet.value ? 1 : 0) + (confirmingDiscard.value ? 1 : 0)
-    while (layersToPop-- > 0) history.back()
-  }
+  historyLayers.clear()
   confirmingDiscard.value = false
   mobileSheet.value = null
-  historyPushed = false
-  closingFromPopState = false
   visible.value = false
   bsModal?.hide()
 }
@@ -562,7 +530,7 @@ function close() {
 function openMobileSheet(name) {
   spectrogramPlayer.value?.stop()
   mobileSheet.value = name
-  pushHistoryLayer()
+  historyLayers.push(dismissMobileSheet)
   if (name === 'reassign') {
     nextTick(() => mobileSpeciesPicker.value?.focus())
   }
@@ -570,9 +538,8 @@ function openMobileSheet(name) {
 
 function closeMobileSheet() {
   if (!mobileSheet.value) return
-  mobileSoundsPlayer.value?.reset()
-  mobileSheet.value = null
-  popHistoryLayer()
+  dismissMobileSheet()
+  historyLayers.pop()
 }
 
 function selectSpecies(species) {
@@ -620,16 +587,16 @@ async function onSave() {
 function askDiscard() {
   spectrogramPlayer.value?.stop()
   confirmingDiscard.value = true
-  pushHistoryLayer()
+  historyLayers.push(dismissDiscardConfirmation)
 }
 
 function cancelDiscard() {
   if (!confirmingDiscard.value) return
-  confirmingDiscard.value = false
-  popHistoryLayer()
+  dismissDiscardConfirmation()
+  historyLayers.pop()
 }
 
-// Only reached once the confirmation is accepted. close() unwinds the
+// Only reached once the confirmation is accepted. close() gives back the
 // confirmation's history entry along with the dialog's own.
 async function onDiscard() {
   saving.value = true
