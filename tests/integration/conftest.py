@@ -15,6 +15,7 @@ import pytest
 from rest_framework.test import APIClient
 
 from backyardchirps.features.detections.entity import ValidationStatus
+from backyardchirps.integrations import region_packs
 from backyardchirps.models.detected_species import DetectedSpecies
 from backyardchirps.models.stored_detection import StoredDetection
 from backyardchirps.models.stored_species_override import StoredSpeciesOverride
@@ -119,3 +120,16 @@ def auth_client(db: None, django_user_model: Any) -> APIClient:
     client = APIClient()
     client.force_authenticate(user=user)
     return client
+
+
+@pytest.fixture(autouse=True)
+def no_packs_index(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    The wizard's region pack step asks the region packs index which pack covers a station, and that is
+    an HTTP call to another repository. No test is allowed to make it: a suite that needs
+    the internet is a suite that fails on a train.
+
+    An empty index is the honest default, since it is what every test that is not about
+    region packs would see anyway. Tests about region packs replace this.
+    """
+    monkeypatch.setattr(region_packs, "fetch_index", lambda: [])

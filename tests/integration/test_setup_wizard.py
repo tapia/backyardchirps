@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+import requests
 from django.test import Client
 from rest_framework.test import APIClient
 
@@ -22,6 +23,7 @@ from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.setup import logic as setup_logic
 from backyardchirps.features.setup.entity import AudioDevice
 from backyardchirps.features.setup.views import SESSION_LANGUAGE
+from backyardchirps.integrations import region_packs
 
 pytestmark = pytest.mark.django_db
 
@@ -122,7 +124,7 @@ def test_a_station_with_no_token_finishes_the_wizard_it_started(
 
     moved_on = client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
 
-    assert moved_on.headers["Location"] == "/setup/microphone/"
+    assert moved_on.headers["Location"] == "/setup/region-pack/"
     assert client.post("/setup/done/", {}).headers["Location"] == "/"
     assert Settings.get(SettingsKey.LOCATION_LAT) == 40.4
     assert restarts == [setup_logic.RECORDER_UNIT]
@@ -248,7 +250,7 @@ def test_the_steps_after_the_account_are_closed_to_a_visitor(client: Client, tok
 def test_location_step_takes_the_coordinates(claimed_client: Client) -> None:
     response = claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
 
-    assert response.headers["Location"] == "/setup/microphone/"
+    assert response.headers["Location"] == "/setup/region-pack/"
     assert Settings.get(SettingsKey.LOCATION_LAT) is None
 
 
@@ -571,3 +573,88 @@ def test_no_coordinates_means_no_species_list(
 
     assert species_list_builds == []
     assert restarts == [setup_logic.RECORDER_UNIT]
+
+
+# --- the region pack step -----------------------------------------------------
+
+IBERIA_ENTRY = {
+    "id": "iberian-peninsula",
+    "names": {"en": "Iberian Peninsula", "es": "Península ibérica"},
+    "bbox": {"west": -10.8, "south": 34.2, "east": 5.4, "north": 44.9},
+    "version": "2026-08-16",
+    "species_count": 312,
+    "url": "https://example.com/iberian-peninsula.tar.zst",
+    "sha256": "abc",
+    "size_bytes": 180_000_000,
+}
+
+
+@pytest.fixture
+def region_packs_index(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
+    """
+    What the index offers. Replaces the empty one every integration test gets.
+    """
+    entries = [IBERIA_ENTRY]
+    monkeypatch.setattr(region_packs, "fetch_index", lambda: entries)
+    return entries
+
+
+def test_the_region_pack_step_offers_the_pack_that_covers_the_station(
+    claimed_client: Client, region_packs_index: list[dict[str, Any]]
+) -> None:
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    page = claimed_client.get("/setup/region-pack/").content.decode()
+
+    assert "Iberian Peninsula" in page
+    assert "312" in page
+    assert 'data-region-pack-id="iberian-peninsula"' in page
+
+
+def test_the_region_pack_step_offers_the_nearest_when_none_covers_the_station(
+    claimed_client: Client, region_packs_index: list[dict[str, Any]]
+) -> None:
+    """
+    A miss says which region pack is nearest and how far, so somebody outside every box learns
+    something rather than seeing an empty step.
+    """
+    claimed_client.post("/setup/location/", {"location_lat": "52.4", "location_lon": "4.9"})
+
+    page = claimed_client.get("/setup/region-pack/").content.decode()
+
+    assert "No region pack covers where you are" in page
+    assert "Iberian Peninsula" in page
+
+
+def test_the_region_pack_step_is_walked_past_when_the_index_cannot_be_reached(
+    claimed_client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A station with no internet during setup is a working station. It gets no region pack and a
+    step it can walk through, rather than a wizard it cannot finish.
+    """
+
+    def _no_internet() -> list[dict[str, Any]]:
+        raise requests.ConnectionError("no route to host")
+
+    monkeypatch.setattr(region_packs, "fetch_index", _no_internet)
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    page = claimed_client.get("/setup/region-pack/")
+
+    assert page.status_code == 200
+    assert "could not be reached" in page.content.decode()
+    assert claimed_client.post("/setup/region-pack/", {}).headers["Location"] == "/setup/microphone/"
+
+
+def test_the_region_pack_step_saves_nothing_by_itself(
+    claimed_client: Client, region_packs_index: list[dict[str, Any]]
+) -> None:
+    """
+    Like every other step. Installing a pack is a button on it, not the step moving on.
+    """
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    claimed_client.post("/setup/region-pack/", {})
+
+    assert Settings.get(SettingsKey.REGION_PACK) == ""

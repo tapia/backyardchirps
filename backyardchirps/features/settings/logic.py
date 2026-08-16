@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
@@ -6,6 +7,9 @@ from typing import Callable
 from django.conf import settings
 
 from backyardchirps.features.settings import queries as settings_queries
+
+# Lowercase words joined by dashes, which is what the pack builder writes into pack.json.
+_PACK_ID = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
 class SettingsKey(StrEnum):
@@ -40,6 +44,7 @@ class SettingsKey(StrEnum):
     XENO_CANTO_API_KEY = "xeno_canto_api_key"
     IPGEOLOCATION_API_KEY = "ipgeolocation_api_key"
     AUDIO_DEVICE = "audio_device"
+    REGION_PACK = "region_pack"
 
 
 class SettingsErrorCode(StrEnum):
@@ -58,6 +63,8 @@ class SettingsErrorCode(StrEnum):
     LON = "invalid_longitude"
     # The value is not one of the supported language codes ('en', 'es').
     LANGUAGE = "invalid_language"
+    # The value is not a pack id: lowercase words joined by dashes, or empty for none.
+    REGION_PACK = "invalid_region_pack"
     # The value is not a whole number in [1, 365].
     DAYS = "invalid_days"
     # The value is not a whole number in [1, 99].
@@ -173,6 +180,23 @@ def parse_credential(value: Any) -> str:
     return value.strip()
 
 
+def parse_region_pack(value: Any) -> str:
+    """
+    The id of the installed region pack, or an empty string for none.
+
+    Only the shape is checked here, not that the pack exists: an id names a directory
+    under REGION_PACKS_DIR and a filename, so it may hold nothing that could escape either, and
+    whether a pack is really installed is a question for the disk rather than for a
+    parser.
+    """
+    if not isinstance(value, str):
+        raise ValueError(SettingsErrorCode.REGION_PACK)
+    candidate = value.strip()
+    if candidate and not _PACK_ID.match(candidate):
+        raise ValueError(SettingsErrorCode.REGION_PACK)
+    return candidate
+
+
 def parse_audio_device(value: Any) -> int | None:
     """
     The index of the microphone to record from. An empty value gives None, meaning the
@@ -241,6 +265,7 @@ DEFAULTS: dict[SettingsKey, SettingDefinition[Any]] = {
     SettingsKey.XENO_CANTO_API_KEY: SettingDefinition(default="", parser=parse_credential),
     SettingsKey.IPGEOLOCATION_API_KEY: SettingDefinition(default="", parser=parse_credential),
     SettingsKey.AUDIO_DEVICE: SettingDefinition(default=None, parser=parse_audio_device),
+    SettingsKey.REGION_PACK: SettingDefinition(default="", parser=parse_region_pack),
 }
 
 

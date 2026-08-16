@@ -12,6 +12,7 @@ from backyardchirps.features.analytics import views as analytics_views
 from backyardchirps.features.auth import views as auth_views
 from backyardchirps.features.detections import views as detections_views
 from backyardchirps.features.overrides import views as overrides_views
+from backyardchirps.features.region_packs import views as region_packs_views
 from backyardchirps.features.server_status import views as server_status_views
 from backyardchirps.features.settings import views as settings_views
 from backyardchirps.features.setup import views as setup_views
@@ -34,6 +35,17 @@ urlpatterns = [
     path("setup/audio-level/", setup_views.audio_level, name="setup-audio-level"),
     path("setup/<slug:step>/", setup_views.wizard_step, name="setup-step"),
     path("api/setup/status/", setup_views.setup_status, name="api-setup-status"),
+    # Packs are asked about by the wizard and by the settings page, so they are their own
+    # feature rather than part of setup. Both reach the same view, which is what stops the
+    # two disagreeing about which pack covers a point.
+    path("api/region-packs/region-pack/", region_packs_views.region_pack, name="api-region-packs-region-pack"),
+    path("api/region-packs/installed/", region_packs_views.installed_region_pack, name="api-region-packs-installed"),
+    path("api/region-packs/install/", region_packs_views.install_region_pack, name="api-region-packs-install"),
+    path(
+        "api/region-packs/install/progress/",
+        region_packs_views.install_progress,
+        name="api-region-packs-install-progress",
+    ),
     path("api/setup/audio-devices/", setup_views.audio_devices, name="api-setup-audio-devices"),
     path("api/server-status/", server_status_views.server_status, name="api-server-status"),
     path("api/weather/current/", weather_views.current_weather, name="api-weather-current"),

@@ -25,6 +25,11 @@
           </div>
         </SettingsCard>
 
+        <RegionPackCard
+          :latitude="location.fields.location_lat"
+          :longitude="location.fields.location_lon"
+        />
+
         <SettingsCard icon="bi-cloud-sun" :title="t('page.settings.weather')" :form="weather">
           <SettingsSelectField
             class="mb-4"
@@ -227,6 +232,7 @@ import { useI18n } from 'vue-i18n'
 import { fetchSettings, fetchAudioDevices } from '../api/index.js'
 import { useSettingsForm } from '../composables/useSettingsForm.js'
 import SettingsCard from '../components/settings/SettingsCard.vue'
+import RegionPackCard from '../components/settings/RegionPackCard.vue'
 import SettingsNumberField from '../components/settings/SettingsNumberField.vue'
 import SettingsSelectField from '../components/settings/SettingsSelectField.vue'
 import SettingsTextField from '../components/settings/SettingsTextField.vue'

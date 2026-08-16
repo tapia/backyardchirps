@@ -8,7 +8,7 @@ CLAUDE.md
 .claude/
 # Downloaded region packs, and the data directory if anyone points it inside the
 # checkout. Both hold runtime state, never source.
-packs
+region-packs
 data
 # The one-time setup token. A station keeps it in the data directory, but a checkout
 # has no separate one, so writing it to reopen the wizard leaves it in the repository

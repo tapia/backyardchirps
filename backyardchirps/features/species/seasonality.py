@@ -163,6 +163,21 @@ def get_yearly_seasonality(
     ]
 
 
+def reset_predictor() -> None:
+    """
+    Drop the cached predictor and the raster files it holds open.
+
+    Installing a region pack moves the directory those files come from, and the predictor
+    would go on answering from handles pointing at rasters that are no longer there. The
+    next question builds a new one, which reads whatever the path points at now.
+    """
+    global _predictor
+
+    if _predictor is not None:
+        _predictor.close()
+        _predictor = None
+
+
 def _get_predictor() -> SeasonalityPredictor:
     global _predictor
 

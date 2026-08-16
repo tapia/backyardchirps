@@ -1,7 +1,9 @@
 import json
+import logging
 from collections.abc import Iterator
 from typing import Any
 
+import requests
 from django.contrib.auth import authenticate
 from django.contrib.auth import login
 from django.http import Http404
@@ -19,6 +21,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 
+from backyardchirps.features.region_packs import logic as region_packs_logic
 from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.setup import logic as setup_logic
@@ -27,11 +30,14 @@ from backyardchirps.features.setup.entity import SetupStatus
 from backyardchirps.features.setup.logic import SetupError
 from backyardchirps.features.setup.permissions import SESSION_FLAG
 from backyardchirps.features.setup.permissions import IsSetupAuthorised
+from backyardchirps.integrations import region_packs
+
+logger = logging.getLogger(__name__)
 
 # The wizard in order. Which step a visitor is on is a URL, and moving on is a POST
 # followed by a redirect, so reloading repeats nothing and a dropped connection costs at
 # most the step being filled in. Nothing about the flow lives in a browser.
-STEPS = ("language", "admin", "location", "microphone", "detection", "notifications", "done")
+STEPS = ("language", "admin", "location", "region-pack", "microphone", "detection", "notifications", "done")
 
 # How long the browser waits before opening the next meter stream, in milliseconds. Every
 # stream ends sooner or later, so this is the width of the gap in a meter that is working
@@ -392,7 +398,47 @@ def _render_step(request: HttpRequest, step: str, status: SetupStatus, errors: d
     }
     if step == "microphone":
         context["devices"] = setup_logic.list_audio_devices()
+    if step == "region-pack":
+        context |= _region_pack_context(request)
     return render(request, f"setup/{step}.html", context)
+
+
+def _region_pack_context(request: HttpRequest) -> dict[str, Any]:
+    """
+    What the pack step needs: which pack covers the coordinates given one step ago.
+
+    Read from the answers rather than from the settings, because nothing has been saved
+    yet. A station with no internet, or one nobody has told where it is, gets no region pack and
+    a step it can walk past, which is a working station with no seasonality charts.
+    """
+    answers = _answers(request)
+    latitude = answers.get(SettingsKey.LOCATION_LAT.value)
+    longitude = answers.get(SettingsKey.LOCATION_LON.value)
+    if latitude is None or longitude is None:
+        return {"region_pack_unavailable": "no_location"}
+
+    try:
+        choice = region_packs_logic.choose_for(float(latitude), float(longitude))
+    except (requests.RequestException, ValueError):
+        # Logged rather than only shown. The step says "could not be reached", which is
+        # all its reader can do anything about, and leaves whoever is looking at the
+        # journal with no idea whether it was the network, a 404 or an index that could
+        # not be read.
+        logger.warning("Could not read the region pack index from %s", region_packs.INDEX_URL, exc_info=True)
+        return {"region_pack_unavailable": "index_unavailable"}
+
+    if choice.region_pack is None:
+        return {"region_pack_unavailable": "no_packs"}
+    return {
+        "region_pack": choice.region_pack,
+        "region_pack_name": choice.region_pack.name_in(_language(request)),
+        "region_pack_covers": choice.covers,
+        "region_pack_distance_km": None if choice.distance_km is None else round(choice.distance_km),
+        "region_pack_request_url": region_packs_logic.REGION_PACK_REQUEST_URL,
+        "region_pack_species_count": choice.region_pack.species_count,
+        "region_pack_megabytes": round(choice.region_pack.size_bytes / 1_000_000),
+        "installed_region_pack_id": region_packs_logic.installed_region_pack_id(),
+    }
 
 
 def _language(request: HttpRequest) -> str:

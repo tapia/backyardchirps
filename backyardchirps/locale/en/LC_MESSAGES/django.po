@@ -1,12 +1,18 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
 msgid ""
 msgstr ""
-"Project-Id-Version: \n"
+"Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-08-16 23:23+0200\n"
-"PO-Revision-Date: \n"
-"Last-Translator: \n"
-"Language-Team: \n"
-"Language: es\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -14,367 +20,348 @@ msgstr ""
 
 #: backyardchirps/features/notifications/logic.py:72
 msgid "New species"
-msgstr "Nueva especie"
+msgstr ""
 
 #: backyardchirps/features/notifications/logic.py:98
 msgid "First detection today"
-msgstr "Primera detección hoy"
+msgstr ""
 
 #: backyardchirps/features/notifications/logic.py:126
 msgid "Rare species"
-msgstr "Especie rara"
+msgstr ""
 
 #: backyardchirps/features/notifications/logic.py:153
 msgid "First of the year"
-msgstr "Primera del año"
+msgstr ""
 
 #: backyardchirps/features/notifications/logic.py:183
 #, python-format
 msgid "Not seen for %(days)s days"
-msgstr "Sin detectar desde hace %(days)s días"
+msgstr ""
 
 #: backyardchirps/features/notifications/logic.py:203
 msgid "Dubious identification, pending human validation"
-msgstr "Identificación dudosa, pendiente de validación humana"
+msgstr ""
 
 #: backyardchirps/features/notifications/logic.py:309
 msgid "Confidence"
-msgstr "Confianza"
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:4
 msgid "Your account"
-msgstr "Tu cuenta"
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:9
 msgid ""
 "This station already has an account, and setup was never finished. Sign in "
 "to carry on."
 msgstr ""
-"Esta estación ya tiene una cuenta y la configuración no llegó a terminar. "
-"Inicia sesión para continuar."
 
 #: backyardchirps/templates/setup/admin.html:12
 msgid "This account is how you will log in from now on."
-msgstr "Con esta cuenta iniciarás sesión a partir de ahora."
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:17
 msgid "That token does not match the one on this machine."
-msgstr "Ese token no coincide con el de esta máquina."
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:18
 msgid "That username and password did not match the account on this station."
 msgstr ""
-"Ese usuario y esa contraseña no coinciden con la cuenta de esta estación."
 
 #: backyardchirps/templates/setup/admin.html:19
 msgid "Pick a username."
-msgstr "Elige un usuario."
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:20
 msgid "That password is too easy to guess."
-msgstr "Esa contraseña es demasiado fácil de adivinar."
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:21
 msgid "That did not work. Try again."
-msgstr "No ha funcionado. Inténtalo otra vez."
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:27
 msgid "Setup token"
-msgstr "Token de instalación"
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:29
 msgid "The installer printed this when it finished."
-msgstr "El instalador lo mostró al terminar."
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:34
 msgid "Username"
-msgstr "Usuario"
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:39
 msgid "Password"
-msgstr "Contraseña"
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:44
 msgid "Sign in"
-msgstr "Iniciar sesión"
+msgstr ""
 
 #: backyardchirps/templates/setup/admin.html:44
 msgid "Create account"
-msgstr "Crear cuenta"
+msgstr ""
 
 #: backyardchirps/templates/setup/base.html:6
 #: backyardchirps/templates/setup/base.html:13
 msgid "Set up your station"
-msgstr "Configura tu estación"
+msgstr ""
 
 #: backyardchirps/templates/setup/base.html:15
 #, python-format
 msgid "Step %(step_number)s of %(step_total)s"
-msgstr "Paso %(step_number)s de %(step_total)s"
+msgstr ""
 
 #: backyardchirps/templates/setup/base.html:27
 msgid "Back"
-msgstr "Atrás"
+msgstr ""
 
 #: backyardchirps/templates/setup/base.html:29
 msgid "Next"
-msgstr "Siguiente"
+msgstr ""
 
 #: backyardchirps/templates/setup/detection.html:4
 msgid "Detection thresholds"
-msgstr "Umbrales de detección"
+msgstr ""
 
 #: backyardchirps/templates/setup/detection.html:14
 msgid ""
 "How sure BirdNET has to be before a detection counts. The defaults are a "
 "good start."
 msgstr ""
-"Cómo de seguro tiene que estar BirdNET para que una detección cuente. Los "
-"valores por defecto son un buen punto de partida."
 
 #: backyardchirps/templates/setup/detection.html:19
 msgid "Low"
-msgstr "Bajo"
+msgstr ""
 
 #: backyardchirps/templates/setup/detection.html:21
 #: backyardchirps/templates/setup/detection.html:27
 #: backyardchirps/templates/setup/detection.html:33
 msgid "Give a number between 0 and 1."
-msgstr "Escribe un número entre 0 y 1."
+msgstr ""
 
 #: backyardchirps/templates/setup/detection.html:25
 msgid "Medium"
-msgstr "Medio"
+msgstr ""
 
 #: backyardchirps/templates/setup/detection.html:31
 msgid "High"
-msgstr "Alto"
+msgstr ""
 
 #: backyardchirps/templates/setup/done.html:4
 msgid "Ready"
-msgstr "Listo"
+msgstr ""
 
 #: backyardchirps/templates/setup/done.html:9
 msgid ""
 "Setup is finished, but the recorder did not start. Check the server status "
 "page."
 msgstr ""
-"La configuración ha terminado, pero el grabador no ha arrancado. Mira la "
-"página de estado del servidor."
 
 #: backyardchirps/templates/setup/done.html:11
 msgid "Go to the site"
-msgstr "Ir al sitio"
+msgstr ""
 
 #: backyardchirps/templates/setup/done.html:13
 msgid "The station could not finish setting up. Try again."
 msgstr ""
-"La estación no ha podido terminar la configuración. Inténtalo otra vez."
 
 #: backyardchirps/templates/setup/done.html:16
 msgid ""
 "That is everything. Finishing starts the recorder and puts the setup token "
 "beyond use, so this wizard will not open again."
 msgstr ""
-"Ya está todo. Al terminar arranca el grabador y el token de instalación deja "
-"de servir, así que este asistente no volverá a abrirse."
 
 #: backyardchirps/templates/setup/done.html:21
 msgid "Finish"
-msgstr "Terminar"
+msgstr ""
 
 #: backyardchirps/templates/setup/language.html:4
 msgid "Language"
-msgstr "Idioma"
+msgstr ""
 
 #: backyardchirps/templates/setup/language.html:7
 msgid ""
 "Which language should this wizard use? You can change the site language "
 "later."
 msgstr ""
-"¿En qué idioma quieres este asistente? El idioma del sitio se puede cambiar "
-"después."
 
 #: backyardchirps/templates/setup/location.html:4
 msgid "Where the station is"
-msgstr "Dónde está la estación"
+msgstr ""
 
 #: backyardchirps/templates/setup/location.html:12
 msgid ""
 "The coordinates decide which species can be here at all, so nothing works "
 "well without them. Click the map, or type them in."
 msgstr ""
-"Las coordenadas deciden qué especies pueden estar aquí, así que nada "
-"funciona bien sin ellas. Haz clic en el mapa, o escríbelas."
 
 #: backyardchirps/templates/setup/location.html:24
 msgid "Make the map bigger"
-msgstr "Agrandar el mapa"
+msgstr ""
 
 #: backyardchirps/templates/setup/location.html:29
 msgid "Make the map smaller"
-msgstr "Reducir el mapa"
+msgstr ""
 
 #: backyardchirps/templates/setup/location.html:34
 msgid "Zoom in"
-msgstr "Acercar"
+msgstr ""
 
 #: backyardchirps/templates/setup/location.html:35
 msgid "Zoom out"
-msgstr "Alejar"
+msgstr ""
 
 #: backyardchirps/templates/setup/location.html:42
 msgid ""
 "The map needs an internet connection. The coordinates below work without it."
 msgstr ""
-"El mapa necesita conexión a internet. Las coordenadas de abajo funcionan sin "
-"ella."
 
 #: backyardchirps/templates/setup/location.html:52
 msgid "Latitude"
-msgstr "Latitud"
+msgstr ""
 
 #: backyardchirps/templates/setup/location.html:54
 msgid "That is not a latitude between -90 and 90."
-msgstr "Eso no es una latitud entre -90 y 90."
+msgstr ""
 
 #: backyardchirps/templates/setup/location.html:58
 msgid "Longitude"
-msgstr "Longitud"
+msgstr ""
 
 #: backyardchirps/templates/setup/location.html:60
 msgid "That is not a longitude between -180 and 180."
-msgstr "Eso no es una longitud entre -180 y 180."
+msgstr ""
 
 #: backyardchirps/templates/setup/location.html:64
 msgid "Use my location"
-msgstr "Usar mi ubicación"
+msgstr ""
 
 #: backyardchirps/templates/setup/microphone.html:4
 msgid "Microphone"
-msgstr "Micrófono"
+msgstr ""
 
 #: backyardchirps/templates/setup/microphone.html:7
 msgid "Pick the input to record from. The meter moves when it hears you."
 msgstr ""
-"Elige la entrada desde la que grabar. El medidor se mueve cuando te oye."
 
 #: backyardchirps/templates/setup/microphone.html:15
 msgid "default"
-msgstr "por defecto"
+msgstr ""
 
 #: backyardchirps/templates/setup/microphone.html:27
 msgid "The microphone is in use by something else."
-msgstr "Otro programa está usando el micrófono."
+msgstr ""
 
 #: backyardchirps/templates/setup/microphone.html:30
 msgid "That device could not be opened."
-msgstr "No se ha podido abrir ese dispositivo."
+msgstr ""
 
 #: backyardchirps/templates/setup/microphone.html:33
 msgid "That is loud enough to distort. Turn the microphone gain down."
-msgstr "Suena tan alto que se distorsiona. Baja la ganancia del micrófono."
+msgstr ""
 
 #: backyardchirps/templates/setup/microphone.html:37
 msgid ""
 "This machine has no recording device, so there is nothing to listen with."
 msgstr ""
-"Esta máquina no tiene ningún dispositivo de grabación, así que no hay con "
-"qué escuchar."
 
 #: backyardchirps/templates/setup/notifications.html:4
 msgid "Notifications and keys"
-msgstr "Notificaciones y claves"
+msgstr ""
 
 #: backyardchirps/templates/setup/notifications.html:7
 msgid ""
 "All optional. Leave anything blank and set it later on the settings page."
 msgstr ""
-"Todo es opcional. Deja en blanco lo que quieras y configúralo después en la "
-"página de ajustes."
 
 #: backyardchirps/templates/setup/notifications.html:10
 msgid "Telegram bot token"
-msgstr "Token del bot de Telegram"
+msgstr ""
 
 #: backyardchirps/templates/setup/notifications.html:15
 msgid "Telegram chat id"
-msgstr "Id del chat de Telegram"
+msgstr ""
 
 #: backyardchirps/templates/setup/notifications.html:20
 msgid "xeno-canto API key"
-msgstr "Clave de API de xeno-canto"
+msgstr ""
 
 #: backyardchirps/templates/setup/notifications.html:25
 msgid "ipgeolocation.io API key"
-msgstr "Clave de API de ipgeolocation.io"
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:4
 msgid "Region pack"
-msgstr "Paquete de región"
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:10
+#, python-format
 msgid ""
 "Your station is inside %(region_pack_name)s. Its region pack holds the seasonal "
 "charts and range maps for the %(region_pack_species_count)s species that live there."
-msgstr "Tu estación está dentro de %(region_pack_name)s. Su paquete de región tiene los gráficos de temporada y los mapas de distribución de las %(region_pack_species_count)s especies que viven allí."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:14
+#, python-format
 msgid ""
 "No region pack covers where you are. The nearest is %(region_pack_name)s, about "
 "%(region_pack_distance_km)s km away."
-msgstr "Ningún paquete de región cubre donde estás. El más cercano es %(region_pack_name)s, a unos %(region_pack_distance_km)s km."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:17
 msgid ""
 "You can install it anyway, or carry on without one. Without a region pack "
 "the site works, but a species page shows no seasonal chart and no range map."
-msgstr "Puedes instalarlo igualmente, o seguir sin ninguno. Sin paquete de región la web funciona, pero la página de una especie no muestra gráfico de temporada ni mapa de distribución."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:20
 msgid "Ask for a region pack that covers you"
-msgstr "Pide un paquete de región que te cubra"
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:24
 #, python-format
 msgid "About %(region_pack_megabytes)s MB to download."
-msgstr "Unos %(region_pack_megabytes)s MB de descarga."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:32
 msgid "Download it"
-msgstr "Descargarlo"
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:35
 msgid "Downloading. You can leave this page open."
-msgstr "Descargando. Puedes dejar esta página abierta."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:36
 msgid "Installed."
-msgstr "Instalado."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:37
 msgid ""
 "That did not work. You can try again, or carry on without a region pack."
-msgstr "No ha funcionado. Puedes intentarlo otra vez, o seguir sin paquete de región."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:41
 msgid ""
 "The list of region packs could not be reached, so there is nothing to offer "
 "yet."
-msgstr "No se ha podido acceder a la lista de paquetes de región, así que todavía no hay nada que ofrecer."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:42
 msgid ""
 "This needs the internet. You can add a region pack later from the settings "
 "page."
-msgstr "Esto necesita internet. Puedes añadir un paquete de región más tarde desde la página de ajustes."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:44
 msgid ""
 "Go back and set the location first, so this step knows which region pack to "
 "offer."
-msgstr "Vuelve atrás y pon la ubicación primero, para que este paso sepa qué paquete de región ofrecer."
+msgstr ""
 
 #: backyardchirps/templates/setup/pack.html:46
 msgid "There are no region packs yet."
-msgstr "Todavía no hay paquetes de región."
+msgstr ""

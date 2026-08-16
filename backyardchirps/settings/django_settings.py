@@ -197,7 +197,11 @@ SPECIES_TAXONOMY_RUNTIME_FILE = SPECIES_RUNTIME_DIR / "taxonomy" / "birdnet_taxo
 
 # Downloaded region packs, meaning range maps and cropped occurrence rasters, one
 # directory per pack id.
-PACKS_DIR = DATA_DIR / "packs"
+REGION_PACKS_DIR = DATA_DIR / "region-packs"
+
+# How far an install of a region pack has got. A file, because the two web workers do not
+# share memory and an install has to outlive the page that asked for it.
+REGION_PACK_INSTALL_STATUS_FILE = DATA_DIR / "region-pack-install-status.json"
 
 # The one-time token install.sh writes, which the setup wizard trades for the first admin
 # account. Finishing the wizard deletes it, so its absence is what makes the wizard
