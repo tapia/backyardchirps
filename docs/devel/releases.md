@@ -16,7 +16,7 @@ git push origin v0.2.0
 and a mismatch would leave the updater comparing against the wrong number. The whole backend
 suite and the frontend lint both run before anything is built, so a broken tag cannot ship.
 
-Building the tarball is `tools/build-tarball.sh`, which the workflow calls. It is a script rather
+Building the tarball is `tools/build_tarball.py`, which the workflow calls. It is a script rather
 than a step inside the workflow because the container test in `tools/container/` calls it too, to
 stage a tarball locally without publishing anything. An installer has to be tested against the
 artifact a user actually downloads, and two copies of the code that decides what goes into that
@@ -43,7 +43,7 @@ during staging, because a station downloads those at runtime into its data direc
 
 ## Why the tarball is built from an allowlist
 
-The copy step in `tools/build-tarball.sh` names the files that go in rather than listing the ones
+The copy step in `tools/build_tarball.py` names the files that go in rather than listing the ones
 to leave out. A release is
 public and permanent, and a list of exclusions fails in a particular way: a file added to the
 repo root later ships without anyone noticing. A working copy holding a real `.env` is exactly
@@ -55,7 +55,7 @@ where a mistake cannot be taken back.
 
 ## The prebuilt frontend
 
-`tools/build-tarball.sh` builds `frontend/dist` and leaves a `.prebuilt` marker in it. `deploy/apply.sh` skips the
+`tools/build_tarball.py` builds `frontend/dist` and leaves a `.prebuilt` marker in it. `deploy/apply.sh` skips the
 frontend build whenever it sees that marker, so an installed station needs no Node, no `npm ci`
 and none of the minutes those take on a Pi. Without that marker `apply.sh` refuses to run, since
 a directory with no built frontend is not a release and it has no other way to become one.
@@ -94,7 +94,7 @@ A station can track `main`, which means installing a build per commit rather tha
 `--version-suffix` is what tells those apart:
 
 ```bash
-bash tools/build-tarball.sh --version-suffix "+main.a1b2c3d" --output-dir .
+uv run --no-project python tools/build_tarball.py --version-suffix "+main.a1b2c3d" --output-dir .
 ```
 
 The suffix reaches three places: the tarball name, the directory it unpacks into, and the version

@@ -3,7 +3,7 @@
 # The backend job in ci.yml tests the code. This tests the thing that puts the
 # code on a Pi, which no unit test can reach: paths, permissions, the service
 # user, systemd units, the nginx site, migrations against an empty database, and
-# the uninstall. It is the only job where tools/build-tarball.sh, install.sh,
+# the uninstall. It is the only job where tools/build_tarball.py, install.sh,
 # deploy/apply.sh and uninstall.sh run together.
 #
 # Slow on purpose, so it stays off most pushes: it builds a real tarball, resolves
@@ -20,7 +20,7 @@ on:
       - install.sh
       - uninstall.sh
       - deploy/**
-      - tools/build-tarball.sh
+      - tools/build_tarball.py
       - tools/container/**
       - backyardchirps/settings/**
       - pyproject.toml
@@ -33,7 +33,7 @@ on:
       - install.sh
       - uninstall.sh
       - deploy/**
-      - tools/build-tarball.sh
+      - tools/build_tarball.py
       - tools/container/**
       - backyardchirps/settings/**
       - pyproject.toml
@@ -69,6 +69,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      # The tarball builder is Python, and it runs with --no-project, so this needs
+      # uv for the interpreter alone. Nothing is synced: a build resolves no
+      # dependencies, and the container installs its own from the release.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       # Only the tarball build needs Node, and only out here. The container never
       # gets it, which is what proves a station does not need it either.

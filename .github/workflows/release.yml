@@ -73,14 +73,14 @@ jobs:
       - name: Lint the shell scripts
         run: |
           shellcheck --severity=style \
-            install.sh uninstall.sh deploy/*.sh tools/*.sh tools/container/*.sh
+            install.sh uninstall.sh deploy/*.sh tools/container/*.sh
 
       - name: Build the tarball
-        # What goes into a release is decided by tools/build-tarball.sh, which the
+        # What goes into a release is decided by tools/build_tarball.py, which the
         # container test also calls, so the artifact tested and the artifact
         # published are built the same way. It also builds the frontend, shipped
         # prebuilt so the Pi never installs Node.
-        run: bash tools/build-tarball.sh --output-dir . >> "$GITHUB_ENV"
+        run: uv run --no-project python tools/build_tarball.py --output-dir . >> "$GITHUB_ENV"
 
       - name: Write the manifest
         run: |

@@ -50,12 +50,13 @@ There is nothing else to do by hand. No clone, no Node, no `.env` to write, no h
 
 ## The manual path
 
-Build a release on your development machine and install it on the Pi. `tools/build-tarball.sh`
+Build a release on your development machine and install it on the Pi. `tools/build_tarball.py`
 runs on macOS and Linux, and it is the same script CI calls, so the artifact is the one a user
-would download.
+would download. `--no-project` keeps it from syncing the project environment, which it needs
+nothing from.
 
 ```bash
-eval "$(bash tools/build-tarball.sh --version-suffix "+main.$(git rev-parse --short=7 HEAD)" --output-dir /tmp)"
+eval "$(uv run --no-project python tools/build_tarball.py --version-suffix "+main.$(git rev-parse --short=7 HEAD)" --output-dir /tmp)"
 scp "$TARBALL_PATH" pi.local:/tmp/
 scp install.sh pi.local:/tmp/
 ssh pi.local "sudo bash /tmp/install.sh --tarball /tmp/$TARBALL_NAME"
@@ -194,7 +195,7 @@ reaches somebody's Pi.
 ## Testing an install without a Pi
 
 `tools/container/run-test.sh` boots a clean Debian trixie machine under systemd, stages a release
-tarball with `tools/build-tarball.sh`, runs `install.sh` inside it, checks what came out, gives
+tarball with `tools/build_tarball.py`, runs `install.sh` inside it, checks what came out, gives
 the station an owner and installs again to prove an update keeps it, then uninstalls. Nothing has
 to be tagged or published, and the artifact under test is the one a user downloads. It covers
 everything except real audio.

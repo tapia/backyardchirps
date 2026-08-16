@@ -337,7 +337,7 @@ uv run mypy backyardchirps
 
 cd frontend && npx eslint src --quiet && npx prettier --check src && npm run build
 
-shellcheck --severity=style install.sh uninstall.sh deploy/*.sh tools/*.sh tools/container/*.sh
+shellcheck --severity=style install.sh uninstall.sh deploy/*.sh tools/container/*.sh
 ```
 
 All of it runs as pre-commit hooks and again in CI (`.github/workflows/ci.yml`) on every push

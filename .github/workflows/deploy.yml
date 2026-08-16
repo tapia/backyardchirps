@@ -56,7 +56,7 @@ jobs:
       # the same version whatever was installed.
       - name: Build the tarball
         run: |
-          bash tools/build-tarball.sh \
+          uv run --no-project python tools/build_tarball.py \
             --version-suffix "+main.$(git rev-parse --short=7 HEAD)" \
             --output-dir . >> "$GITHUB_ENV"
 

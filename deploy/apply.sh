@@ -164,7 +164,7 @@ fi
 # this script cannot work with.
 if [ ! -f "$APP_DIR/frontend/dist/.prebuilt" ]; then
     echo "[apply] $APP_DIR carries no prebuilt frontend, so it is not an unpacked"
-    echo "[apply] release. Build one with tools/build-tarball.sh and install that."
+    echo "[apply] release. Build one with tools/build_tarball.py and install that."
     echo "[apply] See docs/devel/deployment.md."
     exit 1
 fi

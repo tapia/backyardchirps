@@ -149,7 +149,7 @@ fi
 
 say "Staging a release tarball"
 # The station installs a release, not a checkout, so that is what it gets here.
-# Nothing is tagged or published: tools/build-tarball.sh writes the same artifact
+# Nothing is tagged or published: tools/build_tarball.py writes the same artifact
 # CI would, into a temporary directory, and it is thrown away at the end.
 #
 # This is also what lets the image stay free of Node. The tarball carries a
@@ -159,7 +159,8 @@ STAGING_DIR="$(mktemp -d)"
 # build inside `eval "$(...)"` sets no variables and stops nothing, so the script
 # ran on and died several lines later on an unbound TARBALL_NAME, naming neither
 # the build nor the reason it failed.
-tarball_env="$(bash "$REPO_ROOT/tools/build-tarball.sh" --output-dir "$STAGING_DIR")" \
+tarball_env="$(uv run --no-project python "$REPO_ROOT/tools/build_tarball.py" \
+    --output-dir "$STAGING_DIR")" \
     || die "Building the release tarball failed. The reason is above."
 eval "$tarball_env"
 info "$TARBALL_NAME"
@@ -370,8 +371,8 @@ database_inode_before="$(inside stat -c '%i' "$DATA_DIR/detections.db")"
 # user would never forgive losing.
 as_service "mkdir -p $DATA_DIR/clips && touch $DATA_DIR/clips/kept-across-the-update.wav"
 
-upgrade_env="$(bash "$REPO_ROOT/tools/build-tarball.sh" --output-dir "$STAGING_DIR" \
-    --version-suffix +upgradetest)" \
+upgrade_env="$(uv run --no-project python "$REPO_ROOT/tools/build_tarball.py" \
+    --output-dir "$STAGING_DIR" --version-suffix +upgradetest)" \
     || die "Building the upgrade tarball failed. The reason is above."
 # Eval'd like the first build, then copied out: the names it sets are the same ones,
 # and the first tarball is finished with by this point.
