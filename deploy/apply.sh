@@ -141,11 +141,12 @@ echo "[apply] Installing Python dependencies..."
 # just took care to leave it out.
 uv sync --no-dev
 
-# Two accounts have to get into APP_DIR: nginx, which serves the built frontend and
-# the collected static files straight off disk, and the service user, which reaches
-# .venv. Being readable is not enough without traversal, and this has to happen
-# before the check below rather than next to the nginx setup much further down.
-chmod o+x "$APP_DIR" 2>/dev/null || true
+# Two accounts have to get into APP_DIR: nginx, which serves the built frontend
+# straight off disk, and the service user, which reaches .venv. This script used to
+# force that with a chmod, from the days when APP_DIR was somebody's checkout and
+# nobody else had decided its mode. An installed release is laid down by install.sh,
+# which sets the mode when it unpacks, so the chmod had nothing left to fix. What is
+# left is the check below, which fails loudly instead of repairing quietly.
 
 # Every unit starts this interpreter as the service user, so prove it can before
 # the deploy reports success. The failure this used to catch, uv building the

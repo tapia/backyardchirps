@@ -299,6 +299,10 @@ PREVIOUS_RELEASE="$(readlink -f "$LINK_DIR" 2> /dev/null || true)"
 
 say "Installing version $VERSION"
 mkdir -p "$INSTALL_ROOT/releases"
+# Set rather than left to the umask of whoever ran the installer. nginx and the
+# service user both have to walk down to a release, and a root shell with a strict
+# umask would make these 700 and stop them at the top.
+chmod 755 "$INSTALL_ROOT" "$INSTALL_ROOT/releases"
 # Reinstalling a version over itself is the one case with nothing to fall back to,
 # because the directory being emptied here is the one that is serving. Worth saying
 # out loud rather than discovering after a failed build. Deploys that install a
@@ -314,6 +318,14 @@ mkdir -p "$RELEASE_DIR"
 # account or to none, so /opt would fill with files owned by a stranger. Everything
 # here belongs to root and is read by the service user and nginx through its mode.
 tar --zstd -xf "$tarball" -C "$RELEASE_DIR" --strip-components=1 --no-same-owner
+# The mode is set here for the same reason the owner is. tar run as root restores
+# the permissions recorded in the archive, and those are whatever umask the machine
+# that built it had. A tarball built under umask 077 unpacks into directories nginx
+# cannot enter and files it cannot read, and the only symptom is a station that
+# answers 403 on every page. `a+rX` adds read to every file and traversal to every
+# directory, which is what a tree holding nothing but public code should be. This
+# runs before the build, so the virtualenv it creates is not touched.
+chmod -R a+rX "$RELEASE_DIR"
 
 # Everything from here builds the versioned directory. The symlink is not moved
 # here: apply.sh points it at this release once the build has succeeded, right

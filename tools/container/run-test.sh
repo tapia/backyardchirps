@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Run install.sh on a clean throwaway machine and check what came out. The release
-# it installs is built here and never published, so nothing has to be tagged first.
+# Run install.sh on a clean throwaway machine and check what came out, then update
+# that machine to a second version and check that too. Both releases are built here
+# and never published, so nothing has to be tagged first.
 #
 #   bash tools/container/run-test.sh                    build, install, assert, tear down
 #   bash tools/container/run-test.sh --keep             leave it running to look at
@@ -350,6 +351,82 @@ printf '%s' "$SETUP" | grep -q '"is_complete":true' \
     || die "The station lost its setup state when the installer ran again: $SETUP"
 info "no token written, and the station is still configured"
 
+say "Updating to a newer version"
+# installation.md tells users to update by re-running the installer, and until the
+# updater lands that is the only way anyone gets a new version. The section above
+# installs the same version over itself, which never moves the symlink and never
+# proves a release can be replaced. This one installs a different version, which is
+# the path a user actually takes.
+#
+# The second tarball comes from this same checkout, marked with a PEP 440 local
+# version. That is what --version-suffix is for, so no test-only way to change a
+# release's version had to be invented: a local version can never equal a tag, and
+# 0.1.2+upgradetest reads as newer than 0.1.2 under PEP 440.
+release_before_update="$(inside readlink -f "$APP_DIR")"
+secret_key_before="$(inside grep '^SECRET_KEY=' "$DATA_DIR/.env")"
+database_inode_before="$(inside stat -c '%i' "$DATA_DIR/detections.db")"
+# A recording, standing in for everything a station has collected. The data
+# directory is what an update must not touch, and a file under clips/ is the part a
+# user would never forgive losing.
+as_service "mkdir -p $DATA_DIR/clips && touch $DATA_DIR/clips/kept-across-the-update.wav"
+
+upgrade_env="$(bash "$REPO_ROOT/tools/build-tarball.sh" --output-dir "$STAGING_DIR" \
+    --version-suffix +upgradetest)" \
+    || die "Building the upgrade tarball failed. The reason is above."
+# Eval'd like the first build, then copied out: the names it sets are the same ones,
+# and the first tarball is finished with by this point.
+eval "$upgrade_env"
+UPGRADE_VERSION="$VERSION"
+UPGRADE_TARBALL_NAME="$TARBALL_NAME"
+info "updating to $UPGRADE_VERSION"
+$RUNTIME exec -i "$NAME" tee "/tmp/install/$UPGRADE_TARBALL_NAME" < "$TARBALL_PATH" > /dev/null
+
+inside bash /tmp/install/install.sh \
+    --tarball "/tmp/install/$UPGRADE_TARBALL_NAME" \
+    --data-dir "$DATA_DIR" \
+    --ignore-preflight \
+    || die "Updating to $UPGRADE_VERSION failed. Re-run with --keep and read the output above."
+
+release_after_update="$(inside readlink -f "$APP_DIR")"
+[ "$release_after_update" != "$release_before_update" ] \
+    || die "$APP_DIR still points at $release_before_update, so the update never went live."
+case "$release_after_update" in
+    *"/releases/$UPGRADE_VERSION") info "current -> $release_after_update" ;;
+    *) die "current points at $release_after_update rather than the release named $UPGRADE_VERSION." ;;
+esac
+# The version the site reports comes from the package metadata that uv sync writes,
+# not from the directory name, so read it the way Django does. Through the symlink
+# on purpose: that is the path every unit starts from.
+installed_version="$(as_service "$APP_DIR/.venv/bin/python -c \
+    'import importlib.metadata; print(importlib.metadata.version(\"backyardchirps\"))'")"
+[ "$installed_version" = "$UPGRADE_VERSION" ] \
+    || die "The station reports version $installed_version rather than $UPGRADE_VERSION, so the site would name the wrong one."
+info "the running release reports itself as $installed_version"
+
+# Rolling back needs somewhere to roll back to, and the installer keeps three.
+inside test -d "$release_before_update" \
+    || die "The update deleted the release it replaced, so there is nothing to roll back to."
+info "the previous release is still on disk"
+
+secret_key_after="$(inside grep '^SECRET_KEY=' "$DATA_DIR/.env")"
+[ "$secret_key_after" = "$secret_key_before" ] \
+    || die "The update generated a new SECRET_KEY, which signs out every session and invalidates every password reset link."
+database_inode_after="$(inside stat -c '%i' "$DATA_DIR/detections.db")"
+[ "$database_inode_after" = "$database_inode_before" ] \
+    || die "detections.db was replaced rather than migrated in place, so the station lost its detections."
+inside test -f "$DATA_DIR/clips/kept-across-the-update.wav" \
+    || die "The update deleted a recording out of $DATA_DIR/clips."
+info ".env, the database and the recordings all survived"
+
+SETUP="$(inside curl -s http://localhost/api/setup/status/ || true)"
+printf '%s' "$SETUP" | grep -q '"is_complete":true' \
+    || die "The station was thrown back into the wizard by an update: $SETUP"
+STATUS="$(inside curl -s -o /dev/null -w '%{http_code}' http://localhost/ || true)"
+[ "$STATUS" = "200" ] || die "nginx returned $STATUS for / after the update rather than 200."
+API="$(inside curl -s -o /dev/null -w '%{http_code}' http://localhost/api/species/ || true)"
+[ "$API" = "200" ] || die "The API returned $API after the update rather than 200."
+info "the updated station serves the site and answers the API"
+
 say "A failed build must leave the running release alone"
 # The expensive half of a deploy happens before anything is switched over, so a
 # build that dies has to leave the station exactly as it found it: still pointed at
@@ -398,4 +475,4 @@ inside test -f "$DATA_DIR/detections.db" \
     || die "The uninstall deleted the database, and it was not asked to."
 info "software removed, recordings kept"
 
-printf '\n\033[1mA clean machine installed, came up, and uninstalled cleanly.\033[0m\n\n'
+printf '\n\033[1mA clean machine installed, came up, updated, and uninstalled cleanly.\033[0m\n\n'

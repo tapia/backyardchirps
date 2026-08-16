@@ -80,9 +80,12 @@ jobs:
     # and the job queues until it times out, so switch it to ubuntu-latest and
     # accept that wheel resolution is no longer being tested.
     runs-on: ubuntu-24.04-arm
-    # Generous: most of the time is one uv sync and one model download, both over
-    # the network, and a slow mirror should not read as a broken installer.
-    timeout-minutes: 45
+    # Generous: most of the time is the uv syncs and one model download, all over
+    # the network, and a slow mirror should not read as a broken installer. The run
+    # installs twice, since it also tests updating a station to a newer release. The
+    # second install is the cheaper one: the model is already in the data directory
+    # and the uv cache is warm, so it builds a virtualenv and little else.
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4

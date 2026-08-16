@@ -60,4 +60,3 @@ AGPL-3.0. See [LICENSE](LICENSE).
 
 BirdNET's models are licensed CC BY-NC-SA 4.0, which is **non-commercial**, so no build of
 this project as a whole may be put to commercial use whatever the code licence says.
-[NOTICE](NOTICE) credits every third party involved and records their terms.
