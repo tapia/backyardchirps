@@ -4,7 +4,7 @@ Assemble a release tarball from this checkout.
   uv run --no-project python tools/build_tarball.py --output-dir DIR [--version-suffix +main.a1b2c3d]
 
 This is the one place that decides what a release contains. CI calls it when a version tag is
-pushed, and tools/container/run-test.sh calls it to stage a tarball that never leaves the
+pushed, and the container install test calls it to stage a tarball that never leaves the
 machine, so the installer can be tested against the same artifact a user downloads. Building it
 in two places would let the two drift, and the copy that drifts is the one that ships a secret.
 

@@ -185,7 +185,7 @@ writes fixture files to a temporary directory, points those values at them, and 
 that a good machine is accepted and that a bad one is refused **for the right reason**.
 
 This exists because preflight is the one part of `install.sh` the container test cannot reach: a
-container is not a Pi, so `run-test.sh` passes `--ignore-preflight`. Three of the four checks
+container is not a Pi, so the container test passes `--ignore-preflight`. Three of the four checks
 shipped broken as a result and were only found by deploying to real hardware. `--preflight-only`
 runs the checks and stops, installing nothing and needing no root.
 
@@ -194,17 +194,28 @@ reaches somebody's Pi.
 
 ## Testing an install without a Pi
 
-`tools/container/run-test.sh` boots a clean Debian trixie machine under systemd, stages a release
-tarball with `tools/build_tarball.py`, runs `install.sh` inside it, checks what came out, gives
-the station an owner and installs again to prove an update keeps it, then uninstalls. Nothing has
-to be tagged or published, and the artifact under test is the one a user downloads. It covers
-everything except real audio.
+`tools/container/` boots a clean Debian trixie machine under systemd, stages a release tarball
+with `tools/build_tarball.py`, runs `install.sh` inside it, checks what came out, gives the
+station an owner and installs again to prove an update keeps it, updates it to a newer version,
+then uninstalls. Nothing has to be tagged or published, and the artifact under test is the one a
+user downloads. It covers everything except real audio.
 
 ```bash
-bash tools/container/run-test.sh                    # build, install, assert, tear down
-bash tools/container/run-test.sh --keep             # leave it running to look around
-bash tools/container/run-test.sh --runtime docker   # pin the runtime
+uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s
+uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s --keep-station
+uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s --runtime docker
 ```
+
+It is pytest, but it is not part of the project suite: `tools/container` is outside `testpaths`,
+so `uv run pytest` never picks it up and a slow run stays something you ask for. `--no-project` keeps it out of the project environment, which none of it needs, and
+`-o addopts=""` drops the coverage report so a container run cannot overwrite `coverage.xml`.
+`-s` is what lets the fixtures report progress while they work.
+
+One machine is walked through five states, each fixture in `conftest.py` building on the one
+before: installed, given an owner, installed again, updated, uninstalled. **The tests are written
+in that order and depend on it**, so a new one belongs next to the others sharing its fixture,
+never at the end. `--keep-station` leaves the container up to look around in, which is the first
+thing to reach for when one fails.
 
 The image is `debian:trixie`, matching what Raspberry Pi OS is built on. That is not a detail: a
 station builds against the interpreter apt installs, so the Debian release decides which Python
@@ -214,7 +225,7 @@ Podman is preferred when both are installed, because it wires up cgroups for an 
 its own where docker needs a privileged container and the cgroup filesystem mounted in.
 `--runtime` overrides that.
 
-`.github/workflows/installer.yml` runs the same script on every change to `install.sh`,
+`.github/workflows/installer.yml` runs the same test on every change to `install.sh`,
 `uninstall.sh`, `deploy/`, the tarball builder or the locked dependencies. It runs on arm64,
 since an installer proves little from a different architecture, and pins docker because that is
 what the runner image is set up for. When it fails it prints the tail of the station's install

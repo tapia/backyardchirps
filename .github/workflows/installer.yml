@@ -92,4 +92,9 @@ jobs:
       # reason is in this job's output rather than inside a container that is
       # already gone.
       - name: Install a release and check it
-        run: bash tools/container/run-test.sh --runtime docker
+        # --no-project because the test needs nothing the station installs, only pytest
+        # itself, and -o addopts="" drops the coverage report the project suite asks for.
+        # -s lets the fixtures say which slow step they are on while they are on it.
+        run: >
+          uv run --no-project --with pytest pytest -o addopts=""
+          tools/container -v -s --runtime docker

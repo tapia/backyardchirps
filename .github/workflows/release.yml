@@ -73,7 +73,7 @@ jobs:
       - name: Lint the shell scripts
         run: |
           shellcheck --severity=style \
-            install.sh uninstall.sh deploy/*.sh tools/container/*.sh
+            install.sh uninstall.sh deploy/*.sh
 
       - name: Build the tarball
         # What goes into a release is decided by tools/build_tarball.py, which the

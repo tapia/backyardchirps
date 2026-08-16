@@ -78,4 +78,4 @@ jobs:
       - name: ShellCheck
         run: |
           shellcheck --severity=style \
-            install.sh uninstall.sh deploy/*.sh tools/container/*.sh
+            install.sh uninstall.sh deploy/*.sh
