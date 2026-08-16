@@ -7,24 +7,24 @@ import client from './client.js'
 // rather than read from the settings, so the card can answer for a location that has been
 // typed in but not saved yet.
 export async function fetchRegionPack(latitude, longitude) {
-  const { data } = await client.get('/api/packs/region-pack/', {
+  const { data } = await client.get('/api/region-packs/region-pack/', {
     params: { lat: latitude, lon: longitude },
   })
   return data
 }
 
 export async function fetchInstalledRegionPack() {
-  const { data } = await client.get('/api/packs/installed/')
+  const { data } = await client.get('/api/region-packs/installed/')
   return data
 }
 
 // Starts the download and returns; it runs on the station, so the browser can be closed.
 export async function startRegionPackInstall(id) {
-  const { data } = await client.post('/api/packs/install/', { id })
+  const { data } = await client.post('/api/region-packs/install/', { id })
   return data
 }
 
 export async function fetchRegionPackInstallProgress() {
-  const { data } = await client.get('/api/packs/install/progress/')
+  const { data } = await client.get('/api/region-packs/install/progress/')
   return data
 }
