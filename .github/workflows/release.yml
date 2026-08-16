@@ -64,18 +64,23 @@ jobs:
       - name: Pytest
         run: uv run pytest
 
+      - name: Lint the frontend
+        run: |
+          cd frontend
+          npx eslint src --quiet
+          npx prettier --check src
+
+      - name: Lint the shell scripts
+        run: |
+          shellcheck --severity=style \
+            install.sh uninstall.sh deploy/*.sh tools/*.sh tools/container/*.sh
+
       - name: Build the tarball
         # What goes into a release is decided by tools/build-tarball.sh, which the
         # container test also calls, so the artifact tested and the artifact
         # published are built the same way. It also builds the frontend, shipped
         # prebuilt so the Pi never installs Node.
         run: bash tools/build-tarball.sh --output-dir . >> "$GITHUB_ENV"
-
-      - name: Lint the frontend
-        run: |
-          cd frontend
-          npx eslint src --quiet
-          npx prettier --check src
 
       - name: Write the manifest
         run: |

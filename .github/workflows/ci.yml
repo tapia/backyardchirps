@@ -34,3 +34,51 @@ jobs:
 
       - name: Pytest
         run: uv run pytest
+
+  frontend:
+    name: Lint & build frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: ESLint
+        working-directory: frontend
+        run: npx eslint src --quiet
+
+      - name: Prettier
+        working-directory: frontend
+        run: npx prettier --check src
+
+      # The release ships the frontend prebuilt, so a build that does not compile
+      # would only be found when a tag is pushed.
+      - name: Build
+        working-directory: frontend
+        run: npm run build
+
+  shell:
+    name: Lint shell scripts
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # install.sh is what every user runs first, as root, so it is checked at the
+      # same severity as the rest of the tree.
+      - name: ShellCheck
+        run: |
+          shellcheck --severity=style \
+            install.sh uninstall.sh deploy/*.sh tools/*.sh tools/container/*.sh
+
+      - name: Preflight checks
+        run: bash tools/test-preflight.sh
