@@ -243,9 +243,7 @@ def test_species_by_hour_of_day_days_for_bounded_range(create_detection: Callabl
     start = datetime(2024, 6, 10, 0, 0, tzinfo=_MADRID)
     create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 11, 9, 0, tzinfo=_MADRID))
 
-    full_weeks = analytics_queries.species_by_hour_of_day(
-        [Species(BLACKBIRD)], "en", start, start + timedelta(days=7)
-    )
+    full_weeks = analytics_queries.species_by_hour_of_day([Species(BLACKBIRD)], "en", start, start + timedelta(days=7))
     partial_days = analytics_queries.species_by_hour_of_day(
         [Species(BLACKBIRD)], "en", start, start + timedelta(days=2, hours=12)
     )

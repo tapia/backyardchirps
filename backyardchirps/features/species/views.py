@@ -4,6 +4,7 @@ from pathlib import Path
 from django.http import FileResponse
 from django.http import Http404
 from rest_framework.decorators import api_view
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from backyardchirps import settings
@@ -32,7 +33,7 @@ class SpeciesListOrder(Enum):
 
 
 @api_view(["GET"])
-def species_list(request):
+def species_list(request: Request) -> Response:
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     min_confidence = resolve_confidence_level(request)
@@ -65,7 +66,7 @@ def species_list(request):
 
 
 @api_view(["GET"])
-def taxonomy_search(request):
+def taxonomy_search(request: Request) -> Response:
     query = request.GET.get("q", "").strip()
     language = request.GET.get("lang", settings.LANGUAGE_CODE)
 
@@ -76,7 +77,7 @@ def taxonomy_search(request):
 
 
 @api_view(["GET"])
-def species_detail(request, slug):
+def species_detail(request: Request, slug: str) -> Response:
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     min_confidence = resolve_confidence_level(request)
@@ -116,7 +117,7 @@ def species_detail(request, slug):
 
 
 @api_view(["GET"])
-def species_recordings(request, slug):
+def species_recordings(request: Request, slug: str) -> Response:
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     sort = request.GET.get("sort", "date")
     direction = request.GET.get("direction", "desc")
@@ -136,7 +137,7 @@ def species_recordings(request, slug):
 
 
 @api_view(["GET"])
-def species_seasonality(request, slug):
+def species_seasonality(request: Request, slug: str) -> Response:
     # Seasonality depends only on the species and the location, not on what we have
     # heard, so this answers for any species with eBird data even if it has never been
     # recorded here. Species without that data get {"timeline": null}.
@@ -165,7 +166,7 @@ def _asset_category_dirs() -> dict[str, Path]:
 
 
 @api_view(["GET"])
-def serve_species_asset(request, category, filename):
+def serve_species_asset(request: Request, category: str, filename: str) -> FileResponse:
     """
     Serve a bird image or a range map. The directory layout is in
     docs/devel/species-data.md.
@@ -197,7 +198,7 @@ def _parse_int(value: str | None, default: int) -> int:
         return default
 
 
-def _recording_entry(recording, clips_base):
+def _recording_entry(recording: dict, clips_base: Path) -> dict:
     clip_path = Path(recording["clip_path"])
     try:
         clip_rel = clip_path.relative_to(clips_base)

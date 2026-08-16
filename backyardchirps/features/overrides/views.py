@@ -2,6 +2,7 @@ from rest_framework.decorators import api_view
 from rest_framework.decorators import permission_classes
 from rest_framework.exceptions import NotFound
 from rest_framework.permissions import IsAdminUser
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from backyardchirps import settings
@@ -10,11 +11,12 @@ from backyardchirps.features.overrides import queries
 from backyardchirps.features.overrides.entity import SpeciesOverride
 from backyardchirps.features.species import queries as species_queries
 from backyardchirps.shared.http import get_species_or_404
+from backyardchirps.shared.http import request_body
 
 
 @api_view(["GET"])
 @permission_classes([IsAdminUser])
-def detection_settings_list(request):
+def detection_settings_list(request: Request) -> Response:
     """
     Every species with custom detection settings, for the admin page.
     """
@@ -36,7 +38,7 @@ def detection_settings_list(request):
 
 
 @api_view(["GET", "PUT", "DELETE"])
-def species_detection_settings(request, slug):
+def species_detection_settings(request: Request, slug: str) -> Response:
     """
     A species' blacklisted state and auto-confirm threshold. Anyone can read them, only
     staff can change them.
@@ -59,7 +61,7 @@ def species_detection_settings(request, slug):
         return Response(status=204)
 
     try:
-        auto_confirm_threshold, blacklisted = _parse_override_body(request.data, queries.get(species))
+        auto_confirm_threshold, blacklisted = _parse_override_body(request_body(request), queries.get(species))
     except ValueError as exc:
         return Response({"error": str(exc)}, status=400)
     result = logic.set_override(species, auto_confirm_threshold, blacklisted)

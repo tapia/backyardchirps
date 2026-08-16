@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 from rest_framework.decorators import api_view
+from rest_framework.request import Request
 from rest_framework.response import Response
 
 from backyardchirps import settings
@@ -17,7 +18,7 @@ _astronomy = AstronomyService()
 
 
 @api_view(["GET"])
-def count_detections_by_species_hourly(request):
+def count_detections_by_species_hourly(request: Request) -> Response:
     min_confidence = resolve_confidence_level(request)
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     offset = int(request.GET.get("offset", "0"))
@@ -30,13 +31,13 @@ def count_detections_by_species_hourly(request):
     return Response(
         {
             "hours": analytics_queries.detections_by_species_hourly(min_confidence, lang, start=start, end=end),
-            "astro": serialize_astro_times([_astronomy.get_for_date(d) for d in astro_dates]),
+            "astro": serialize_astro_times([_astronomy.get_for_date(astro_date) for astro_date in astro_dates]),
         }
     )
 
 
 @api_view(["GET"])
-def detections_by_hour_of_day(request):
+def detections_by_hour_of_day(request: Request) -> Response:
     min_confidence = resolve_confidence_level(request)
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start = parse_dt(request.GET.get("start"))
@@ -47,7 +48,7 @@ def detections_by_hour_of_day(request):
 
 
 @api_view(["GET"])
-def species_hourly(request, slug):
+def species_hourly(request: Request, slug: str) -> Response:
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     min_confidence = resolve_confidence_level(request)
     species = get_detected_species_or_404(slug)
@@ -57,7 +58,7 @@ def species_hourly(request, slug):
 
 
 @api_view(["GET"])
-def species_heatmap(request, slug):
+def species_heatmap(request: Request, slug: str) -> Response:
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     min_confidence = resolve_confidence_level(request)
     species = get_detected_species_or_404(slug)
@@ -70,7 +71,7 @@ def species_heatmap(request, slug):
 
 
 @api_view(["GET"])
-def species_yearly(request, slug):
+def species_yearly(request: Request, slug: str) -> Response:
     min_confidence = resolve_confidence_level(request)
     species = get_detected_species_or_404(slug)
     daily = analytics_queries.species_detections_by_day_yearly(species, min_confidence)
@@ -78,7 +79,7 @@ def species_yearly(request, slug):
 
 
 @api_view(["GET"])
-def multi_species_timeline(request):
+def multi_species_timeline(request: Request) -> Response:
     slugs = request.GET.getlist("species")
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))

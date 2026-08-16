@@ -2,6 +2,7 @@ import logging
 import queue
 import signal
 import time
+from typing import Any
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -31,7 +32,7 @@ class Command(BaseCommand):
     help = "Start continuous bird audio recording and species identification"
     running: bool = True
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         signal.signal(signal.SIGINT, self._shutdown)
         signal.signal(signal.SIGTERM, self._shutdown)
 

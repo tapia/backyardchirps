@@ -28,10 +28,10 @@ def _seo_slug(name: str) -> str:
 
 
 class Taxonomy:
-    def __init__(self):
+    def __init__(self) -> None:
         taxonomy_path = _runtime_or_seed(settings.SPECIES_TAXONOMY_RUNTIME_FILE, settings.SPECIES_TAXONOMY_FILE)
-        with open(taxonomy_path) as f:
-            taxa = json.load(f)
+        with open(taxonomy_path) as taxonomy_file:
+            taxa = json.load(taxonomy_file)
 
         self._common_names: dict[str, dict[str, str]] = {}
         self._descriptions: dict[str, dict[str, str]] = {}

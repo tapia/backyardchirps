@@ -81,7 +81,7 @@ class SeasonalityPredictor:
 
         values = next(data.raster.sample([(x, y)]))
 
-        return [None if np.isnan(v) else float(v) for v in values]
+        return [None if np.isnan(value) else float(value) for value in values]
 
     def get_band_dates(
         self,
@@ -114,11 +114,11 @@ class SeasonalityPredictor:
 
         target = pd.Timestamp(when)
 
-        idx = int(data.dates["date"].sub(target).abs().idxmin())
+        closest_index = int(data.dates["date"].sub(target).abs().idxmin())
 
-        return timeline[idx]
+        return timeline[closest_index]
 
-    def close(self):
+    def close(self) -> None:
         for data in self._cache.values():
             data.raster.close()
 

@@ -41,9 +41,7 @@ def test_deletes_until_usage_drops_below_quota(
         lambda limit: [{"id": 1, "clip_path": "/a.wav"}, {"id": 2, "clip_path": "/b.wav"}],
     )
     monkeypatch.setattr(enforce_clip_disk_quota.AudioClip, "delete_clip", lambda path: deleted_ids.append(path))
-    monkeypatch.setattr(
-        enforce_clip_disk_quota.detection_queries, "clear_clip_path", lambda pk: cleared_ids.append(pk)
-    )
+    monkeypatch.setattr(enforce_clip_disk_quota.detection_queries, "clear_clip_path", lambda pk: cleared_ids.append(pk))
 
     deleted_count = enforce_clip_disk_quota.enforce_quota()
 

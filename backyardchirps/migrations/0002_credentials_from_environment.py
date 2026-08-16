@@ -1,4 +1,5 @@
 import os
+from typing import Any
 
 from django.db import migrations
 
@@ -13,7 +14,7 @@ _MOVED_CREDENTIALS: dict[str, str] = {
 }
 
 
-def copy_credentials_from_environment(apps, schema_editor):
+def copy_credentials_from_environment(apps: Any, schema_editor: Any) -> None:
     """
     Carry the credentials over from .env, which is still loaded at this point.
 
@@ -28,7 +29,7 @@ def copy_credentials_from_environment(apps, schema_editor):
         AppSetting.objects.get_or_create(key=key, defaults={"value": value})
 
 
-def drop_credentials(apps, schema_editor):
+def drop_credentials(apps: Any, schema_editor: Any) -> None:
     AppSetting = apps.get_model("birds_recorder", "AppSetting")
     AppSetting.objects.filter(key__in=_MOVED_CREDENTIALS.values()).delete()
 

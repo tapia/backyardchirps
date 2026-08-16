@@ -1,5 +1,6 @@
 import logging
 from pathlib import Path
+from typing import Any
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -15,7 +16,7 @@ class Command(BaseCommand):
         "model from its GitHub release, skipping any file that is already current"
     )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         acoustic = maintenance.refresh_birdnet3_model(
             model_destination=Path(settings.BIRDNET3_MODEL_FILE),
             labels_destination=Path(settings.BIRDNET3_LABELS_FILE),

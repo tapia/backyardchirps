@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from django.core.management.base import BaseCommand
 
@@ -12,7 +13,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = "Update the taxonomy and the active location's species list from upstream sources"
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         update_species_data.refresh_taxonomy()
         latitude = Settings.get(SettingsKey.LOCATION_LAT)
         longitude = Settings.get(SettingsKey.LOCATION_LON)

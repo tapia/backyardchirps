@@ -12,6 +12,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 
 from backyardchirps import settings
+from backyardchirps.features.detections.entity import AnalysisCandidate
+from backyardchirps.features.detections.entity import Detection
 from backyardchirps.features.detections.entity import SpeciesAlreadyIdentifiedException
 from backyardchirps.features.detections.queries import confirm as confirm_detection
 from backyardchirps.features.detections.queries import confirm_many
@@ -29,7 +31,7 @@ from backyardchirps.shared.http import request_body
 
 
 @api_view(["POST", "DELETE"])
-def validate_detection(request, pk):
+def validate_detection(request: Request, pk: int) -> Response:
     try:
         if request.method == "POST":
             confirm_detection(pk, _reassigned_species(request))
@@ -43,14 +45,15 @@ def validate_detection(request, pk):
 
 
 @api_view(["POST"])
-def validate_detections(request):
+def validate_detections(request: Request) -> Response:
     """
     Apply one review action to many detections at once. The body carries an "action",
     either "confirm" or "discard", and a non-empty "ids" list. Confirming here leaves
     every detection on its own species.
     """
-    action = request.data.get("action")
-    detection_ids = request.data.get("ids")
+    body = request_body(request)
+    action = body.get("action")
+    detection_ids = body.get("ids")
     if not isinstance(detection_ids, list) or not detection_ids:
         raise ValidationError({"ids": "A non-empty list of detection ids is required."})
 
@@ -65,7 +68,7 @@ def validate_detections(request):
 
 
 @api_view(["GET"])
-def detections_list(request):
+def detections_list(request: Request) -> Response:
     """
     The diagnostics page feed: every detection, newest first, with its time, processing
     time and a link to follow. Can be filtered by scientific name and by a [start, end]
@@ -97,7 +100,7 @@ def detections_list(request):
 
 
 @api_view(["GET"])
-def dubious_detections(request):
+def dubious_detections(request: Request) -> Response:
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     clips_base = Path(settings.CLIPS["save_dir"])
 
@@ -106,12 +109,12 @@ def dubious_detections(request):
 
 
 @api_view(["GET"])
-def dubious_detections_count(request):
+def dubious_detections_count(request: Request) -> Response:
     return Response({"count": count_dubious_detections()})
 
 
 @api_view(["GET"])
-def detection_detail(request, pk):
+def detection_detail(request: Request, pk: int) -> Response:
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     clips_base = Path(settings.CLIPS["save_dir"])
 
@@ -204,7 +207,7 @@ def _parse_int(value: str | None, default: int) -> int:
         return default
 
 
-def _detection_list_entry(detection, lang):
+def _detection_list_entry(detection: dict, lang: str) -> dict:
     return {
         "id": detection["id"],
         "recorded_at": detection["recorded_at"],
@@ -215,7 +218,7 @@ def _detection_list_entry(detection, lang):
     }
 
 
-def _list_species(species, scientific_name, lang):
+def _list_species(species: Species | None, scientific_name: str, lang: str) -> dict:
     # A species the taxonomy does not know has no slug and no common name, so the row can
     # only show the scientific name we stored.
     if species is None:
@@ -237,7 +240,7 @@ def _reassigned_species(request: Request) -> Species | None:
     return species
 
 
-def _detection_entry(detection, clips_base, lang):
+def _detection_entry(detection: Detection, clips_base: Path, lang: str) -> dict:
     clip_path = Path(detection.clip_path or "")
     try:
         clip_rel = clip_path.relative_to(clips_base)
@@ -263,7 +266,7 @@ def _detection_entry(detection, clips_base, lang):
     }
 
 
-def _original_detection(detection, lang):
+def _original_detection(detection: Detection, lang: str) -> dict | None:
     """
     What BirdNET originally said. Only present when a human changed the species.
     """
@@ -279,7 +282,7 @@ def _original_detection(detection, lang):
     }
 
 
-def _identified_species_entry(species, lang):
+def _identified_species_entry(species: Species, lang: str) -> dict:
     """
     One of the other species identified in the recording under review. The image comes
     along because the header needs it as soon as the reviewer picks this species.
@@ -292,7 +295,7 @@ def _identified_species_entry(species, lang):
     }
 
 
-def _candidate_entry(candidate, lang):
+def _candidate_entry(candidate: AnalysisCandidate, lang: str) -> dict:
     """
     One raw BirdNET candidate. Those our taxonomy knows also carry a slug and a
     translated common name. The rest, non-bird sounds among them, carry only their label.
