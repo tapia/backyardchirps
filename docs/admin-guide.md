@@ -17,6 +17,63 @@ Latitude and longitude of the microphone. BirdNET uses these to rule out species
 occur in the area, so a wrong value here damages every identification, with no visible sign
 that anything is wrong.
 
+### Region pack
+
+A region pack holds the range maps and the seasonality charts for one box on the map. A station
+downloads the pack covering its own coordinates, so nobody pays for data about the other side of
+the world. Without one the site works normally and a species page shows neither the map nor the
+chart.
+
+The setup wizard installs a pack when the station is first configured, so most stations never
+need this card. It is here for moving the station, and for a pack that did not install the first
+time.
+
+The card shows the pack in use and looks up what covers the coordinates above it. Change those
+coordinates and it offers the pack for the new point rather than switching on its own, since a
+station near the edge of its box would otherwise re-download everything because somebody nudged
+the pin by a few metres.
+
+**Downloading takes minutes.** How many depends on how many species live in the box, since a pack
+carries one cropped raster per species. The download runs on the station rather than in the
+browser, so closing the tab or letting a phone lock its screen does not stop it: come back to the
+page and the bar is still moving. If it fails the card says so and the button offers another try.
+The reason is in the journal:
+
+```bash
+journalctl -u backyardchirps-web -n 50 --no-pager
+```
+
+**Switching packs is safe.** Nothing in the database is keyed to a pack: detections reference
+species, and a pack only supplies pictures and probabilities. A switch changes what a species page
+can draw and nothing about your history. Restart the web service afterwards, though, so that both
+of its workers read the new pack rather than the one they already had open:
+
+```bash
+sudo systemctl restart backyardchirps-web
+```
+
+**When no pack covers you**, the card names the nearest one, says how far away it is, and links to
+a form asking for a new one. Give it your coordinates above everything else: several requests near
+each other are one pack, and a request nobody makes is a pack that never gets built. You can
+install the nearest pack anyway, but expect little from it. Its range maps are framed on that
+region, and no species gets a seasonality chart at all, because the occurrence data is cropped to
+a box your station is not in.
+
+**Old packs stay on disk**, so going back to one is not a second download. Each is a directory:
+
+```bash
+ls /var/lib/backyardchirps/region-packs/
+sudo rm -rf /var/lib/backyardchirps/region-packs/<id>    # one you are finished with
+```
+
+A station that has been recording since before packs existed has one more thing to clear. Its old
+worldwide rasters are moved aside on the first install instead of being deleted, since they are
+not the installer's to throw away, and they are large. Nothing reads them:
+
+```bash
+sudo rm -rf /var/lib/backyardchirps/species/ebird_occurrence.superseded
+```
+
 ### Acoustic model
 
 **BirdNET 3** (the default) or **BirdNET 2**. BirdNET 3 is still a preview release and is
@@ -177,6 +234,11 @@ is chosen under **Settings → Microphone**.
 
 A station that has never finished the setup wizard is a different case: its recorder is stopped
 on purpose and the journal is empty. Open the site and it takes you back to the wizard.
+
+Species pages show no range map and no seasonality chart: the station has no region pack, or the
+one it has does not cover the coordinates. **Settings → Region pack** says which, and the section
+above covers what to do about it. Detections are unaffected either way, since BirdNET reads
+neither.
 
 The whole site is unreachable:
 
