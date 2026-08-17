@@ -199,6 +199,12 @@ SPECIES_TAXONOMY_RUNTIME_FILE = SPECIES_RUNTIME_DIR / "taxonomy" / "birdnet_taxo
 # working state: a species page then shows no range map and everything else is unchanged.
 SPECIES_RANGE_MAPS_DIR = SPECIES_RUNTIME_DIR / "range_maps"
 
+# One <slug>.json per species, holding the addresses of a few example recordings on
+# xeno-canto. Another symlink a pack install moves, for the same reason as the two above.
+# The search that finds those recordings needs an API key and happens once, while a pack
+# is built, so no station needs one: see docs/devel/species-data.md.
+SPECIES_REFERENCE_CALLS_DIR = SPECIES_RUNTIME_DIR / "reference_calls"
+
 # Downloaded region packs, meaning range maps and cropped occurrence rasters, one
 # directory per pack id.
 REGION_PACKS_DIR = DATA_DIR / "region-packs"

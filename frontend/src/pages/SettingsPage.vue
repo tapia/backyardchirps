@@ -134,18 +134,10 @@
             :hint="t('page.settings.telegramTokenHint')"
           />
           <SettingsTextField
-            class="mb-3"
+            class="mb-4"
             :form="credentials"
             name="telegram_chat_id"
             :label="t('page.settings.telegramChatId')"
-          />
-          <SettingsTextField
-            class="mb-4"
-            :form="credentials"
-            name="xeno_canto_api_key"
-            type="password"
-            :label="t('page.settings.xenoCantoApiKey')"
-            :hint="t('page.settings.xenoCantoApiKeyHint')"
           />
         </SettingsCard>
 
@@ -251,7 +243,6 @@ const microphone = useSettingsForm({ audio_device: '' })
 const credentials = useSettingsForm({
   telegram_token: '',
   telegram_chat_id: '',
-  xeno_canto_api_key: '',
 })
 const notifications = useSettingsForm({
   notifications_language: 'es',

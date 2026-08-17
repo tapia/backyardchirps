@@ -58,7 +58,6 @@ FIELDS_BY_STEP: dict[str, tuple[SettingsKey, ...]] = {
         SettingsKey.NOTIFICATIONS_LANGUAGE,
         SettingsKey.TELEGRAM_TOKEN,
         SettingsKey.TELEGRAM_CHAT_ID,
-        SettingsKey.XENO_CANTO_API_KEY,
     ),
 }
 

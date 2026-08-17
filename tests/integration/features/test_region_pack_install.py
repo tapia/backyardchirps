@@ -2,12 +2,13 @@
 Installing a region pack: what a station reads afterwards, and what survives a failure.
 
 The archives here are built the way the pack builder builds one, a directory holding
-pack.json beside ebird_occurrence and range_maps, so what is under test is the layout a
-real pack has rather than one invented for the test.
+pack.json beside ebird_occurrence, range_maps and reference_calls, so what is under test
+is the layout a real pack has rather than one invented for the test.
 """
 
 import hashlib
 import json
+import shutil
 import subprocess
 import tarfile
 from pathlib import Path
@@ -36,8 +37,17 @@ def data_dir(tmp_path: Path, settings: Any) -> Path:
     return tmp_path
 
 
-def _build_archive(tmp_path: Path, pack_id: str, *, species: str = "barswa", with_maps: bool = True) -> Path:
+def _build_archive(
+    tmp_path: Path,
+    pack_id: str,
+    *,
+    species: str = "barswa",
+    with_maps: bool = True,
+    version: str = "2026-08-16",
+) -> Path:
     staging = tmp_path / "staging" / pack_id
+    if staging.exists():
+        shutil.rmtree(staging)
     (staging / "ebird_occurrence" / species).mkdir(parents=True)
     (staging / "ebird_occurrence" / species / "band-dates.csv").write_text("band,date\n1,2023-01-04\n")
     (staging / "ebird_occurrence" / species / f"{species}_occurrence_median_9km_2023.tif").write_bytes(b"not a raster")
@@ -45,11 +55,14 @@ def _build_archive(tmp_path: Path, pack_id: str, *, species: str = "barswa", wit
     maps.mkdir()
     if with_maps:
         (maps / "hirundo-rustica.webp").write_bytes(b"not an image")
+    calls = staging / "reference_calls"
+    calls.mkdir()
+    (calls / "hirundo-rustica.json").write_text(json.dumps([{"url": "https://xeno-canto.org/1.mp3"}]))
     (staging / "pack.json").write_text(
-        json.dumps({"id": pack_id, "names": {"en": "A region"}, "version": "2026-08-16", "species_count": 1})
+        json.dumps({"id": pack_id, "names": {"en": "A region"}, "version": version, "species_count": 1})
     )
 
-    archive = tmp_path / f"{pack_id}.tar.zst"
+    archive = tmp_path / f"{pack_id}-{version}.tar.zst"
     subprocess.run(
         ["tar", "--zstd", "-cf", str(archive), "-C", str(staging.parent), pack_id],
         check=True,
@@ -57,12 +70,12 @@ def _build_archive(tmp_path: Path, pack_id: str, *, species: str = "barswa", wit
     return archive
 
 
-def _pack_for(archive: Path, pack_id: str = "a-region") -> RegionPack:
+def _pack_for(archive: Path, pack_id: str = "a-region", version: str = "2026-08-16") -> RegionPack:
     return RegionPack(
         id=pack_id,
         names={"en": "A region"},
         bbox=BoundingBox(west=-10.0, south=35.0, east=4.5, north=44.5),
-        version="2026-08-16",
+        version=version,
         species_count=1,
         url=f"file://{archive}",
         sha256=hashlib.sha256(archive.read_bytes()).hexdigest(),
@@ -101,6 +114,22 @@ def test_a_station_reads_the_pack_through_links_it_already_had(
     assert (rasters / "barswa" / "band-dates.csv").read_text().startswith("band,date")
     assert (Path(settings.SPECIES_RUNTIME_DIR) / "range_maps").is_symlink()
 
+    calls = Path(settings.SPECIES_RUNTIME_DIR) / "reference_calls"
+    assert calls.is_symlink()
+    assert json.loads((calls / "hirundo-rustica.json").read_text())[0]["url"].startswith("https://")
+
+
+def test_the_paths_the_app_reads_are_the_ones_an_install_links() -> None:
+    """
+    The seam between a pack and the pages that read one. Both sides name the directory as a
+    string, in different files, so a rename on one side would leave a link nothing reads and a
+    setting pointing at nothing, with every test still passing.
+    """
+    linked = set(region_packs_logic.LINKED_DIRECTORIES)
+    assert Path(settings.SPECIES_RANGE_MAPS_DIR).name in linked
+    assert Path(settings.SPECIES_REFERENCE_CALLS_DIR).name in linked
+    assert Path(settings.EBIRD_DATA_DIR).name in linked
+
 
 def test_the_installed_pack_is_recorded(tmp_path: Path, data_dir: Path, serve_locally: None) -> None:
     archive = _build_archive(tmp_path, "a-region")
@@ -109,6 +138,37 @@ def test_the_installed_pack_is_recorded(tmp_path: Path, data_dir: Path, serve_lo
 
     assert Settings.get(SettingsKey.REGION_PACK) == "a-region"
     assert region_packs_logic.pack_is_installed() is True
+    assert region_packs_logic.installed_region_pack_version() == "2026-08-16"
+
+
+def test_reinstalling_a_pack_brings_what_the_newer_build_added(
+    tmp_path: Path, data_dir: Path, serve_locally: None
+) -> None:
+    """
+    How a station that already has a pack gets data added to it later, which is the only
+    route reference calls have onto a station installed before packs carried them.
+    """
+    region_packs_logic.install(_pack_for(_build_archive(tmp_path, "a-region", version="2026-08-16")))
+    calls = Path(settings.SPECIES_RUNTIME_DIR) / "reference_calls"
+    (Path(settings.REGION_PACKS_DIR) / "a-region" / "reference_calls" / "hirundo-rustica.json").unlink()
+    assert not (calls / "hirundo-rustica.json").exists()
+
+    rebuilt = _build_archive(tmp_path, "a-region", version="2026-09-01")
+    region_packs_logic.install(_pack_for(rebuilt, version="2026-09-01"))
+
+    assert (calls / "hirundo-rustica.json").is_file()
+    assert region_packs_logic.installed_region_pack_version() == "2026-09-01"
+
+
+def test_the_version_is_empty_when_there_is_no_pack_to_read(data_dir: Path) -> None:
+    """
+    Nothing to compare with the index, which the settings page reads as no update waiting
+    rather than as one.
+    """
+    assert region_packs_logic.installed_region_pack_version() == ""
+
+    Settings.set(SettingsKey.REGION_PACK, "a-region")
+    assert region_packs_logic.installed_region_pack_version() == ""
 
 
 def test_a_recorded_pack_that_is_not_on_disk_is_not_installed(data_dir: Path) -> None:

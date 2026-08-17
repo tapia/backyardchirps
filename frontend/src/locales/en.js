@@ -105,7 +105,7 @@ export default {
       lat: 'Latitude',
       regionPack: 'Region pack',
       regionPackHint:
-        'A region pack holds the seasonal charts and range maps for the part of the world this station sits in. Without one the site works, but a species page shows neither.',
+        'A region pack holds the seasonal charts, the range maps and the reference recordings for the part of the world this station sits in. Without one the site works, but a species page shows none of them.',
       regionPackInstalled: 'Installed: {name}',
       regionPackCovers: '{name} covers this station.',
       regionPackMiss:
@@ -113,6 +113,8 @@ export default {
       regionPackRequest: 'Ask for a region pack',
       regionPackDownload: 'Download it',
       regionPackSwitch: 'Switch to it',
+      regionPackUpdate: 'A newer build of this pack is available ({version}).',
+      regionPackUpdateButton: 'Update it',
       regionPackWorking: 'Downloading...',
       regionPackFailed: 'That did not work. You can try again.',
       regionPackUnavailable: 'The list of region packs could not be reached.',
@@ -163,8 +165,6 @@ export default {
       telegramToken: 'Telegram bot token',
       telegramTokenHint: 'From @BotFather. Leave empty to turn Telegram notifications off.',
       telegramChatId: 'Telegram chat ID',
-      xenoCantoApiKey: 'xeno-canto API key',
-      xenoCantoApiKeyHint: 'Optional. Adds reference recordings to species pages.',
       errors: {
         invalid_boolean: 'Must be true or false.',
         invalid_confidence: 'Must be a decimal number between 0 and 1.',

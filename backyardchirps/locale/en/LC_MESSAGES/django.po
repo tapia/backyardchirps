@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 20:47+0200\n"
+"POT-Creation-Date: 2026-08-17 21:07+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -270,7 +270,7 @@ msgid ""
 msgstr ""
 
 #: backyardchirps/templates/setup/notifications.html:4
-msgid "Notifications and keys"
+msgid "Notifications"
 msgstr ""
 
 #: backyardchirps/templates/setup/notifications.html:7
@@ -286,10 +286,6 @@ msgstr ""
 msgid "Telegram chat id"
 msgstr ""
 
-#: backyardchirps/templates/setup/notifications.html:20
-msgid "xeno-canto API key"
-msgstr ""
-
 #: backyardchirps/templates/setup/region-pack.html:4
 msgid "Region pack"
 msgstr ""
@@ -298,8 +294,8 @@ msgstr ""
 #, python-format
 msgid ""
 "Your station is inside %(region_pack_name)s. Its region pack holds the "
-"seasonal charts and range maps for the %(region_pack_species_count)s species "
-"that live there."
+"seasonal charts, the range maps and the reference recordings for the "
+"%(region_pack_species_count)s species that live there."
 msgstr ""
 
 #: backyardchirps/templates/setup/region-pack.html:14

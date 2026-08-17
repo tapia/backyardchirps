@@ -4,9 +4,9 @@ The taxonomy and the per-species assets that fit the app to wherever it is runni
 under `backyardchirps/species_data/`.
 
 Everything here is the same everywhere. A photo of a bird and the BirdNET taxonomy do not change
-from one country to the next, so they ship with the code. The two things that do, range maps and
-occurrence rasters, come from a **region pack** the station downloads for its own part of the
-world, and nothing in the repository is named after a country.
+from one country to the next, so they ship with the code. What does change comes from a **region
+pack** the station downloads for its own part of the world: range maps, occurrence rasters and
+reference recordings. Nothing in the repository is named after a country.
 
 ## Layout
 
@@ -25,14 +25,50 @@ backyardchirps/species_data/
     ├── taxonomy/                 The refreshed taxonomy
     ├── species_birdnet.txt       The station's own species list, derived from
     │                             its coordinates
-    └── range_maps/               A link into the installed region pack, holding
-                                  <slug>.webp framed on that pack's box
+    ├── range_maps/               A link into the installed region pack, holding
+    │                             <slug>.webp framed on that pack's box
+    └── reference_calls/          A link into the same pack, holding <slug>.json:
+                                  a few example recordings on xeno-canto
 ```
 
-Installing a pack writes `range_maps` and `ebird_occurrence` as symlinks into it, so the paths in
-`django_settings.py` never change and nothing has to know which pack is in use. A station with no
-pack has neither directory, which is a working state: species pages lose the range map and the
-seasonality timeline, and everything else behaves as usual.
+Installing a pack writes `range_maps`, `ebird_occurrence` and `reference_calls` as symlinks into
+it, so the paths in `django_settings.py` never change and nothing has to know which pack is in
+use. A station with no pack has none of the three directories, which is a working state: species
+pages lose the range map, the seasonality timeline and the reference recordings, and everything
+else behaves as usual.
+
+## Reference recordings
+
+A species page offers a few example recordings, so somebody can compare what the station heard
+with what the species sounds like. They play from xeno-canto, and the pack carries only their
+addresses.
+
+The reason they come from a pack is the API key. Searching xeno-canto needs one, but **playing a
+recording does not**: the files sit at ordinary addresses. So the search runs once, while a pack
+is built, with the key of whoever builds it, and a station reads the answer. Nobody running a
+station needs an account.
+
+Each file is a list of recordings, at most five, in the order they should be shown:
+
+```json
+[
+  {
+    "url": "https://xeno-canto.org/000000/download",
+    "type": "song",
+    "sex": "male",
+    "stage": "adult",
+    "length": "0:32"
+  }
+]
+```
+
+Only `url` is required, and it has to be `https`. Every other field may be `null`, which a
+species page draws as a dash. `reference_calls.py` reads the file field by field and drops
+anything it does not understand, the way the packs index is read.
+
+The builder is in the packs repository, which documents the key it needs. Adding recordings to a
+region that already has a pack means rebuilding and republishing that pack: a station is then
+offered the update on its settings page.
 
 One thing to know when installing a pack in a checkout rather than on a station. Both links are
 written under `generated/`, and `SPECIES_RANGE_MAPS_DIR` reads from there, but `EBIRD_DATA_DIR`
@@ -68,6 +104,8 @@ unset they stay in the tree above.
 **Provenance.** The taxonomy comes from the BirdNET API. Occurrence rasters and range-map source
 data come from [eBird Status & Trends](https://science.ebird.org/en/status-and-trends). Photos
 come from the BirdNET image API, with an in-app fallback when a local `<slug>.jpg` is missing.
+Reference recordings come from [xeno-canto](https://xeno-canto.org), and are played from there
+rather than copied into a pack.
 
 ## Moving a station to a new location
 

@@ -106,7 +106,7 @@ export default {
       lat: 'Latitud',
       regionPack: 'Paquete de región',
       regionPackHint:
-        'Un paquete de región tiene los gráficos de temporada y los mapas de distribución de la parte del mundo donde está esta estación. Sin él la web funciona, pero la página de una especie no muestra ninguno de los dos.',
+        'Un paquete de región tiene los gráficos de temporada, los mapas de distribución y las grabaciones de referencia de la parte del mundo donde está esta estación. Sin él la web funciona, pero la página de una especie no muestra ninguno de los tres.',
       regionPackInstalled: 'Instalado: {name}',
       regionPackCovers: '{name} cubre esta estación.',
       regionPackMiss:
@@ -114,6 +114,8 @@ export default {
       regionPackRequest: 'Pedir un paquete de región',
       regionPackDownload: 'Descargarlo',
       regionPackSwitch: 'Cambiar a él',
+      regionPackUpdate: 'Hay una versión más reciente de este paquete ({version}).',
+      regionPackUpdateButton: 'Actualizarlo',
       regionPackWorking: 'Descargando...',
       regionPackFailed: 'No ha funcionado. Puedes intentarlo otra vez.',
       regionPackUnavailable: 'No se ha podido acceder a la lista de paquetes de región.',
@@ -164,8 +166,6 @@ export default {
       telegramToken: 'Token del bot de Telegram',
       telegramTokenHint: 'De @BotFather. Déjalo vacío para desactivar las notificaciones.',
       telegramChatId: 'ID de chat de Telegram',
-      xenoCantoApiKey: 'Clave de API de xeno-canto',
-      xenoCantoApiKeyHint: 'Opcional. Añade grabaciones de referencia a las fichas de especies.',
       errors: {
         invalid_boolean: 'Debe ser verdadero o falso.',
         invalid_confidence: 'Debe ser un número decimal entre 0 y 1.',

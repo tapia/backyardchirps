@@ -32,6 +32,9 @@
         <p v-else-if="!isInstalled" class="pack-line mb-2">
           {{ t('page.settings.regionPackCovers', { name: offered.name }) }}
         </p>
+        <p v-else-if="updateAvailable" class="pack-line mb-2">
+          {{ t('page.settings.regionPackUpdate', { version: offered.version }) }}
+        </p>
 
         <div v-if="running" class="progress pack-progress mb-2">
           <div class="progress-bar" :style="{ width: percent }"></div>
@@ -42,7 +45,7 @@
         </p>
 
         <button
-          v-if="!isInstalled || !covers"
+          v-if="!isInstalled || !covers || updateAvailable"
           type="button"
           class="btn btn-primary btn-sm"
           :disabled="running"
@@ -93,6 +96,7 @@ const offered = ref(null)
 const covers = ref(false)
 const distanceKm = ref(null)
 const installedId = ref(null)
+const installedVersion = ref(null)
 const progress = ref(null)
 
 let polling = null
@@ -100,6 +104,18 @@ let settling = null
 
 const isInstalled = computed(() => Boolean(offered.value) && offered.value.id === installedId.value)
 const installedName = computed(() => (isInstalled.value ? offered.value.name : installedId.value))
+// A pack is rebuilt under its own id when it gains data, so a different version of the
+// pack already installed is an update. Different rather than newer: the index says what a
+// station should be holding, and a pack pulled back to an earlier build is still the one
+// to install. With no version on either side there is nothing to compare, which is what a
+// pack built before packs carried one gives.
+const updateAvailable = computed(
+  () =>
+    isInstalled.value &&
+    Boolean(offered.value.version) &&
+    Boolean(installedVersion.value) &&
+    offered.value.version !== installedVersion.value,
+)
 const running = computed(() => progress.value?.state === 'running')
 const failed = computed(() => progress.value?.state === 'failed')
 const percent = computed(() =>
@@ -107,9 +123,12 @@ const percent = computed(() =>
     ? '100%'
     : `${Math.round(progress.value.fraction * 100)}%`,
 )
-const downloadLabel = computed(() =>
-  installedId.value ? t('page.settings.regionPackSwitch') : t('page.settings.regionPackDownload'),
-)
+const downloadLabel = computed(() => {
+  if (updateAvailable.value) return t('page.settings.regionPackUpdateButton')
+  return installedId.value
+    ? t('page.settings.regionPackSwitch')
+    : t('page.settings.regionPackDownload')
+})
 
 async function load() {
   loading.value = true
@@ -117,6 +136,7 @@ async function load() {
   try {
     const installed = await fetchInstalledRegionPack()
     installedId.value = installed.id
+    installedVersion.value = installed.version
     if (props.latitude === '' || props.longitude === '') {
       offered.value = null
       return

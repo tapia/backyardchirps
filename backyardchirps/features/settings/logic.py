@@ -41,7 +41,6 @@ class SettingsKey(StrEnum):
     WEATHER_WIND_SPEED_UNIT = "weather_wind_speed_unit"
     TELEGRAM_TOKEN = "telegram_token"
     TELEGRAM_CHAT_ID = "telegram_chat_id"
-    XENO_CANTO_API_KEY = "xeno_canto_api_key"
     AUDIO_DEVICE = "audio_device"
     REGION_PACK = "region_pack"
 
@@ -261,7 +260,6 @@ DEFAULTS: dict[SettingsKey, SettingDefinition[Any]] = {
     SettingsKey.WEATHER_WIND_SPEED_UNIT: SettingDefinition(default="kmh", parser=parse_wind_speed_unit),
     SettingsKey.TELEGRAM_TOKEN: SettingDefinition(default="", parser=parse_credential),
     SettingsKey.TELEGRAM_CHAT_ID: SettingDefinition(default="", parser=parse_credential),
-    SettingsKey.XENO_CANTO_API_KEY: SettingDefinition(default="", parser=parse_credential),
     SettingsKey.AUDIO_DEVICE: SettingDefinition(default=None, parser=parse_audio_device),
     SettingsKey.REGION_PACK: SettingDefinition(default="", parser=parse_region_pack),
 }

@@ -1,4 +1,5 @@
 import hashlib
+import json
 import logging
 import os
 import shutil
@@ -26,7 +27,7 @@ logger = logging.getLogger(__name__)
 # target moves when a pack is installed, which is why nothing in settings.py has to know
 # which pack is in use: the paths never change, only what they point at. It is the same
 # trick as the releases/current symlink, for the same reason.
-LINKED_DIRECTORIES = ("ebird_occurrence", "range_maps")
+LINKED_DIRECTORIES = ("ebird_occurrence", "range_maps", "reference_calls")
 
 # Where somebody no pack covers is sent. A miss that nobody hears about is a pack that
 # never gets built, so the wizard and the settings page both offer this.
@@ -87,6 +88,32 @@ def pack_is_installed() -> bool:
     if not pack_id:
         return False
     return (Path(settings.REGION_PACKS_DIR) / pack_id).is_dir()
+
+
+def installed_region_pack_version() -> str:
+    """
+    The version of the pack on disk, or an empty string when there is none to read.
+
+    Read from the pack itself rather than recorded when it was installed, because it
+    describes what a station can actually serve. A pack rebuilt under the same id is a
+    new version of the same pack, and comparing this with the index is how a station
+    finds out it is holding an old one.
+    """
+    pack_id = installed_region_pack_id()
+    if not pack_id:
+        return ""
+
+    manifest = Path(settings.REGION_PACKS_DIR) / pack_id / "pack.json"
+    try:
+        described = json.loads(manifest.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return ""
+    except (OSError, ValueError):
+        logger.warning("The pack.json of %s could not be read", pack_id, exc_info=True)
+        return ""
+
+    version = described.get("version") if isinstance(described, dict) else None
+    return str(version) if isinstance(version, str) else ""
 
 
 def install(pack: RegionPack, on_progress: Callable[[int, int], None] | None = None) -> None:

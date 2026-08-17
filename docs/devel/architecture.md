@@ -330,11 +330,11 @@ that **every test filename must be unique across the whole suite**. Two files na
 `django_settings.py` calls `load_dotenv()` while it is imported, so a `.env` in the checkout
 reaches the tests. Two things follow.
 
-**Credentials are blanked in `tests/conftest.py`.** Migration 0002 copies `TELEGRAM_TOKEN`,
-`TELEGRAM_CHAT_ID` and `XENO_CANTO_API_KEY` into `AppSetting` rows when the test database
-is built. Without the blanking, a developer with real credentials
-would run the suite against a database holding them, and row counts would differ from one
-machine to the next. That works because migrations run long after conftest is imported.
+**Credentials are blanked in `tests/conftest.py`.** Migration 0002 copies `TELEGRAM_TOKEN`
+and `TELEGRAM_CHAT_ID` into `AppSetting` rows when the test database is built. Without the
+blanking, a developer with real credentials would run the suite against a database holding
+them, and row counts would differ from one machine to the next. That works because
+migrations run long after conftest is imported.
 
 **Anything read at settings-import time cannot be pinned from a conftest.** pytest-django
 calls `django.setup()` from `pytest_load_initial_conftests`, before any conftest is imported,

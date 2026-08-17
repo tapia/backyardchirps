@@ -56,11 +56,16 @@ def installed_region_pack(request: Request) -> Response:
     """
     The pack this station has, if any. Answers from the recorded id and the disk together,
     so a station whose data directory was restored without its packs says so.
+
+    The version is what the settings page compares with the index to offer an update. It
+    is empty for a pack built before packs carried one, which reads as "nothing to
+    compare" rather than as an update waiting.
     """
     return Response(
         {
             "id": region_packs_logic.installed_region_pack_id() or None,
             "installed": region_packs_logic.pack_is_installed(),
+            "version": region_packs_logic.installed_region_pack_version() or None,
         }
     )
 

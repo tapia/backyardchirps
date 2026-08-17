@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 20:47+0200\n"
+"POT-Creation-Date: 2026-08-17 21:07+0200\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -283,8 +283,8 @@ msgstr ""
 "qué escuchar."
 
 #: backyardchirps/templates/setup/notifications.html:4
-msgid "Notifications and keys"
-msgstr "Notificaciones y claves"
+msgid "Notifications"
+msgstr "Notificaciones"
 
 #: backyardchirps/templates/setup/notifications.html:7
 msgid ""
@@ -301,10 +301,6 @@ msgstr "Token del bot de Telegram"
 msgid "Telegram chat id"
 msgstr "Id del chat de Telegram"
 
-#: backyardchirps/templates/setup/notifications.html:20
-msgid "xeno-canto API key"
-msgstr "Clave de API de xeno-canto"
-
 #: backyardchirps/templates/setup/region-pack.html:4
 msgid "Region pack"
 msgstr "Paquete de región"
@@ -313,12 +309,12 @@ msgstr "Paquete de región"
 #, python-format
 msgid ""
 "Your station is inside %(region_pack_name)s. Its region pack holds the "
-"seasonal charts and range maps for the %(region_pack_species_count)s species "
-"that live there."
+"seasonal charts, the range maps and the reference recordings for the "
+"%(region_pack_species_count)s species that live there."
 msgstr ""
 "Tu estación está dentro de %(region_pack_name)s. Su paquete de región tiene "
-"los gráficos de temporada y los mapas de distribución de las "
-"%(region_pack_species_count)s especies que viven allí."
+"los gráficos de temporada, los mapas de distribución y las grabaciones de "
+"referencia de las %(region_pack_species_count)s especies que viven allí."
 
 #: backyardchirps/templates/setup/region-pack.html:14
 #, python-format

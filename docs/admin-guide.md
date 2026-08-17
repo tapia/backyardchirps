@@ -19,10 +19,10 @@ that anything is wrong.
 
 ### Region pack
 
-A region pack holds the range maps and the seasonality charts for one box on the map. A station
-downloads the pack covering its own coordinates, so nobody pays for data about the other side of
-the world. Without one the site works normally and a species page shows neither the map nor the
-chart.
+A region pack holds the range maps, the seasonality charts and the reference recordings for one
+box on the map. A station downloads the pack covering its own coordinates, so nobody pays for
+data about the other side of the world. Without one the site works normally and a species page
+shows none of the three.
 
 The setup wizard installs a pack when the station is first configured, so most stations never
 need this card. It is here for moving the station, and for a pack that did not install the first
@@ -32,6 +32,11 @@ The card shows the pack in use and looks up what covers the coordinates above it
 coordinates and it offers the pack for the new point rather than switching on its own, since a
 station near the edge of its box would otherwise re-download everything because somebody nudged
 the pin by a few metres.
+
+**Packs are rebuilt from time to time**, to fix data or to carry something new. When the pack
+you have was built on a different date from the one published, the card says so and offers to
+update it. Nothing is downloaded until you press the button, and the pack in use keeps working
+the whole time: it is only replaced once the new one has arrived complete and been checked.
 
 **Downloading takes minutes.** How many depends on how many species live in the box, since a pack
 carries one cropped raster per species. The download runs on the station rather than in the
@@ -133,13 +138,13 @@ If the list is empty the operating system sees no recording device at all. Check
 | Key | Without it |
 |---|---|
 | Telegram bot token and chat ID | No notifications are sent. Get a token from @BotFather |
-| xeno-canto API key | Species pages show no reference recordings |
 
-Both are optional and the station works without either. They are stored in the database, so
-they survive an update and never need `.env` to be edited.
+That is the only key a station needs, and it is optional: without it everything works except
+notifications. It is stored in the database, so it survives an update and never needs `.env`
+to be edited.
 
-Sunrise and sunset need no key. The station works them out from its own coordinates, so the
-lines on the charts appear as soon as **Location** is set.
+Nothing else asks you for an account. Sunrise and sunset are worked out from the station's own
+coordinates, and the reference recordings on a species page come from the region pack.
 
 ### Notifications
 

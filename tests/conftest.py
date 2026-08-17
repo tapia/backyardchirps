@@ -20,7 +20,6 @@ import os
 # Telegram and API credentials, and row counts would differ from machine to machine.
 os.environ["TELEGRAM_TOKEN"] = ""
 os.environ["TELEGRAM_CHAT_ID"] = ""
-os.environ["XENO_CANTO_API_KEY"] = ""
 
 from datetime import datetime
 from datetime import timezone
