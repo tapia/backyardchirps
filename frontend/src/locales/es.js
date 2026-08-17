@@ -23,7 +23,6 @@ export default {
       ebird: 'Datos de presencia y mapas de distribución',
       xenoCanto: 'Grabaciones de referencia',
       openMeteo: 'Datos meteorológicos',
-      ipgeolocation: 'Horas de amanecer y atardecer',
     },
     birdnetLicence: 'Los modelos de BirdNET se usan bajo licencia',
   },
@@ -167,9 +166,6 @@ export default {
       telegramChatId: 'ID de chat de Telegram',
       xenoCantoApiKey: 'Clave de API de xeno-canto',
       xenoCantoApiKeyHint: 'Opcional. Añade grabaciones de referencia a las fichas de especies.',
-      ipgeolocationApiKey: 'Clave de API de ipgeolocation.io',
-      ipgeolocationApiKeyHint:
-        'Opcional. Añade las horas de salida y puesta del sol a los gráficos.',
       errors: {
         invalid_boolean: 'Debe ser verdadero o falso.',
         invalid_confidence: 'Debe ser un número decimal entre 0 y 1.',

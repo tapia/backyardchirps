@@ -134,10 +134,12 @@ If the list is empty the operating system sees no recording device at all. Check
 |---|---|
 | Telegram bot token and chat ID | No notifications are sent. Get a token from @BotFather |
 | xeno-canto API key | Species pages show no reference recordings |
-| ipgeolocation.io API key | Charts show no sunrise and sunset lines |
 
-All three are optional and the station works without any of them. They are stored in the
-database, so they survive an update and never need `.env` to be edited.
+Both are optional and the station works without either. They are stored in the database, so
+they survive an update and never need `.env` to be edited.
+
+Sunrise and sunset need no key. The station works them out from its own coordinates, so the
+lines on the charts appear as soon as **Location** is set.
 
 ### Notifications
 

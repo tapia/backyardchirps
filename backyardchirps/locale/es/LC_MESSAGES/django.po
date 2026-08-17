@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-16 23:23+0200\n"
+"POT-Creation-Date: 2026-08-17 20:47+0200\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -305,76 +305,90 @@ msgstr "Id del chat de Telegram"
 msgid "xeno-canto API key"
 msgstr "Clave de API de xeno-canto"
 
-#: backyardchirps/templates/setup/notifications.html:25
-msgid "ipgeolocation.io API key"
-msgstr "Clave de API de ipgeolocation.io"
-
-#: backyardchirps/templates/setup/pack.html:4
+#: backyardchirps/templates/setup/region-pack.html:4
 msgid "Region pack"
 msgstr "Paquete de región"
 
-#: backyardchirps/templates/setup/pack.html:10
+#: backyardchirps/templates/setup/region-pack.html:10
+#, python-format
 msgid ""
-"Your station is inside %(region_pack_name)s. Its region pack holds the seasonal "
-"charts and range maps for the %(region_pack_species_count)s species that live there."
-msgstr "Tu estación está dentro de %(region_pack_name)s. Su paquete de región tiene los gráficos de temporada y los mapas de distribución de las %(region_pack_species_count)s especies que viven allí."
+"Your station is inside %(region_pack_name)s. Its region pack holds the "
+"seasonal charts and range maps for the %(region_pack_species_count)s species "
+"that live there."
+msgstr ""
+"Tu estación está dentro de %(region_pack_name)s. Su paquete de región tiene "
+"los gráficos de temporada y los mapas de distribución de las "
+"%(region_pack_species_count)s especies que viven allí."
 
-#: backyardchirps/templates/setup/pack.html:14
+#: backyardchirps/templates/setup/region-pack.html:14
+#, python-format
 msgid ""
-"No region pack covers where you are. The nearest is %(region_pack_name)s, about "
-"%(region_pack_distance_km)s km away."
-msgstr "Ningún paquete de región cubre donde estás. El más cercano es %(region_pack_name)s, a unos %(region_pack_distance_km)s km."
+"No region pack covers where you are. The nearest is %(region_pack_name)s, "
+"about %(region_pack_distance_km)s km away."
+msgstr ""
+"Ningún paquete de región cubre donde estás. El más cercano es "
+"%(region_pack_name)s, a unos %(region_pack_distance_km)s km."
 
-#: backyardchirps/templates/setup/pack.html:17
+#: backyardchirps/templates/setup/region-pack.html:17
 msgid ""
 "You can install it anyway, or carry on without one. Without a region pack "
 "the site works, but a species page shows no seasonal chart and no range map."
-msgstr "Puedes instalarlo igualmente, o seguir sin ninguno. Sin paquete de región la web funciona, pero la página de una especie no muestra gráfico de temporada ni mapa de distribución."
+msgstr ""
+"Puedes instalarlo igualmente, o seguir sin ninguno. Sin paquete de región la "
+"web funciona, pero la página de una especie no muestra gráfico de temporada "
+"ni mapa de distribución."
 
-#: backyardchirps/templates/setup/pack.html:20
+#: backyardchirps/templates/setup/region-pack.html:20
 msgid "Ask for a region pack that covers you"
 msgstr "Pide un paquete de región que te cubra"
 
-#: backyardchirps/templates/setup/pack.html:24
+#: backyardchirps/templates/setup/region-pack.html:24
 #, python-format
 msgid "About %(region_pack_megabytes)s MB to download."
 msgstr "Unos %(region_pack_megabytes)s MB de descarga."
 
-#: backyardchirps/templates/setup/pack.html:32
+#: backyardchirps/templates/setup/region-pack.html:32
 msgid "Download it"
 msgstr "Descargarlo"
 
-#: backyardchirps/templates/setup/pack.html:35
+#: backyardchirps/templates/setup/region-pack.html:35
 msgid "Downloading. You can leave this page open."
 msgstr "Descargando. Puedes dejar esta página abierta."
 
-#: backyardchirps/templates/setup/pack.html:36
+#: backyardchirps/templates/setup/region-pack.html:36
 msgid "Installed."
 msgstr "Instalado."
 
-#: backyardchirps/templates/setup/pack.html:37
+#: backyardchirps/templates/setup/region-pack.html:37
 msgid ""
 "That did not work. You can try again, or carry on without a region pack."
-msgstr "No ha funcionado. Puedes intentarlo otra vez, o seguir sin paquete de región."
+msgstr ""
+"No ha funcionado. Puedes intentarlo otra vez, o seguir sin paquete de región."
 
-#: backyardchirps/templates/setup/pack.html:41
+#: backyardchirps/templates/setup/region-pack.html:41
 msgid ""
 "The list of region packs could not be reached, so there is nothing to offer "
 "yet."
-msgstr "No se ha podido acceder a la lista de paquetes de región, así que todavía no hay nada que ofrecer."
+msgstr ""
+"No se ha podido acceder a la lista de paquetes de región, así que todavía no "
+"hay nada que ofrecer."
 
-#: backyardchirps/templates/setup/pack.html:42
+#: backyardchirps/templates/setup/region-pack.html:42
 msgid ""
 "This needs the internet. You can add a region pack later from the settings "
 "page."
-msgstr "Esto necesita internet. Puedes añadir un paquete de región más tarde desde la página de ajustes."
+msgstr ""
+"Esto necesita internet. Puedes añadir un paquete de región más tarde desde "
+"la página de ajustes."
 
-#: backyardchirps/templates/setup/pack.html:44
+#: backyardchirps/templates/setup/region-pack.html:44
 msgid ""
 "Go back and set the location first, so this step knows which region pack to "
 "offer."
-msgstr "Vuelve atrás y pon la ubicación primero, para que este paso sepa qué paquete de región ofrecer."
+msgstr ""
+"Vuelve atrás y pon la ubicación primero, para que este paso sepa qué paquete "
+"de región ofrecer."
 
-#: backyardchirps/templates/setup/pack.html:46
+#: backyardchirps/templates/setup/region-pack.html:46
 msgid "There are no region packs yet."
 msgstr "Todavía no hay paquetes de región."

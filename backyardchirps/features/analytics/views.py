@@ -8,13 +8,11 @@ from rest_framework.response import Response
 from backyardchirps import settings
 from backyardchirps.features.analytics import queries as analytics_queries
 from backyardchirps.features.species.entity import Species
-from backyardchirps.features.weather.astronomy import AstronomyService
+from backyardchirps.features.weather.astronomy import get_for_date as get_astro_times
 from backyardchirps.features.weather.astronomy import serialize_astro_times
 from backyardchirps.shared.http import get_detected_species_or_404
 from backyardchirps.shared.http import parse_dt
 from backyardchirps.shared.http import resolve_confidence_level
-
-_astronomy = AstronomyService()
 
 
 @api_view(["GET"])
@@ -31,7 +29,7 @@ def count_detections_by_species_hourly(request: Request) -> Response:
     return Response(
         {
             "hours": analytics_queries.detections_by_species_hourly(min_confidence, lang, start=start, end=end),
-            "astro": serialize_astro_times([_astronomy.get_for_date(astro_date) for astro_date in astro_dates]),
+            "astro": serialize_astro_times([get_astro_times(astro_date) for astro_date in astro_dates]),
         }
     )
 

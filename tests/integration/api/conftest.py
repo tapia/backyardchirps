@@ -5,8 +5,8 @@ These stub out the slow and external calls the endpoints under test can reach, s
 API test touches the network or the eBird rasters. species_detail imports them by name,
 which is why they are patched in the features.species.views namespace.
 
-Weather and astronomy need no stub: with no location or API key configured, which is how
-the tests run, they give up before calling anything.
+Weather and astronomy need no stub: with no location configured, which is how the tests
+run, they give up before computing or calling anything.
 """
 
 import pytest

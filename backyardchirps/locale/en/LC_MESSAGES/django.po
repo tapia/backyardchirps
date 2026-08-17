@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-16 23:23+0200\n"
+"POT-Creation-Date: 2026-08-17 20:47+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -290,78 +290,75 @@ msgstr ""
 msgid "xeno-canto API key"
 msgstr ""
 
-#: backyardchirps/templates/setup/notifications.html:25
-msgid "ipgeolocation.io API key"
-msgstr ""
-
-#: backyardchirps/templates/setup/pack.html:4
+#: backyardchirps/templates/setup/region-pack.html:4
 msgid "Region pack"
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:10
+#: backyardchirps/templates/setup/region-pack.html:10
 #, python-format
 msgid ""
-"Your station is inside %(region_pack_name)s. Its region pack holds the seasonal "
-"charts and range maps for the %(region_pack_species_count)s species that live there."
+"Your station is inside %(region_pack_name)s. Its region pack holds the "
+"seasonal charts and range maps for the %(region_pack_species_count)s species "
+"that live there."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:14
+#: backyardchirps/templates/setup/region-pack.html:14
 #, python-format
 msgid ""
-"No region pack covers where you are. The nearest is %(region_pack_name)s, about "
-"%(region_pack_distance_km)s km away."
+"No region pack covers where you are. The nearest is %(region_pack_name)s, "
+"about %(region_pack_distance_km)s km away."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:17
+#: backyardchirps/templates/setup/region-pack.html:17
 msgid ""
 "You can install it anyway, or carry on without one. Without a region pack "
 "the site works, but a species page shows no seasonal chart and no range map."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:20
+#: backyardchirps/templates/setup/region-pack.html:20
 msgid "Ask for a region pack that covers you"
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:24
+#: backyardchirps/templates/setup/region-pack.html:24
 #, python-format
 msgid "About %(region_pack_megabytes)s MB to download."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:32
+#: backyardchirps/templates/setup/region-pack.html:32
 msgid "Download it"
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:35
+#: backyardchirps/templates/setup/region-pack.html:35
 msgid "Downloading. You can leave this page open."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:36
+#: backyardchirps/templates/setup/region-pack.html:36
 msgid "Installed."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:37
+#: backyardchirps/templates/setup/region-pack.html:37
 msgid ""
 "That did not work. You can try again, or carry on without a region pack."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:41
+#: backyardchirps/templates/setup/region-pack.html:41
 msgid ""
 "The list of region packs could not be reached, so there is nothing to offer "
 "yet."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:42
+#: backyardchirps/templates/setup/region-pack.html:42
 msgid ""
 "This needs the internet. You can add a region pack later from the settings "
 "page."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:44
+#: backyardchirps/templates/setup/region-pack.html:44
 msgid ""
 "Go back and set the location first, so this step knows which region pack to "
 "offer."
 msgstr ""
 
-#: backyardchirps/templates/setup/pack.html:46
+#: backyardchirps/templates/setup/region-pack.html:46
 msgid "There are no region packs yet."
 msgstr ""

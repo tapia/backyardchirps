@@ -72,7 +72,7 @@ def test_count_detections_by_species_hourly(api_client: APIClient, create_detect
 
     assert response.status_code == 200
     assert len(response.data["hours"]) == 24
-    # No location / API key configured, so no astronomy events.
+    # No location configured, so no astronomy events.
     assert response.data["astro"] == {"events": []}
 
 

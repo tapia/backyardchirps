@@ -23,7 +23,6 @@ export default {
       ebird: 'Occurrence data and range maps',
       xenoCanto: 'Reference recordings',
       openMeteo: 'Weather conditions',
-      ipgeolocation: 'Sunrise and sunset times',
     },
     birdnetLicence: 'BirdNET models are used under',
   },
@@ -166,8 +165,6 @@ export default {
       telegramChatId: 'Telegram chat ID',
       xenoCantoApiKey: 'xeno-canto API key',
       xenoCantoApiKeyHint: 'Optional. Adds reference recordings to species pages.',
-      ipgeolocationApiKey: 'ipgeolocation.io API key',
-      ipgeolocationApiKeyHint: 'Optional. Adds sunrise and sunset times to the charts.',
       errors: {
         invalid_boolean: 'Must be true or false.',
         invalid_confidence: 'Must be a decimal number between 0 and 1.',

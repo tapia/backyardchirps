@@ -73,12 +73,6 @@ const credits = [
     logo: '/icons/open-meteo.png',
     roleKey: 'footer.roles.openMeteo',
   },
-  {
-    name: 'ipgeolocation.io',
-    url: 'https://ipgeolocation.io',
-    logo: '/icons/ipgeolocation.png',
-    roleKey: 'footer.roles.ipgeolocation',
-  },
 ]
 
 // A logo file that fails to load leaves the alt text in place instead of a

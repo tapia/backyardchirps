@@ -375,8 +375,8 @@ fi
 # throw away its secret key and hostnames.
 #
 # This file holds only what has to exist before Django starts. The credentials for
-# Telegram, xeno-canto and ipgeolocation.io are set in the wizard and stored in the
-# database, so nothing here needs hand-editing.
+# Telegram and xeno-canto are set in the wizard and stored in the database, so nothing
+# here needs hand-editing.
 say "Writing the environment file"
 host_name="$(hostname)"
 if [ -f "$DATA_DIR/.env" ]; then
