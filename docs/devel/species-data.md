@@ -1,40 +1,44 @@
 # Species data
 
-The taxonomy, the per-species assets, and the location lists that fit the app to wherever it is
-running. It all lives under `backyardchirps/species_data/`.
+The taxonomy and the per-species assets that fit the app to wherever it is running. It all lives
+under `backyardchirps/species_data/`.
 
-Everything here divides into **global and location-specific**. A photo of a bird, a worldwide
-occurrence raster and the BirdNET taxonomy are the same everywhere, so they are shared and never
-copied per location. Which species can be heard, and a range map drawn around your part of the
-world, change from one country to the next.
+Everything here is the same everywhere. A photo of a bird and the BirdNET taxonomy do not change
+from one country to the next, so they ship with the code. The two things that do, range maps and
+occurrence rasters, come from a **region pack** the station downloads for its own part of the
+world, and nothing in the repository is named after a country.
 
 ## Layout
 
 ```
 backyardchirps/species_data/
 ├── taxonomy/
-│   └── birdnet_taxonomy.json     GLOBAL. Common names, eBird codes, and Wikipedia
+│   └── birdnet_taxonomy.json     SHIPPED. Common names, eBird codes, and Wikipedia
 │                                 links for every species BirdNET knows.
-├── assets/                       GLOBAL, keyed by slug
-│   ├── images/                   One photo per species (<slug>.jpg)
-│   └── ebird_occurrence/         eBird Status & Trends rasters, one folder per
-│                                 species (named by eBird code): a worldwide 9km
+├── assets/
+│   ├── images/                   SHIPPED. One photo per species (<slug>.jpg)
+│   └── ebird_occurrence/         GIT-IGNORED. eBird Status & Trends rasters, one
+│                                 folder per species (named by eBird code): a 9km
 │                                 raster plus band-dates.csv, sampled at your
-│                                 lat/lon for the seasonality timeline. Large,
-│                                 git-ignored, re-downloadable.
-├── locations/
-│   └── <slug>/                   One directory per location
-│       └── range_maps/           <slug>.webp, framed on this region
+│                                 lat/lon for the seasonality timeline.
 └── generated/                    GIT-IGNORED, written at runtime
     ├── taxonomy/                 The refreshed taxonomy
-    └── species_birdnet.txt       The station's own species list, derived from
-                                  its coordinates
+    ├── species_birdnet.txt       The station's own species list, derived from
+    │                             its coordinates
+    └── range_maps/               A link into the installed region pack, holding
+                                  <slug>.webp framed on that pack's box
 ```
 
-`ACTIVE_LOCATION` picks the `locations/<slug>/` directory the app reads. It defaults to `spain`
-in `backyardchirps/settings/django_settings.py`, and the environment variable of the same name
-overrides it. Range maps are all it selects: the species list under `generated/` is named after
-nothing, because it belongs to the station's coordinates rather than to a region.
+Installing a pack writes `range_maps` and `ebird_occurrence` as symlinks into it, so the paths in
+`django_settings.py` never change and nothing has to know which pack is in use. A station with no
+pack has neither directory, which is a working state: species pages lose the range map and the
+seasonality timeline, and everything else behaves as usual.
+
+One thing to know when installing a pack in a checkout rather than on a station. Both links are
+written under `generated/`, and `SPECIES_RANGE_MAPS_DIR` reads from there, but `EBIRD_DATA_DIR`
+in a checkout is still `assets/ebird_occurrence`, which is where a development machine has always
+kept its rasters. So a locally installed pack gives you its range maps, and its rasters need
+`EBIRD_DATA_DIR` pointing at them or their contents copied across.
 
 ## The seed and the generated files
 
@@ -65,47 +69,46 @@ unset they stay in the tree above.
 data come from [eBird Status & Trends](https://science.ebird.org/en/status-and-trends). Photos
 come from the BirdNET image API, with an in-app fallback when a local `<slug>.jpg` is missing.
 
-## Adding a location
+## Moving a station to a new location
 
-Everything under `assets/` is global, so a new location reuses the photos and rasters already
-present. The only thing it needs of its own is range maps, since those are drawn around a
-region. The species list is not part of this: a station generates its own.
+Nothing in the repository has to change. Everything that belongs to one part of the world is
+either derived from the coordinates or carried by a pack.
 
 **1. Set the coordinates.** In the app settings or the Django admin, point `LOCATION_LAT` and
 `LOCATION_LON` at the new recording site.
 
-**2. Create the directory** and select it:
+**2. Install the pack that covers them.** The settings page has a card for it, which resolves the
+coordinates against the pack index and downloads the one that matches. Moving the coordinates
+offers a new pack rather than switching on its own, so a station near the edge of its box does not
+re-download hundreds of megabytes because somebody nudged the pin.
 
-```bash
-mkdir -p backyardchirps/species_data/locations/<slug>/range_maps
-export ACTIVE_LOCATION=<slug>        # or change the default in django_settings.py
-```
+Nothing in the database is keyed to a pack, so switching one changes what a species page can draw
+and nothing about the history.
 
-This selects the range maps and nothing else.
-
-**3. Generate the species list.** This refreshes the taxonomy, then asks GeoModel which
-species are plausible at the configured coordinates in any week of the year, and writes them
-under `generated/`:
+**3. Generate the species list.** The wizard does this when it finishes and a daily timer keeps it
+fresh, so this is only for a location that has just changed. It refreshes the taxonomy, then asks
+GeoModel which species are plausible at the configured coordinates in any week of the year, and
+writes them under `generated/`:
 
 ```bash
 uv run python manage.py update_species_data
 ```
 
-**4. Get the occurrence rasters and the range maps.** Both come from eBird Status & Trends, and
-neither is fetched from this repository any more: they are what a **region pack** carries, and
-the tooling that downloads, crops and draws them lives in
-[tapia/backyardchirps-regional-packs](https://github.com/tapia/backyardchirps-regional-packs)
-along with an eBird access key.
+**4. Species photos are optional.** `assets/images/` ships with the code and is the same
+everywhere; add any missing `<slug>.jpg` if you have one. Without it the app falls back to the
+BirdNET image API.
 
-The quickest path is to build a pack for a box around the new location and unpack it. Point
-`EBIRD_DATA_DIR` at its `ebird_occurrence/` and `SPECIES_RANGE_MAPS_DIR` at its `range_maps/`,
-or copy the contents into the directories above.
+**5. Restart the recorder.** The analyzer reads the coordinates only at startup, so `run_recorder`
+has to be restarted after changing them.
 
-Rasters are keyed by eBird code and are the same everywhere, so any species you already have is
-reused. Range maps are framed on one box and cannot be shared between regions.
+## When no pack covers a location
 
-**5. Species photos are optional.** `assets/images/` is global; add any missing `<slug>.jpg` if
-you have one. Without it the app falls back to the BirdNET image API.
+The station offers the nearest pack and a link to an issue template asking for a new one. Building
+it is a job for [tapia/backyardchirps-regional-packs](https://github.com/tapia/backyardchirps-regional-packs),
+which holds the builder, the range-map renderer and the eBird access key. Nothing about a pack is
+built on a station, and this repository has no tooling for it: see
+[releases.md](releases.md) for the build.
 
-**6. Restart the recorder.** The analyzer reads the coordinates only at startup, so `run_recorder`
-has to be restarted after changing the location or the coordinates.
+Rasters are keyed by eBird code and are the same everywhere, so a species that two packs both
+cover costs its rasters twice, once per pack. Range maps are framed on one box and cannot be
+shared between regions at all.

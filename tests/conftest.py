@@ -4,8 +4,8 @@ Shared pytest fixtures, and the part of the environment the tests can still pin.
 pytest-django calls ``django.setup()`` from ``pytest_load_initial_conftests``, before any
 conftest is imported, so by the time this module runs the settings have already been read.
 Nothing set here can change a value that ``django_settings.py`` took from the environment
-as it was imported: SECRET_KEY, DEBUG and ACTIVE_LOCATION are all decided before this
-point, from the real environment or from the ``.env`` that ``load_dotenv`` picks up.
+as it was imported: SECRET_KEY, DEBUG and BACKYARDCHIRPS_DATA_DIR are all decided before
+this point, from the real environment or from the ``.env`` that ``load_dotenv`` picks up.
 
 What this module can still pin is anything read later than settings import. The
 credentials below are read by migration 0002 when the test database is built, which is

@@ -26,9 +26,6 @@ logger = logging.getLogger(__name__)
 # target moves when a pack is installed, which is why nothing in settings.py has to know
 # which pack is in use: the paths never change, only what they point at. It is the same
 # trick as the releases/current symlink, for the same reason.
-#
-# range_maps is written now and read from 4.5 onwards. Until then a station still reads
-# the maps that ship in the release.
 LINKED_DIRECTORIES = ("ebird_occurrence", "range_maps")
 
 # Where somebody no pack covers is sent. A miss that nobody hears about is a pack that

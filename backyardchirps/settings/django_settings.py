@@ -154,12 +154,10 @@ LOCALE_PATHS = [BASE_DIR / "backyardchirps" / "locale"]
 # ---------------------------------------------------------------------------
 # Species data layout  (see docs/devel/species-data.md)
 # ---------------------------------------------------------------------------
-# The taxonomy, photos and occurrence rasters are shared by every location. Only the
-# range maps differ, being drawn around one region, and ACTIVE_LOCATION picks the
-# locations/<slug>/ directory holding them. Picking the range maps is the only job it
-# has: a station derives its own species list from its coordinates.
-ACTIVE_LOCATION = os.environ.get("ACTIVE_LOCATION", "spain")
-
+# The taxonomy and the photos are the same everywhere, so they ship with the code. The
+# range maps and the occurrence rasters are framed on one region and come from a region
+# pack instead, which a station downloads for wherever it sits. Nothing here is named
+# after a country: the species list is derived from the station's coordinates.
 SPECIES_DATA_DIR = BASE_DIR / "backyardchirps" / "species_data"
 SPECIES_TAXONOMY_FILE = SPECIES_DATA_DIR / "taxonomy" / "birdnet_taxonomy.json"
 SPECIES_IMAGES_DIR = SPECIES_DATA_DIR / "assets" / "images"
@@ -195,6 +193,12 @@ SPECIES_TAXONOMY_RUNTIME_FILE = SPECIES_RUNTIME_DIR / "taxonomy" / "birdnet_taxo
 # folder per species, named by eBird code, each holding a weekly raster and a CSV of band
 # dates. MODELS_DIR holds the BirdNET 3 acoustic model and GeoModel.
 
+# One <slug>.webp per species, framed on the region. Both this and EBIRD_DATA_DIR are
+# symlinks a pack install moves, so this path never changes and nothing here has to know
+# which pack is in use. A station with no pack has no directory here at all, which is a
+# working state: a species page then shows no range map and everything else is unchanged.
+SPECIES_RANGE_MAPS_DIR = SPECIES_RUNTIME_DIR / "range_maps"
+
 # Downloaded region packs, meaning range maps and cropped occurrence rasters, one
 # directory per pack id.
 REGION_PACKS_DIR = DATA_DIR / "region-packs"
@@ -207,7 +211,3 @@ REGION_PACK_INSTALL_STATUS_FILE = DATA_DIR / "region-pack-install-status.json"
 # account. Finishing the wizard deletes it, so its absence is what makes the wizard
 # refuse to hand the station to a second person.
 SETUP_TOKEN_FILE = DATA_DIR / "setup-token"
-
-# Location-specific data for ACTIVE_LOCATION.
-ACTIVE_LOCATION_DIR = SPECIES_DATA_DIR / "locations" / ACTIVE_LOCATION
-SPECIES_RANGE_MAPS_DIR = ACTIVE_LOCATION_DIR / "range_maps"

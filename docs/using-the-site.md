@@ -12,7 +12,8 @@ taxonomy, so you can look up a species that has never been detected and see that
 
 **A species page** opens on a photo, a range map, and a few headline facts: whether it is a
 common or occasional visitor, what time of day it is most active, how many days running it
-has been heard. Three tabs sit underneath.
+has been heard. The map and the seasonality chart come from the region pack the station has
+installed, so a station without one shows neither. Three tabs sit underneath.
 
 | Tab | Shows |
 |---|---|

@@ -1,3 +1,6 @@
+from pathlib import Path
+from typing import Any
+
 import pytest
 
 from backyardchirps.features.species.entity import Species
@@ -59,3 +62,21 @@ def test_is_rare_false_for_local_species(monkeypatch: pytest.MonkeyPatch) -> Non
 def test_is_rare_true_for_non_local_species(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(taxonomy, "_local_species", {"Passer domesticus"})
     assert Species("Turdus merula").is_rare() is True
+
+
+def test_map_url_points_at_the_file_the_pack_supplies(tmp_path: Path, settings: Any) -> None:
+    settings.SPECIES_RANGE_MAPS_DIR = tmp_path / "range_maps"
+    settings.SPECIES_RANGE_MAPS_DIR.mkdir()
+    (settings.SPECIES_RANGE_MAPS_DIR / "turdus-merula.webp").write_bytes(b"not an image")
+
+    assert Species("Turdus merula").map_url == "/species-data/range_maps/turdus-merula.webp"
+
+
+def test_map_url_is_none_with_no_pack_installed(tmp_path: Path, settings: Any) -> None:
+    """
+    Range maps come from a pack, so a station that has not installed one has no directory
+    to read at all. That has to cost the map and nothing else.
+    """
+    settings.SPECIES_RANGE_MAPS_DIR = tmp_path / "never-installed"
+
+    assert Species("Turdus merula").map_url is None

@@ -338,7 +338,7 @@ machine to the next. That works because migrations run long after conftest is im
 
 **Anything read at settings-import time cannot be pinned from a conftest.** pytest-django
 calls `django.setup()` from `pytest_load_initial_conftests`, before any conftest is imported,
-so `SECRET_KEY`, `DEBUG` and `ACTIVE_LOCATION` are already decided by then. `SECRET_KEY` has
+so `SECRET_KEY`, `DEBUG` and `BACKYARDCHIRPS_DATA_DIR` are already decided by then. `SECRET_KEY` has
 to come from the real environment: `.env` locally, and the `SECRET_KEY` value the CI workflow
 sets. Setting it in a conftest has no effect.
 
@@ -406,18 +406,19 @@ On a development machine there is no `BACKYARDCHIRPS_DATA_DIR` and `DATA_DIR` fa
 `BASE_DIR`, so everything lands inside the checkout. That is `django_settings.py` doing it, not
 `apply.sh`, which never runs on a development machine at all.
 
-Species data falls on both sides. The committed taxonomy, photos and per-location seeds ship
-with the code. The regenerated copies and the eBird rasters are downloaded on the machine and
-stay with the data, so the models survive an update instead of being downloaded again. See
+Species data falls on both sides. The committed taxonomy and photos ship with the code. The
+regenerated copies, the models and everything a region pack carries are downloaded on the machine
+and stay with the data, so an update never fetches them again. See
 [species-data.md](species-data.md).
 
 ```
 /var/lib/backyardchirps/
 ├── .env  detections.db  recorder_heartbeat.json
 ├── clips/
-├── models/     BirdNET 3 acoustic model and GeoModel
-├── species/    taxonomy/, locations/<slug>/, ebird_occurrence/
-└── packs/      region packs
+├── models/         BirdNET 3 acoustic model and GeoModel
+├── species/        taxonomy/, species_birdnet.txt, and the range_maps/ and
+│                   ebird_occurrence/ links into the installed pack
+└── region-packs/   one directory per downloaded pack
 ```
 
 In a checkout, all of it sits under `backyardchirps/species_data/` instead.

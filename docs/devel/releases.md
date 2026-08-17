@@ -36,10 +36,11 @@ updater checks to notice a new one. `min_upgrade_from` (the `MIN_UPGRADE_FROM` e
 workflow) is the oldest version that can move straight to this one. It only needs raising when a
 migration forces users to install an in-between release first.
 
-Almost all of the tarball's size is the committed taxonomy, the range maps under
-`species_data/locations/`, and the species photos. The code itself is a rounding error next to
-them. The eBird occurrence rasters and everything under `species_data/generated/` are dropped
-during staging, because a station downloads those at runtime into its data directory.
+Almost all of the tarball's size is the committed taxonomy and the species photos. The code
+itself is a rounding error next to them. The eBird occurrence rasters and everything under
+`species_data/generated/` are dropped during staging, because a station downloads those at
+runtime into its data directory. Range maps are not in a release at all: they are pack content,
+and a station downloads the pack for its own region rather than everybody's.
 
 ## Why the tarball is built from an allowlist
 

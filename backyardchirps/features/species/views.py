@@ -156,8 +156,8 @@ _ASSET_CONTENT_TYPES = {
 
 def _asset_category_dirs() -> dict[str, Path]:
     """
-    Where each kind of asset lives. Images are shared by every location, while range maps
-    are drawn around ACTIVE_LOCATION and belong to it.
+    Where each kind of asset lives. Images ship with the code and are the same everywhere,
+    while range maps are drawn around one region and come from the installed pack.
     """
     return {
         "images": settings.SPECIES_IMAGES_DIR,
