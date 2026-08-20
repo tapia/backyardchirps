@@ -54,3 +54,12 @@ repos:
         types_or: [javascript, vue, css, json]
         files: ^frontend/
         exclude: ^frontend/(dist|node_modules)/
+
+      # Catches a translated string vue-i18n cannot compile, which is valid JavaScript
+      # and so invisible to eslint, prettier and the build. See scripts/check-locales.mjs.
+      - id: check-locales
+        name: check locale messages
+        entry: node frontend/scripts/check-locales.mjs
+        language: system
+        files: ^frontend/src/locales/
+        pass_filenames: false

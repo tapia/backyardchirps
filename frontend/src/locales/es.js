@@ -164,7 +164,8 @@ export default {
       microphoneSystemDefault: 'Predeterminado del sistema',
       credentials: 'Claves y tokens',
       telegramToken: 'Token del bot de Telegram',
-      telegramTokenHint: 'De @BotFather. Déjalo vacío para desactivar las notificaciones.',
+      // Ver la nota en en.js: un @ suelto rompe la compilación del mensaje.
+      telegramTokenHint: "De {'@'}BotFather. Déjalo vacío para desactivar las notificaciones.",
       telegramChatId: 'ID de chat de Telegram',
       errors: {
         invalid_boolean: 'Debe ser verdadero o falso.',

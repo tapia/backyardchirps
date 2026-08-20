@@ -163,7 +163,10 @@ export default {
       microphoneSystemDefault: 'System default',
       credentials: 'Keys and tokens',
       telegramToken: 'Telegram bot token',
-      telegramTokenHint: 'From @BotFather. Leave empty to turn Telegram notifications off.',
+      // The @ is written {'@'} because vue-i18n reads a bare one as the start of a
+      // linked message (@:some.key) and throws while compiling the string. That throw
+      // takes the whole card down, not just the hint.
+      telegramTokenHint: "From {'@'}BotFather. Leave empty to turn Telegram notifications off.",
       telegramChatId: 'Telegram chat ID',
       errors: {
         invalid_boolean: 'Must be true or false.',
