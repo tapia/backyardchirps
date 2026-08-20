@@ -60,6 +60,14 @@ jobs:
         working-directory: frontend
         run: npx prettier --check src
 
+      # A translated string that vue-i18n cannot compile is valid JavaScript, so
+      # nothing above sees it. It only fails when something renders it, and it takes
+      # the component down with it: a piece of the page missing on a station, with
+      # every check here green.
+      - name: Locale messages
+        working-directory: frontend
+        run: npm run check:locales
+
       # The release ships the frontend prebuilt, so a build that does not compile
       # would only be found when a tag is pushed.
       - name: Build
