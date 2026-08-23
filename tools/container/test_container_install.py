@@ -3,20 +3,10 @@ Run install.sh on a clean throwaway machine and check what came out, then update
 a second version and check that too. Both releases are built here and never published, so nothing
 has to be tagged first.
 
-  uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s
-  uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s --keep-station
-
-Needs docker, and it is slow: it builds two real tarballs, resolves every Python
-dependency inside the container and downloads the acoustic model. --no-project keeps it
-out of the project environment, which none of this needs, and -o addopts="" drops the coverage
-report the project suite asks for.
-
-The point is a machine that has never worked before. Anything that only passes because of state
-left behind by an earlier attempt fails here, which is exactly the class of problem an installer
-has.
+Warning: Needs docker, and it is slow.
 
 Not covered: audio, and real Pi hardware. A green run says the deploy is sound, not that the
-station records. The installer's hardware checks are covered by tests/unit/test_preflight.py.
+station records.
 
 **Order matters here, which is unusual for a test file.** One machine is walked through five
 states, each fixture in conftest.py building on the one before, and a test sees whichever state
@@ -93,13 +83,16 @@ def test_the_service_user_may_start_the_updater(station: Station) -> None:
     assert station.sudo_permits("/bin/systemctl start backyardchirps-update")
 
 
-def test_the_updater_unit_is_installed_but_not_enabled(station: Station) -> None:
+def test_the_updater_unit_is_static_and_idle(station: Station) -> None:
     """
     It has no timer and must never start on its own. apply.sh installs it and leaves it,
     unlike every other unit the station carries.
     """
     assert station.path_exists("/etc/systemd/system/backyardchirps-update.service")
-    assert not station.unit_is_enabled("backyardchirps-update")
+
+    state = station.output_of(["systemctl", "is-enabled", "backyardchirps-update"])
+    assert state == "static", f"backyardchirps-update is '{state}', so something can start it on its own."
+
     assert not station.unit_is_active("backyardchirps-update")
 
 
