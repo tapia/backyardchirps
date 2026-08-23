@@ -47,7 +47,11 @@ class BirdNet3Analyzer:
         self._overlap_samples: int = int(
             (settings.RECORDING["clip_duration"] - settings.RECORDING["step_duration"]) * self._target_sample_rate
         )
-        self._session = ort.InferenceSession(str(settings.BIRDNET3_MODEL_FILE), providers=["CPUExecutionProvider"])
+        self._session = ort.InferenceSession(
+            str(settings.BIRDNET3_MODEL_FILE),
+            sess_options=build_session_options(settings.BIRDNET_3["intra_op_threads"]),
+            providers=["CPUExecutionProvider"],
+        )
         self._species_by_index: dict[int, Species] = {}
         # Kept as raw text so the record can also list the non-bird labels, which
         # never turn into a Species.
@@ -159,3 +163,22 @@ def rank_candidates(
         if confidence >= min_confidence and species is not None:
             results.append(AnalysisResult(species=species, confidence=confidence))
     return Analysis(results=results, raw_candidates=raw_candidates)
+
+
+def build_session_options(intra_op_threads: int) -> ort.SessionOptions:
+    """
+    Session options that keep one inference from taking the whole machine at once.
+
+    Left to itself onnxruntime runs a thread per core and keeps them spinning between
+    operators. On a Pi that is a step change in current draw every time a clip is
+    analyzed, and a USB microphone sharing the 5 V rail records it as a burst of hiss.
+    Fewer threads, and no spinning, make the step small enough to stay out of the audio.
+
+    Inference gets slower in exchange, which the recorder can afford: it has
+    step_duration to analyze each clip and normally uses a fraction of it.
+    """
+    session_options = ort.SessionOptions()
+    session_options.intra_op_num_threads = intra_op_threads
+    session_options.inter_op_num_threads = 1
+    session_options.add_session_config_entry("session.intra_op.allow_spinning", "0")
+    return session_options

@@ -23,6 +23,7 @@ class _Birdnet3Settings(TypedDict):
     target_sample_rate: int
     window_samples: int
     geomodel_threshold: float
+    intra_op_threads: int
 
 
 class _ConsistencyFilterSettings(TypedDict):
@@ -121,6 +122,12 @@ BIRDNET_3: _Birdnet3Settings = {
     # occurrence probability. BirdNET V3 publishes no recommended value, so this one
     # carries over from V2's location filter. Tune it by observation.
     "geomodel_threshold": 0.03,
+    # How many cores one inference may use. This is a power setting rather than a speed
+    # one. A USB microphone takes its 5 V from the same rail as the SoC, so every core
+    # going from idle to full at once puts a burst of hiss into the recording, once per
+    # clip. Raising this makes analysis faster and that noise worse. Whatever you choose,
+    # analysis has to stay under step_duration or the clip queue grows without bound.
+    "intra_op_threads": 2,
 }
 
 # ---------------------------------------------------------------------------

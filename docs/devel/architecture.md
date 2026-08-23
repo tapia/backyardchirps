@@ -244,11 +244,19 @@ migrating and installs the extra itself when it finds `birdnet_2`, so a station 
 BirdNET 2 keeps working across a deploy. Select it without installing it and the factory refuses
 to build an analyzer, which stops the recorder at startup with the command to run.
 
-Two things to know about BirdNET 3 on a Pi. It is heavy: a large fp32 ONNX needing a comparable
-amount of extra RAM, and slower inference, against a clip arriving every 1.5 s. And its
+Three things to know about BirdNET 3 on a Pi. It is heavy: a large fp32 ONNX needing a comparable
+amount of extra RAM, and slower inference, against a clip arriving every 1.5 s. Its
 `predictions` output has already been through a sigmoid, so the analyzer takes it as the
 confidence as it is. BirdNET's own tooling applies a second sigmoid, which would squeeze every
 score into the range 0.5 to 0.73.
+
+And the analyzer caps how many cores one inference may use, through `intra_op_threads` (2) and
+`build_session_options`. That is about power, not throughput. Left to itself onnxruntime runs a
+thread per core and keeps them spinning between operators, so every clip becomes a step change in
+current draw. A USB microphone drawing its 5 V from the same rail as the SoC records that step as
+a burst of broadband hiss, once per clip, which is audible in the saved audio. Fewer threads make
+the step smaller. Inference gets slower in exchange, and it has to stay under `step_duration`, or
+the clip queue grows without bound.
 
 GeoModel 3 is a small ONNX that turns `[latitude, longitude, week]` into an occurrence
 probability per species, which limits BirdNET 3 to the species plausible at the station that
