@@ -3,6 +3,23 @@
     <div class="d-flex align-items-baseline gap-2 mb-4">
       <h4 class="mb-0">{{ t('page.serverStatus.title') }}</h4>
       <span v-if="status?.version" class="version-badge">v{{ status.version }}</span>
+      <a
+        v-if="update?.update_available"
+        class="update-badge"
+        :href="update.changelog_url"
+        target="_blank"
+        rel="noopener"
+        v-bs-tooltip="updateTooltip"
+      >
+        <i class="bi bi-arrow-up-circle" aria-hidden="true"></i>
+        {{ t('page.serverStatus.updateAvailable', { version: update.version }) }}
+      </a>
+      <span v-else-if="update?.error" class="update-note">
+        {{ t('page.serverStatus.updateCheckFailed') }}
+      </span>
+      <span v-else-if="update && !update.checked_at" class="update-note">
+        {{ t('page.serverStatus.updateNeverChecked') }}
+      </span>
     </div>
 
     <div v-if="!status" class="text-muted small">{{ t('common.loading') }}</div>
@@ -76,13 +93,30 @@
 </template>
 
 <script setup>
-import { onMounted, onUnmounted } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useServerStatus } from '../composables/useServerStatus.js'
+import { fetchAvailableUpdate } from '../api/index.js'
 import ServerStatusMetricCard from '../components/common/ServerStatusMetricCard.vue'
 
 const { t } = useI18n()
 const { status, start, stop } = useServerStatus()
+
+// Fetched once rather than polled with the metrics beside it. The answer comes from a
+// stored result that a timer refreshes daily, so polling it every five seconds would ask
+// the same question 17,000 times for one change.
+const update = ref(null)
+
+const updateTooltip = computed(() => {
+  if (!update.value?.released) {
+    return t('page.serverStatus.updateChangelog')
+  }
+  return (
+    t('page.serverStatus.updateReleased', { released: update.value.released }) +
+    ' · ' +
+    t('page.serverStatus.updateChangelog')
+  )
+})
 
 function formatMemory(megabytes) {
   if (megabytes >= 1024) {
@@ -100,7 +134,15 @@ function queueDetail(queue) {
   })
 }
 
-onMounted(() => start())
+onMounted(async () => {
+  start()
+  try {
+    update.value = await fetchAvailableUpdate()
+  } catch {
+    // A station that cannot answer this still shows every metric below it.
+    update.value = null
+  }
+})
 onUnmounted(() => stop())
 </script>
 
@@ -112,6 +154,29 @@ onUnmounted(() => stop())
   color: var(--slate);
   font-size: 0.7rem;
   font-variant-numeric: tabular-nums;
+}
+
+.update-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--lichen);
+  border-radius: 4px;
+  background: var(--lichen-pale);
+  color: var(--lichen-dark);
+  font-size: 0.7rem;
+  text-decoration: none;
+}
+
+.update-badge:hover {
+  background: var(--lichen);
+  color: var(--sheet);
+}
+
+.update-note {
+  color: var(--slate);
+  font-size: 0.7rem;
 }
 
 .status-grid {

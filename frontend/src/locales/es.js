@@ -99,6 +99,11 @@ export default {
         '{depth} en cola (máx {peak}) · {analysisMs} / {budgetMs} ms por clip',
       recorderOffline: 'Grabador apagado',
       notAvailable: 'N/D',
+      updateAvailable: 'La versión {version} está disponible',
+      updateReleased: 'publicada el {released}',
+      updateChangelog: 'Qué ha cambiado',
+      updateCheckFailed: 'No se ha podido comprobar si hay actualizaciones',
+      updateNeverChecked: 'Todavía sin comprobar',
     },
     settings: {
       title: 'Configuración',

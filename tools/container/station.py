@@ -36,7 +36,7 @@ INSTALL_LOG = "/var/log/backyardchirps-install.log"
 INSTALL_DIR = "/tmp/install"
 
 DAEMONS = ("backyardchirps-web", "backyardchirps-recorder")
-TIMED_JOBS = ("backyardchirps-update-species", "backyardchirps-clip-disk-quota")
+TIMED_JOBS = ("backyardchirps-update-species", "backyardchirps-clip-disk-quota", "backyardchirps-check-update")
 
 # A recording, standing in for everything a station has collected. The data directory is what an
 # update must not touch, and a file under clips/ is the part a user would never forgive losing.

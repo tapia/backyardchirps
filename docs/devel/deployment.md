@@ -105,6 +105,11 @@ This is a broad grant, since the installer is root by nature. If you would rathe
 GitHub-triggered job hold it, use the manual path: it costs one command and gives up nothing
 else.
 
+Check what that account already has before you assume this file is what is in force. Many Pi
+images hand the account you set up during first boot a blanket `NOPASSWD:ALL` through another
+file in `/etc/sudoers.d/`, and where that is true this one grants nothing new and the runner has
+full root with or without it. `sudo -l` as the runner account says which.
+
 ## What a deploy does
 
 `install.sh` unpacks the release and hands over to `deploy/apply.sh`, which is where the work
@@ -171,6 +176,31 @@ sudo apt-get purge nodejs
 
 The database is the same file throughout and no migration is reversed, so going back is
 restoring the old units and pointing them at the checkout again.
+
+## Leftovers from the rename
+
+The project was called `birds-recorder` before it was called `backyardchirps`. A station set up
+before that rename still carries root-owned files under the old name, and neither `install.sh` nor
+`uninstall.sh` removes them: both only touch what the current installer created. A fresh machine
+never has them, which is also why the container test cannot find them for you.
+
+Two have turned up so far:
+
+| File | What it does if you leave it |
+|---|---|
+| `/etc/nginx/sites-enabled/birds-recorder` | It names a `server_name`, and an exact match beats the default server, so it takes every request and serves whatever document root it points at. Where the old checkout is gone, that is a 500 on every page. The project's own block now says `listen 80 default_server`, so a second claim fails at `nginx -t` rather than quietly winning |
+| `/etc/sudoers.d/birds-recorder` | It grants the deploying account rights over `birds-web`, `birds-recorder` and `birds-update-species`, none of which exist any more. Nothing extra where that account already has full sudo, and a wider grant than anyone intended where it does not |
+
+To find whatever else is still there:
+
+```bash
+sudo grep -rl 'birds-recorder\|birds-web\|birds-update' /etc 2> /dev/null
+ls -d /opt/birds* /var/lib/birds* /etc/systemd/system/birds* 2> /dev/null
+```
+
+Read each file before deleting it, and run `sudo visudo -c` after removing anything from
+`sudoers.d`. When the live station does something a clean install cannot account for, a file under
+the old name is worth ruling out before the code is.
 
 ## Testing the preflight checks
 

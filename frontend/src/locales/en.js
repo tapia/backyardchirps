@@ -98,6 +98,11 @@ export default {
         '{depth} queued (peak {peak}) · {analysisMs} / {budgetMs} ms per clip',
       recorderOffline: 'Recorder offline',
       notAvailable: 'N/A',
+      updateAvailable: 'Version {version} is available',
+      updateReleased: 'released {released}',
+      updateChangelog: 'What changed',
+      updateCheckFailed: 'Could not check for updates',
+      updateNeverChecked: 'Not checked yet',
     },
     settings: {
       title: 'Settings',

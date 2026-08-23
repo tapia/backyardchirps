@@ -167,14 +167,14 @@ def test_the_database_was_created_and_is_writable_by_the_services(station: Stati
         f"detections.db is owned by {owner} rather than {SERVICE_USER}, so the services cannot write to it."
     )
 
-    tables = station.output_of(
-        [
-            "sqlite3",
-            f"{DATA_DIR}/detections.db",
-            "select count(*) from sqlite_master where type='table' and name like 'birds_recorder_%';",
-        ]
+    # Asked of the station rather than counted here. A count of application tables has to be
+    # edited every time a model is added, so it fails for the one reason it was never meant to
+    # catch, while `migrate --check` exits non-zero for exactly the reason this cares about:
+    # something in the release has not been applied to the database the station will use.
+    migrated = station.run_as_service_user(
+        f"BACKYARDCHIRPS_DATA_DIR={DATA_DIR} {APP_DIR}/.venv/bin/python {APP_DIR}/manage.py migrate --check"
     )
-    assert tables == "4", f"Expected 4 application tables in the database, found {tables}."
+    assert migrated.returncode == 0, f"The database is not fully migrated:\n{migrated.stdout}{migrated.stderr}"
 
 
 def test_every_message_catalog_is_compiled(station: Station) -> None:

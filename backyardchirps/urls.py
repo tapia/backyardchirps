@@ -17,6 +17,7 @@ from backyardchirps.features.server_status import views as server_status_views
 from backyardchirps.features.settings import views as settings_views
 from backyardchirps.features.setup import views as setup_views
 from backyardchirps.features.species import views as species_views
+from backyardchirps.features.updates import views as updates_views
 from backyardchirps.features.weather import views as weather_views
 
 urlpatterns = [
@@ -48,6 +49,7 @@ urlpatterns = [
     ),
     path("api/setup/audio-devices/", setup_views.audio_devices, name="api-setup-audio-devices"),
     path("api/server-status/", server_status_views.server_status, name="api-server-status"),
+    path("api/updates/available/", updates_views.available_update, name="api-updates-available"),
     path("api/weather/current/", weather_views.current_weather, name="api-weather-current"),
     path(
         "api/detections/hourly/",

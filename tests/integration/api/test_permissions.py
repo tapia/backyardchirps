@@ -11,6 +11,7 @@ _ADMIN_ONLY_PATHS = [
     "/api/settings/",
     "/api/server-status/",
     "/api/species/detection-settings/",
+    "/api/updates/available/",
 ]
 
 # Public read endpoints: anonymous is allowed.

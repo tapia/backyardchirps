@@ -84,6 +84,7 @@ The recorder reads it at startup, so restart it after changing it.
 | `update_species_data` | Downloads a fresh taxonomy, then rebuilds the local species list from GeoModel (daily timer in production) |
 | `download_birdnet3_model` | Fetches the acoustic model and GeoModel when the local copy is missing or no longer the published size |
 | `enforce_clip_disk_quota` | Deletes the oldest clip files when disk usage exceeds the configured percentage |
+| `check_for_update` | Reads the published release manifest and stores what it found, so the UI can say a newer version exists (daily timer in production) |
 
 ## Backend layout
 

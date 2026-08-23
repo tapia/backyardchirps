@@ -251,6 +251,16 @@ Two things worth knowing:
 processing queue. It turns red past 75°C, 90% load, 85% memory, or the storage limit you
 configured.
 
+The version your station runs sits next to the heading. A station checks once a day whether a
+newer release has been published, and when there is one a badge appears beside that version,
+linking to what changed. Nothing is installed for you: updating is still re-running the
+installer, as [installation.md](installation.md) describes.
+
+Two other things that badge can say. "Not checked yet" means the daily check has not run since
+the station was installed, which sorts itself out overnight. "Could not check for updates" means
+it ran and failed, usually because the station has no route to the internet, and it stays until
+a later check succeeds. Neither means you are up to date.
+
 The **sound processing queue** card answers one question: is the recorder analyzing clips
 faster than they arrive? A clip arrives every 1.5 seconds, so there are 1500 ms available to
 analyze each one. The big number is the average analysis time as a percentage of that, and it

@@ -228,7 +228,7 @@ run_manage download_birdnet3_model
 DAEMONS=(backyardchirps-web backyardchirps-recorder)
 # Timer-driven oneshots. Each name is both a .service (the job) and a .timer
 # (the schedule); only the timer is enabled, systemd starts the service.
-TIMED_JOBS=(backyardchirps-update-species backyardchirps-clip-disk-quota)
+TIMED_JOBS=(backyardchirps-update-species backyardchirps-clip-disk-quota backyardchirps-check-update)
 
 echo "[apply] Installing/updating systemd units..."
 for daemon in "${DAEMONS[@]}"; do
