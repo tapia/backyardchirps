@@ -288,10 +288,14 @@ def test_microphone_step_takes_the_device(claimed_client: Client, restarts: list
     assert Settings.get(SettingsKey.AUDIO_DEVICE) == 1
 
 
-def test_detection_step_takes_the_thresholds(claimed_client: Client, restarts: list[str]) -> None:
+def test_detection_step_takes_the_thresholds_as_percentages(claimed_client: Client, restarts: list[str]) -> None:
+    """
+    The step asks for whole percentages, the way a confidence reads everywhere else, and
+    stores the 0 to 1 the rest of the app works in.
+    """
     response = claimed_client.post(
         "/setup/detection/",
-        {"analysis_low_confidence": "0.5", "analysis_medium_confidence": "0.7", "analysis_high_confidence": "0.95"},
+        {"analysis_low_confidence": "50", "analysis_medium_confidence": "70", "analysis_high_confidence": "95"},
     )
 
     assert response.headers["Location"] == "/setup/notifications/"
@@ -299,11 +303,35 @@ def test_detection_step_takes_the_thresholds(claimed_client: Client, restarts: l
     claimed_client.post("/setup/done/", {})
 
     assert Settings.get(SettingsKey.ANALYSIS_LOW_CONFIDENCE) == 0.5
+    assert Settings.get(SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE) == 0.7
+    assert Settings.get(SettingsKey.ANALYSIS_HIGH_CONFIDENCE) == 0.95
+
+
+def test_detection_step_refuses_a_percentage_over_a_hundred(claimed_client: Client, restarts: list[str]) -> None:
+    response = claimed_client.post(
+        "/setup/detection/",
+        {"analysis_low_confidence": "150", "analysis_medium_confidence": "70", "analysis_high_confidence": "95"},
+    )
+
+    assert response.status_code == 200
+
+    claimed_client.post("/setup/done/", {})
+
+    assert Settings.get(SettingsKey.ANALYSIS_LOW_CONFIDENCE) == 0.4
+    assert Settings.get(SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE) == 0.7
+
+
+def test_detection_step_draws_the_thresholds_as_percentages(claimed_client: Client) -> None:
+    page = claimed_client.get("/setup/detection/").content.decode()
+
+    assert 'name="analysis_low_confidence" value="40"' in page
+    assert 'name="analysis_medium_confidence" value="70"' in page
+    assert 'name="analysis_high_confidence" value="90"' in page
 
 
 def test_a_spanish_wizard_draws_numbers_it_can_read_back(claimed_client: Client) -> None:
     """
-    Spanish writes 0,7 for 0.7, and both these steps draw a number into a field that is
+    Spanish writes 40,4 for 40.4, and both these steps draw a number into a field that is
     posted straight back to float(). Localised, they would refuse a step the reader only
     pressed Next on.
     """
@@ -315,7 +343,7 @@ def test_a_spanish_wizard_draws_numbers_it_can_read_back(claimed_client: Client)
     claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
     coordinates = claimed_client.get("/setup/location/").content.decode()
 
-    assert 'value="0.7"' in thresholds
+    assert 'value="70"' in thresholds
     assert 'value="40.4"' in coordinates
     assert "," not in _field_value(coordinates, "location_lat")
 
@@ -340,7 +368,7 @@ def test_finishing_saves_everything_the_wizard_was_told(claimed_client: Client, 
     claimed_client.post("/setup/microphone/", {"audio_device": "1"})
     claimed_client.post(
         "/setup/detection/",
-        {"analysis_low_confidence": "0.5", "analysis_medium_confidence": "0.7", "analysis_high_confidence": "0.95"},
+        {"analysis_low_confidence": "50", "analysis_medium_confidence": "70", "analysis_high_confidence": "95"},
     )
     claimed_client.post("/setup/notifications/", {"telegram_token": "  12345:abc  "})
 

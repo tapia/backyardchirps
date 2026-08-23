@@ -1,26 +1,15 @@
 <template>
   <div class="settings-card">
     <h6 class="settings-section-title"><i class="bi me-2" :class="icon"></i>{{ title }}</h6>
-    <form @submit.prevent="form.save()">
-      <slot />
-      <button type="submit" class="btn btn-primary btn-sm" :disabled="form.loading || form.saved">
-        <i v-if="form.saved" class="bi bi-check-lg me-1"></i>
-        {{ form.saved ? t('page.settings.saved') : t('page.settings.save') }}
-      </button>
-    </form>
+    <slot />
   </div>
 </template>
 
 <script setup>
-import { useI18n } from 'vue-i18n'
-
 defineProps({
   icon: { type: String, required: true },
   title: { type: String, required: true },
-  form: { type: Object, required: true }, // a useSettingsForm() instance
 })
-
-const { t } = useI18n()
 </script>
 
 <!-- Unscoped on purpose: these rules must reach the field components rendered
@@ -73,7 +62,13 @@ const { t } = useI18n()
   background-color: var(--admin-accent);
   border-color: var(--admin-accent);
 }
-.settings-card .form-control-narrow {
+.settings-card .input-group-text {
+  background-color: var(--admin-input-bg-disabled);
+  border-color: var(--admin-card-border);
+  color: rgba(255, 255, 255, 0.5);
+}
+.settings-card .form-control-narrow,
+.settings-card .input-group-narrow {
   max-width: 120px;
 }
 .settings-card .field-hint {

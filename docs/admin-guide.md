@@ -4,20 +4,42 @@ Running the station day to day. For setting up a new Pi, see
 [installation.md](installation.md).
 
 Log in at `/login` with a staff account. **Settings**,
-**Detection settings**, and **Server status** then appear under **Admin** in the navbar;
+**Customized species**, and **Server status** then appear under **Admin** in the navbar;
 without staff access they redirect to the login page.
 
 The account is the one you made in the setup wizard when you installed the station.
 
 ## Settings
 
-### Recording station coordinates
+Four tabs, following the path a sound takes through the station: where it is heard, what hears
+it, what identifies it, and who gets told.
+
+| Tab | Holds |
+|---|---|
+| Station | Where the microphone is, the region pack for that part of the world, the units the weather is shown in |
+| Recording | Which input to listen to, and how much disk the clips may fill |
+| Detection | The acoustic model, the three confidence thresholds, and the rules for a single species |
+| Notifications | The Telegram credentials and the rules that decide what is worth a message |
+
+Each tab has one save button at the bottom, and it stays in view as you scroll, so on a long tab
+you never have to go looking for it. It becomes active once something on the tab has changed,
+and it saves that tab alone: a half-typed value on another tab cannot travel with it. The tab is
+part of the address, so `/settings/detection` opens straight on that one.
+
+### Station
+
+#### Recording station coordinates
 
 Latitude and longitude of the microphone. BirdNET uses these to rule out species that do not
 occur in the area, so a wrong value here damages every identification, with no visible sign
 that anything is wrong.
 
-### Region pack
+Click the map to set both at once, the same picker the setup wizard shows. Typing in the two
+fields moves the pin, and the button in the corner of the map makes it fill the window, which is
+the easiest way to point at a roof rather than a village. Escape puts it back. The map needs an
+internet connection; without one it stays empty and the two fields still work.
+
+#### Region pack
 
 A region pack holds the range maps, the seasonality charts and the reference recordings for one
 box on the map. A station downloads the pack covering its own coordinates, so nobody pays for
@@ -79,7 +101,38 @@ not the installer's to throw away, and they are large. Nothing reads them:
 sudo rm -rf /var/lib/backyardchirps/species/ebird_occurrence.superseded
 ```
 
-### Acoustic model
+#### Weather units
+
+The units the weather widget uses: Celsius or Fahrenheit, km/h or mph. They change what is
+drawn, nothing about what is recorded. The forecast itself comes from the station's coordinates
+above.
+
+### Recording
+
+#### Microphone
+
+Which input the recorder listens to. **System default** is right when the Pi has one sound
+card, which is the usual case; pick a device by name when it has more than one, or when a USB
+microphone is not the one being used.
+
+Saving restarts the recorder, since it opens the microphone once at startup and never looks
+again.
+
+If the list is empty the operating system sees no recording device at all. Check the cable and
+`arecord -l` before looking anywhere else.
+
+#### Storage
+
+Recordings pile up forever unless you set a limit. **Maximum disk usage** is a percentage of
+the disk holding the clips folder, 85% by default. Whenever usage goes above it, a scheduled
+job deletes the audio of the oldest clips.
+
+Only the audio goes. The detection records stay, so history, charts and species counts are
+unaffected. The old entries simply lose their play button.
+
+### Detection
+
+#### Acoustic model
 
 **BirdNET 3** (the default) or **BirdNET 2**. BirdNET 3 is still a preview release and is
 generally more accurate. If it starts behaving oddly, switch back.
@@ -98,67 +151,52 @@ installed on their own, for as long as BirdNET 2 stays selected.
 Both models score on similar scales, so the thresholds below go on working after a switch.
 Older detections keep the confidence given to them by whichever model made them.
 
-### BirdNET analysis
+#### BirdNET analysis
 
 Three thresholds, and only two of them change what gets recorded.
 
 | Setting | Default | Effect |
 |---|---|---|
-| Low confidence | 0.4 | BirdNET's floor. Anything below is discarded and never reaches the database. |
-| Medium confidence | 0.7 | The auto-confirm bar. At or above it a detection is published directly; below it, it waits for review. |
-| High confidence | 0.9 | Display only. Sets what the navbar's "High" filter shows. |
+| Low confidence | 40% | BirdNET's floor. Anything below is discarded and never reaches the database. |
+| Medium confidence | 70% | The auto-confirm bar. At or above it a detection is published directly; below it, it waits for review. |
+| High confidence | 90% | Display only. Sets what the navbar's "High" filter shows. |
 
 Raising **Low** means fewer detections overall and a quieter site. Raising **Medium** means the
 same detections, with more of them queued. If the review queue has more in it than you can get
 through, lower Medium. If rubbish is reaching the public pages, raise it.
 
-### Storage
+#### Per-species rules
 
-Recordings pile up forever unless you set a limit. **Maximum disk usage** is a percentage of
-the disk holding the clips folder, 85% by default. Whenever usage goes above it, a scheduled
-job deletes the audio of the oldest clips.
-
-Only the audio goes. The detection records stay, so history, charts and species counts are
-unaffected. The old entries simply lose their play button.
-
-### Microphone
-
-Which input the recorder listens to. **System default** is right when the Pi has one sound
-card, which is the usual case; pick a device by name when it has more than one, or when a USB
-microphone is not the one being used.
-
-Saving restarts the recorder, since it opens the microphone once at startup and never looks
-again.
-
-If the list is empty the operating system sees no recording device at all. Check the cable and
-`arecord -l` before looking anywhere else.
-
-### Keys and tokens
-
-| Key | Without it |
-|---|---|
-| Telegram bot token and chat ID | No notifications are sent. Get a token from @BotFather |
-
-That is the only key a station needs, and it is optional: without it everything works except
-notifications. It is stored in the database, so it survives an update and never needs `.env`
-to be edited.
-
-Nothing else asks you for an account. Sunrise and sunset are worked out from the station's own
-coordinates, and the reference recordings on a species page come from the region pack.
+A species can be blacklisted, or given its own auto-confirm threshold in place of the medium
+one above. The card counts the species that have rules of their own and opens the page that
+lists them. See [Per-species detection rules](#per-species-detection-rules) below for what the
+two rules do.
 
 ### Notifications
 
-Telegram messages, once you have filled in the bot token and chat ID under **Keys and tokens**.
-Each rule has its own switch and its own minimum confidence, so you can be strict about what
-is worth being interrupted for.
+#### Telegram
+
+The bot token and the chat ID. Without them nothing is sent and everything else on the site
+works as usual. Get a token from @BotFather.
+
+Both are stored in the database, so they survive an update and never need `.env` to be edited.
+They are the only credentials a station asks for: sunrise and sunset are worked out from the
+station's own coordinates, and the reference recordings on a species page come from the region
+pack.
+
+#### Notification rules
+
+Telegram messages, once you have filled in the bot token and chat ID above. Each rule has its
+own switch and its own minimum confidence, so you can be strict about what is worth being
+interrupted for.
 
 | Rule | Default confidence | Fires when |
 |---|---|---|
-| New species | 0.9 | A species is detected for the very first time |
-| First today | 0.9 | First detection of a species today |
-| First this year | 0.9 | First detection of a species this calendar year |
-| Rare species | 0.75 | A species that rarely turns up here is heard |
-| Long absent | 0.9 | A species returns after 30+ days (configurable) |
+| New species | 90% | A species is detected for the very first time |
+| First today | 90% | First detection of a species today |
+| First this year | 90% | First detection of a species this calendar year |
+| Rare species | 75% | A species that rarely turns up here is heard |
+| Long absent | 90% | A species returns after 30+ days (configurable) |
 | Pending validation | n/a | Something landed in the review queue |
 
 Messages go out in Spanish by default; change it under **Send messages in**.
@@ -179,11 +217,11 @@ Everything on this page not in that list takes effect on the next page load.
 ## Per-species detection rules
 
 Some species get reported far more often than they actually occur. Two overrides deal with
-that, reachable from **Settings → Customized species**, from a species' own page, or inside
+that, reachable from **Settings → Detection**, from a species' own page, or inside
 the review dialog. Both work only on species heard here at least once. Anyone can see the rules
 in place, but only admins can change them.
 
-**A custom auto-confirm threshold** replaces the global 0.7 bar for one species. A bird that
+**A custom auto-confirm threshold** replaces the global 70% bar for one species. A bird that
 keeps arriving in the queue and is almost never wrong can be given a lower bar.
 
 Lowering the bar also reaches backwards: detections already waiting that now clear it are

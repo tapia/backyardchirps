@@ -115,10 +115,10 @@ either derived from the coordinates or carried by a pack.
 **1. Set the coordinates.** In the app settings or the Django admin, point `LOCATION_LAT` and
 `LOCATION_LON` at the new recording site.
 
-**2. Install the pack that covers them.** The settings page has a card for it, which resolves the
-coordinates against the pack index and downloads the one that matches. Moving the coordinates
-offers a new pack rather than switching on its own, so a station near the edge of its box does not
-re-download hundreds of megabytes because somebody nudged the pin.
+**2. Install the pack that covers them.** The **Station** tab of the settings page has a card for
+it, which resolves the coordinates against the pack index and downloads the one that matches.
+Moving the coordinates offers a new pack rather than switching on its own, so a station near the
+edge of its box does not re-download hundreds of megabytes because somebody nudged the pin.
 
 Nothing in the database is keyed to a pack, so switching one changes what a species page can draw
 and nothing about the history.

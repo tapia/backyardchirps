@@ -102,7 +102,21 @@ export default {
     },
     settings: {
       title: 'Configuración',
+      tabs: {
+        station: 'Estación',
+        recording: 'Grabación',
+        detection: 'Detección',
+        notifications: 'Notificaciones',
+      },
       location: 'Coordenadas GPS de la estación de grabación',
+      mapHint: 'Haz clic en el mapa para fijar las coordenadas, o escríbelas abajo.',
+      mapExpand: 'Agrandar el mapa',
+      mapCollapse: 'Reducir el mapa',
+      mapZoomIn: 'Acercar',
+      mapZoomOut: 'Alejar',
+      mapOffline:
+        'El mapa necesita conexión a internet. Las coordenadas de abajo funcionan sin ella.',
+      useMyLocation: 'Usar mi ubicación',
       lat: 'Latitud',
       regionPack: 'Paquete de región',
       regionPackHint:
@@ -141,11 +155,17 @@ export default {
       analysisMediumConfidenceHint:
         'Las identificaciones por debajo de este umbral se marcarán para revisión manual',
       analysisHighConfidence: 'Confianza alta',
+      perSpecies: 'Reglas por especie',
+      perSpeciesHint:
+        'Una especie concreta puede estar en la lista negra, o tener su propio umbral de confirmación automática en lugar del de confianza media de arriba.',
+      perSpeciesNone: 'Todavía no hay ninguna especie con reglas propias.',
+      perSpeciesCount: 'Una especie tiene reglas propias. | {n} especies tienen reglas propias.',
+      perSpeciesLink: 'Abrir las reglas por especie',
       storage: 'Almacenamiento',
       storageMaxDiskUsage: 'Uso máximo de disco (%)',
       storageMaxDiskUsageHint:
         'Cuando el almacenamiento de clips alcance este porcentaje de uso de disco, se eliminarán las grabaciones más antiguas (conservando sus registros de detección) hasta volver a estar por debajo de este valor',
-      notifications: 'Notificaciones',
+      notificationRules: 'Reglas de notificación',
       notificationsLanguage: 'Enviar mensajes en',
       notificationsLanguageEn: 'English',
       notificationsLanguageEs: 'Español',
@@ -162,14 +182,14 @@ export default {
       microphoneDeviceHint:
         'Qué entrada escucha el grabador. La lee al arrancar, así que se reinicia al guardar.',
       microphoneSystemDefault: 'Predeterminado del sistema',
-      credentials: 'Claves y tokens',
+      telegram: 'Telegram',
       telegramToken: 'Token del bot de Telegram',
       // Ver la nota en en.js: un @ suelto rompe la compilación del mensaje.
       telegramTokenHint: "De {'@'}BotFather. Déjalo vacío para desactivar las notificaciones.",
       telegramChatId: 'ID de chat de Telegram',
       errors: {
         invalid_boolean: 'Debe ser verdadero o falso.',
-        invalid_confidence: 'Debe ser un número decimal entre 0 y 1.',
+        invalid_confidence: 'Debe ser un número entero entre 0 y 100.',
         invalid_latitude: 'Debe ser un número decimal entre -90 y 90.',
         invalid_longitude: 'Debe ser un número decimal entre -180 y 180.',
         invalid_language: "Debe ser 'en' o 'es'.",
@@ -184,6 +204,7 @@ export default {
         unknown_setting: 'Configuración desconocida.',
       },
       save: 'Guardar',
+      unsaved: 'Cambios sin guardar',
       saved: 'Guardado',
     },
   },
@@ -332,6 +353,7 @@ export default {
     validateAlreadyIdentified: 'Ya identificado en esta grabación',
   },
   detectionSettings: {
+    backToSettings: 'Volver a la configuración',
     blacklistedBadge: 'En la lista negra',
     customThresholdBadge: 'Auto-confirmación ≥ {value}',
     blacklistedTooltip:

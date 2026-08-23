@@ -267,6 +267,14 @@ h6,
   min-width: 0;
 }
 
+/* ── Settings page ───────────────────────────────────────────────── */
+/* One tab of the settings page: its cards stacked, closed by the save bar. */
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 /* ── Nav tabs ────────────────────────────────────────────────────── */
 .nav-tabs {
   border-bottom: 1px solid var(--limestone);

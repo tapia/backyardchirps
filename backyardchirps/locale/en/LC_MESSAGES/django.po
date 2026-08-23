@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-17 21:07+0200\n"
+"POT-Creation-Date: 2026-08-23 17:34+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -137,17 +137,17 @@ msgstr ""
 msgid "Low"
 msgstr ""
 
-#: backyardchirps/templates/setup/detection.html:21
-#: backyardchirps/templates/setup/detection.html:27
-#: backyardchirps/templates/setup/detection.html:33
-msgid "Give a number between 0 and 1."
+#: backyardchirps/templates/setup/detection.html:23
+#: backyardchirps/templates/setup/detection.html:31
+#: backyardchirps/templates/setup/detection.html:39
+msgid "Give a whole number between 0 and 100."
 msgstr ""
 
-#: backyardchirps/templates/setup/detection.html:25
+#: backyardchirps/templates/setup/detection.html:27
 msgid "Medium"
 msgstr ""
 
-#: backyardchirps/templates/setup/detection.html:31
+#: backyardchirps/templates/setup/detection.html:35
 msgid "High"
 msgstr ""
 

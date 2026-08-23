@@ -5,6 +5,11 @@
 // Web Mercator projection, a grid of images and a drag handler. The tiles come from
 // OpenStreetMap, so a station with no internet during setup shows an empty frame and a
 // note, and the two fields still work on their own.
+//
+// The settings page shows the same picker, as
+// frontend/src/components/settings/LocationMapPicker.vue. It is a second copy rather than
+// a shared module, because this file is served by Django to a page the Vue app does not
+// build, so a change here usually belongs there too.
 ;(function () {
   var TILE_SIZE = 256
   var MIN_ZOOM = 2

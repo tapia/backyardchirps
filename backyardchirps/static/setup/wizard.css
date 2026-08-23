@@ -102,6 +102,27 @@ input:focus {
   color: var(--muted);
 }
 
+/* A field holding a percentage. The sign is drawn here rather than written into the
+   label, so no translated string has to carry a % through gettext. */
+.unit-percent {
+  position: relative;
+}
+
+.unit-percent::after {
+  content: "%";
+  position: absolute;
+  top: 50%;
+  right: 0.7rem;
+  transform: translateY(-50%);
+  font-size: 0.85rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.unit-percent input {
+  padding-right: 2rem;
+}
+
 .choices {
   display: grid;
   gap: 0.5rem;

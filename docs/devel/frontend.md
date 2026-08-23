@@ -61,7 +61,7 @@ Check this list before writing a helper.
 | Piece | Use for |
 |---|---|
 | `useAudioPlayer` | Any `<audio>` element: play/pause, progress, clip switching (`toggleUrl`) |
-| `useSettingsForm` | A settings card: field values, per-field errors, save flow |
+| `useSettingsForm` | A settings tab: field values, per-field errors, dirty state, save flow |
 | `useMediaQuery` | Reactive `matchMedia`, for changing a component's *structure* between mobile and desktop, which CSS alone cannot do |
 | `dates.js` | Timestamps: `formatDate`, `formatDateTime`, `formatTime`, `shortRelativeTime` |
 | `SpeciesSearchPicker` | Debounced taxonomy search input plus result list |
@@ -86,6 +86,40 @@ calculated as the app runs and has no meaningful name, such as a pixel position.
 `App.vue` provides the current locale as `lang`. Pages `inject('lang')` and pass `lang.value` to
 API calls, so the backend returns localised common names. Interface strings live in
 `locales/en.js` and `locales/es.js`, which must always define the same keys.
+
+## The settings page
+
+`/settings/:tab?` renders one page with four tabs: **Station** (coordinates, region pack,
+weather units), **Recording** (microphone, disk quota), **Detection** (model, thresholds, a
+link to the per-species rules) and **Notifications** (Telegram credentials, the rules
+themselves). The tab is in the URL so a tab can be linked to; an unknown or missing one opens
+the first.
+
+The list lives in `components/settings/settingsTabs.js`, and each tab is a component next to it
+whose root is a `<form class="settings-form">` holding its cards and, last, a
+`SettingsSaveBar`. Adding a tab means an entry in that list, a component, and one label in each
+locale under `page.settings.tabs`.
+
+**One `useSettingsForm` per tab, created by `SettingsPage.vue`**, not one per card and not one
+per tab component. Two things follow from that. A value typed on one tab and not saved is still
+there after a visit to another tab, because the form outlives the pane. And the save button
+covers everything on the tab: it is enabled only while `form.dirty` is true, which the
+composable works out by comparing the fields against what the server last gave back.
+
+`LocationMapPicker` is the coordinate map on the Station tab: a click emits `place` with the
+pair, and the pin is drawn from the values the fields hold rather than from state of its own. It
+is deliberately a second copy of the wizard's `static/setup/location-map.js`, since that one is
+plain DOM code Django serves and nothing here can import. Both draw OpenStreetMap tiles
+themselves, so a fix to the projection or the drag handling has to be made twice.
+
+`SettingsPercentField` is every confidence setting on the Detection and Notifications tabs. The
+API stores those as a number from 0 to 1 and that is what `form.fields` holds, but the field
+edits a whole percentage, the way confidence reads everywhere else on the site. Nothing else
+converts: the multiplication lives in that one component.
+
+`SettingsCard` is only a titled panel. It does not know about forms, which is why
+`RegionPackCard` and `PerSpeciesRulesCard` can sit in the middle of a tab: they have their own
+buttons and nothing for the save bar to save.
 
 ## The setup wizard is not part of this app
 

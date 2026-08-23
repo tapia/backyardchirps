@@ -12,14 +12,10 @@
       <label class="form-check-label" :for="switchId">{{ label }}</label>
     </div>
     <div v-if="confidenceField && form.fields[enabledField]" class="rule-details">
-      <SettingsNumberField
+      <SettingsPercentField
         :form="form"
         :name="confidenceField"
         :label="t('page.settings.notificationsMinConfidence')"
-        min="0"
-        max="1"
-        step="0.01"
-        narrow
         :class="{ 'mb-2': daysField }"
       />
       <SettingsNumberField
@@ -39,6 +35,7 @@
 <script setup>
 import { useI18n } from 'vue-i18n'
 import SettingsNumberField from './SettingsNumberField.vue'
+import SettingsPercentField from './SettingsPercentField.vue'
 
 defineProps({
   form: { type: Object, required: true }, // a useSettingsForm() instance

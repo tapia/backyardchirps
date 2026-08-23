@@ -56,8 +56,9 @@ container test counts `.mo` files against `.po` files, so adding a language is a
 run and a translator, with no deploy change to remember. The wizard's own picker is the one place
 a language has to be listed, in `LANGUAGE_OPTIONS`.
 
-A number drawn into a form field needs `{% localize off %}`. Spanish writes `0,7` for `0.7`, and
-the setup wizard posts those fields straight back to a parser that reads them with `float()`.
+A number drawn into a form field needs `{% localize off %}`. Spanish writes `40,4` for `40.4`,
+and the setup wizard posts those fields straight back to a parser that reads them with
+`float()`.
 
 ```bash
 cd frontend && npm install && npm run dev
@@ -72,7 +73,7 @@ Recording needs a microphone:
 uv run python manage.py run_recorder
 ```
 
-If it picks the wrong input, choose the right one under **Microphone** on the settings page.
+If it picks the wrong input, choose the right one under **Recording** on the settings page.
 The recorder reads it at startup, so restart it after changing it.
 
 ## Management commands
@@ -152,6 +153,11 @@ and what lets the whole thing be walked through on a development machine. Each s
 checks its own fields as they arrive, through `Settings.parse`, so a bad value is refused on
 the step that asked for it rather than at the end where there is nowhere to send anybody back
 to.
+
+The three confidence thresholds are the one place the step does not ask for what is stored.
+They are kept from 0 to 1, the scale BirdNET scores on, and asked for as whole percentages,
+which is how a confidence reads on the settings page and on every badge. `PERCENTAGE_FIELDS` in
+`setup/views.py` names them, and that view converts in both directions.
 
 Which is the point. The wizard was a Vue component holding the current step in memory while
 the server decided separately whether setup was finished, and the two could disagree. An

@@ -6,245 +6,67 @@
 
     <template v-else>
       <div class="settings-column">
-        <SettingsCard icon="bi-geo-alt" :title="t('page.settings.location')" :form="location">
-          <div class="row g-3 mb-3">
-            <SettingsNumberField
-              class="col-sm-6"
-              :form="location"
-              name="location_lat"
-              :label="t('page.settings.lat')"
-              step="any"
-            />
-            <SettingsNumberField
-              class="col-sm-6"
-              :form="location"
-              name="location_lon"
-              :label="t('page.settings.lon')"
-              step="any"
-            />
-          </div>
-        </SettingsCard>
+        <SettingsTabNav :active="activeTab" />
 
-        <RegionPackCard
-          :latitude="location.fields.location_lat"
-          :longitude="location.fields.location_lon"
+        <StationTab v-if="activeTab === 'station'" :form="station" />
+        <RecordingTab
+          v-else-if="activeTab === 'recording'"
+          :form="recording"
+          :microphone-options="microphoneOptions"
         />
-
-        <SettingsCard icon="bi-cloud-sun" :title="t('page.settings.weather')" :form="weather">
-          <SettingsSelectField
-            class="mb-4"
-            :form="weather"
-            name="weather_temperature_unit"
-            :label="t('page.settings.weatherTemperatureUnit')"
-            :options="[
-              { value: 'celsius', label: t('page.settings.weatherTemperatureUnitCelsius') },
-              { value: 'fahrenheit', label: t('page.settings.weatherTemperatureUnitFahrenheit') },
-            ]"
-          />
-          <SettingsSelectField
-            class="mb-4"
-            :form="weather"
-            name="weather_wind_speed_unit"
-            :label="t('page.settings.weatherWindSpeedUnit')"
-            :options="[
-              { value: 'kmh', label: t('page.settings.weatherWindSpeedUnitKmh') },
-              { value: 'mph', label: t('page.settings.weatherWindSpeedUnitMph') },
-            ]"
-          />
-        </SettingsCard>
-
-        <SettingsCard icon="bi-cpu" :title="t('page.settings.analysis')" :form="analysis">
-          <SettingsSelectField
-            class="mb-4"
-            :form="analysis"
-            name="active_acoustic_model"
-            :label="t('page.settings.activeModel')"
-            :hint="t('page.settings.activeModelHint')"
-            :options="[
-              { value: 'birdnet_3', label: t('page.settings.activeModelBirdnet3') },
-              { value: 'birdnet_2', label: t('page.settings.activeModelBirdnet2') },
-            ]"
-          />
-          <SettingsNumberField
-            class="mb-3"
-            :form="analysis"
-            name="analysis_low_confidence"
-            :label="t('page.settings.analysisLowConfidence')"
-            :hint="t('page.settings.analysisLowConfidenceHint')"
-            min="0"
-            max="1"
-            step="0.01"
-            narrow
-          />
-          <SettingsNumberField
-            class="mb-3"
-            :form="analysis"
-            name="analysis_medium_confidence"
-            :label="t('page.settings.analysisMediumConfidence')"
-            :hint="t('page.settings.analysisMediumConfidenceHint')"
-            min="0"
-            max="1"
-            step="0.01"
-            narrow
-          />
-          <SettingsNumberField
-            class="mb-4"
-            :form="analysis"
-            name="analysis_high_confidence"
-            :label="t('page.settings.analysisHighConfidence')"
-            min="0"
-            max="1"
-            step="0.01"
-            narrow
-          />
-        </SettingsCard>
-
-        <SettingsCard icon="bi-hdd" :title="t('page.settings.storage')" :form="storage">
-          <SettingsNumberField
-            class="mb-3"
-            :form="storage"
-            name="clips_max_disk_usage_percent"
-            :label="t('page.settings.storageMaxDiskUsage')"
-            :hint="t('page.settings.storageMaxDiskUsageHint')"
-            min="1"
-            max="99"
-            step="1"
-            narrow
-          />
-        </SettingsCard>
-
-        <SettingsCard icon="bi-mic" :title="t('page.settings.microphone')" :form="microphone">
-          <SettingsSelectField
-            class="mb-4"
-            :form="microphone"
-            name="audio_device"
-            :label="t('page.settings.microphoneDevice')"
-            :hint="t('page.settings.microphoneDeviceHint')"
-            :options="microphoneOptions"
-          />
-        </SettingsCard>
-
-        <SettingsCard icon="bi-key" :title="t('page.settings.credentials')" :form="credentials">
-          <SettingsTextField
-            class="mb-3"
-            :form="credentials"
-            name="telegram_token"
-            type="password"
-            :label="t('page.settings.telegramToken')"
-            :hint="t('page.settings.telegramTokenHint')"
-          />
-          <SettingsTextField
-            class="mb-4"
-            :form="credentials"
-            name="telegram_chat_id"
-            :label="t('page.settings.telegramChatId')"
-          />
-        </SettingsCard>
-
-        <SettingsCard
-          icon="bi-bell"
-          :title="t('page.settings.notifications')"
-          :form="notifications"
-        >
-          <SettingsSelectField
-            class="mb-4"
-            :form="notifications"
-            name="notifications_language"
-            :label="t('page.settings.notificationsLanguage')"
-            :options="[
-              { value: 'en', label: t('page.settings.notificationsLanguageEn') },
-              { value: 'es', label: t('page.settings.notificationsLanguageEs') },
-            ]"
-          />
-          <NotificationRuleField
-            class="mb-3"
-            :form="notifications"
-            switch-id="notifPendingValidation"
-            :label="t('page.settings.notificationsPendingValidation')"
-            enabled-field="notifications_pending_validation_enabled"
-          />
-          <NotificationRuleField
-            class="mb-3"
-            :form="notifications"
-            switch-id="notifNewSpecies"
-            :label="t('page.settings.notificationsNewSpecies')"
-            enabled-field="notifications_new_species_enabled"
-            confidence-field="notifications_new_species_confidence"
-          />
-          <NotificationRuleField
-            class="mb-3"
-            :form="notifications"
-            switch-id="notifFirstYear"
-            :label="t('page.settings.notificationsFirstYear')"
-            enabled-field="notifications_first_year_enabled"
-            confidence-field="notifications_first_year_confidence"
-          />
-          <NotificationRuleField
-            class="mb-3"
-            :form="notifications"
-            switch-id="notifFirstToday"
-            :label="t('page.settings.notificationsFirstToday')"
-            enabled-field="notifications_first_today_enabled"
-            confidence-field="notifications_first_today_confidence"
-          />
-          <NotificationRuleField
-            class="mb-3"
-            :form="notifications"
-            switch-id="notifLongAbsent"
-            :label="t('page.settings.notificationsLongAbsent')"
-            enabled-field="notifications_long_absent_enabled"
-            confidence-field="notifications_long_absent_confidence"
-            days-field="notifications_long_absent_days"
-          />
-          <NotificationRuleField
-            class="mb-4"
-            :form="notifications"
-            switch-id="notifRare"
-            :label="t('page.settings.notificationsRare')"
-            enabled-field="notifications_rare_enabled"
-            confidence-field="notifications_rare_confidence"
-          />
-        </SettingsCard>
+        <DetectionTab v-else-if="activeTab === 'detection'" :form="detection" />
+        <NotificationsTab v-else :form="notifications" />
       </div>
     </template>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { fetchSettings, fetchAudioDevices } from '../api/index.js'
 import { useSettingsForm } from '../composables/useSettingsForm.js'
-import SettingsCard from '../components/settings/SettingsCard.vue'
-import RegionPackCard from '../components/settings/RegionPackCard.vue'
-import SettingsNumberField from '../components/settings/SettingsNumberField.vue'
-import SettingsSelectField from '../components/settings/SettingsSelectField.vue'
-import SettingsTextField from '../components/settings/SettingsTextField.vue'
-import NotificationRuleField from '../components/settings/NotificationRuleField.vue'
+import { DEFAULT_SETTINGS_TAB, isSettingsTab } from '../components/settings/settingsTabs.js'
+import SettingsTabNav from '../components/settings/SettingsTabNav.vue'
+import StationTab from '../components/settings/StationTab.vue'
+import RecordingTab from '../components/settings/RecordingTab.vue'
+import DetectionTab from '../components/settings/DetectionTab.vue'
+import NotificationsTab from '../components/settings/NotificationsTab.vue'
 
 const { t } = useI18n()
+const route = useRoute()
 
 const initialLoading = ref(true)
 const microphoneOptions = ref([])
 
-const location = useSettingsForm({ location_lat: '', location_lon: '' })
-const weather = useSettingsForm({
+// A URL naming no tab, or one that no longer exists, opens the first one rather than
+// showing an empty page.
+const activeTab = computed(() =>
+  isSettingsTab(route.params.tab) ? route.params.tab : DEFAULT_SETTINGS_TAB,
+)
+
+// One form per tab, and they live here rather than inside the tabs, so switching tabs and
+// coming back keeps whatever was typed and not saved yet.
+const station = useSettingsForm({
+  location_lat: '',
+  location_lon: '',
   weather_temperature_unit: 'celsius',
   weather_wind_speed_unit: 'kmh',
 })
-const analysis = useSettingsForm({
+const recording = useSettingsForm({
+  audio_device: '',
+  clips_max_disk_usage_percent: '',
+})
+const detection = useSettingsForm({
   active_acoustic_model: 'birdnet_3',
   analysis_low_confidence: '',
   analysis_medium_confidence: '',
   analysis_high_confidence: '',
 })
-const storage = useSettingsForm({ clips_max_disk_usage_percent: '' })
-const microphone = useSettingsForm({ audio_device: '' })
-const credentials = useSettingsForm({
+const notifications = useSettingsForm({
   telegram_token: '',
   telegram_chat_id: '',
-})
-const notifications = useSettingsForm({
   notifications_language: 'es',
   notifications_pending_validation_enabled: true,
   notifications_new_species_enabled: true,
@@ -260,7 +82,7 @@ const notifications = useSettingsForm({
   notifications_rare_confidence: '0.75',
 })
 
-const settingsForms = [location, weather, analysis, storage, microphone, credentials, notifications]
+const settingsForms = [station, recording, detection, notifications]
 
 onMounted(async () => {
   const [settings] = await Promise.all([fetchSettings(), loadMicrophoneOptions()])
@@ -284,10 +106,7 @@ async function loadMicrophoneOptions() {
 
 <style scoped>
 .settings-column {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  max-width: 480px;
+  max-width: 640px;
   margin: 0 auto;
 }
 </style>

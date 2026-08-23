@@ -20,7 +20,14 @@ const routes = [
   { path: '/recordings/:id', name: 'recording-detail', component: RecordingDetailPage },
   { path: '/pending-review', name: 'pending', component: PendingReviewPage },
   { path: '/login', name: 'login', component: LoginPage },
-  { path: '/settings', name: 'settings', component: SettingsPage, meta: { requiresAdmin: true } },
+  // The tab is part of the URL so a tab can be linked to. An unknown or missing one
+  // falls back to the first tab inside the page.
+  {
+    path: '/settings/:tab?',
+    name: 'settings',
+    component: SettingsPage,
+    meta: { requiresAdmin: true },
+  },
   {
     path: '/detection-settings',
     name: 'detection-settings',

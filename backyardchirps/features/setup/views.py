@@ -61,6 +61,17 @@ FIELDS_BY_STEP: dict[str, tuple[SettingsKey, ...]] = {
     ),
 }
 
+# The confidences, which the detection step asks for as whole percentages. They are
+# stored from 0 to 1, the scale BirdNET scores on, but that is not how anyone reads a
+# confidence: the settings page and every badge on the site write it as a percentage.
+PERCENTAGE_FIELDS: frozenset[SettingsKey] = frozenset(
+    {
+        SettingsKey.ANALYSIS_LOW_CONFIDENCE,
+        SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE,
+        SettingsKey.ANALYSIS_HIGH_CONFIDENCE,
+    }
+)
+
 # The wizard's own language, chosen on the first step. Held in the session rather than
 # saved, because it decides what this visitor reads now and nothing else: the site's
 # language and the notification language are separate settings.
@@ -343,6 +354,8 @@ def _remember_answers(request: HttpRequest, step: str) -> dict[str, str]:
         if key not in request.POST:
             continue
         value = request.POST[key].strip()
+        if key in PERCENTAGE_FIELDS:
+            value = _confidence_from_percentage(value)
         try:
             answers[key] = Settings.parse(key, value)
         except ValueError as exc:
@@ -394,11 +407,38 @@ def _render_step(request: HttpRequest, step: str, status: SetupStatus, errors: d
         "language": _language(request),
         "language_options": LANGUAGE_OPTIONS,
     }
+    if step == "detection":
+        context["percentages"] = _percentages(context["settings"])
     if step == "microphone":
         context["devices"] = setup_logic.list_audio_devices()
     if step == "region-pack":
         context |= _region_pack_context(request)
     return render(request, f"setup/{step}.html", context)
+
+
+def _confidence_from_percentage(raw: str) -> str:
+    """
+    A percentage typed on the detection step, as the confidence the settings API stores.
+
+    Anything that is not a number is handed back untouched, so the parser refuses it with
+    the message it gives any other unusable value rather than this reporting a different
+    one.
+    """
+    try:
+        return str(float(raw) / 100)
+    except ValueError:
+        return raw
+
+
+def _percentages(settings: dict[str, Any]) -> dict[str, int]:
+    """
+    The confidence thresholds as whole percentages, for the fields to be drawn with.
+    """
+    return {
+        key.value: round(float(settings[key.value]) * 100)
+        for key in PERCENTAGE_FIELDS
+        if settings.get(key.value) is not None
+    }
 
 
 def _region_pack_context(request: HttpRequest) -> dict[str, Any]:

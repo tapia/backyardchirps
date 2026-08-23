@@ -1,5 +1,9 @@
 <template>
   <div class="container pb-5">
+    <RouterLink class="back-link" to="/settings/detection">
+      <i class="bi bi-chevron-left me-1"></i>{{ t('detectionSettings.backToSettings') }}
+    </RouterLink>
+
     <h4 class="mb-1">{{ t('detectionSettings.pageTitle') }}</h4>
     <p class="text-warm-muted mb-4">{{ t('detectionSettings.pageSubtitle') }}</p>
 
@@ -109,6 +113,16 @@ onMounted(load)
 </script>
 
 <style scoped>
+.back-link {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: var(--slate);
+  text-decoration: none;
+  margin-bottom: 0.75rem;
+}
+.back-link:hover {
+  color: var(--graphite);
+}
 .cs-list {
   list-style: none;
   padding: 0;

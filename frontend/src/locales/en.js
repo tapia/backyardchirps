@@ -101,7 +101,20 @@ export default {
     },
     settings: {
       title: 'Settings',
+      tabs: {
+        station: 'Station',
+        recording: 'Recording',
+        detection: 'Detection',
+        notifications: 'Notifications',
+      },
       location: 'Recording station GPS coordinates',
+      mapHint: 'Click the map to set the coordinates, or type them below.',
+      mapExpand: 'Make the map bigger',
+      mapCollapse: 'Make the map smaller',
+      mapZoomIn: 'Zoom in',
+      mapZoomOut: 'Zoom out',
+      mapOffline: 'The map needs an internet connection. The coordinates below work without it.',
+      useMyLocation: 'Use my location',
       lat: 'Latitude',
       regionPack: 'Region pack',
       regionPackHint:
@@ -140,11 +153,17 @@ export default {
       analysisMediumConfidenceHint:
         'Identifications below this threshold will be flagged for manual review',
       analysisHighConfidence: 'High confidence',
+      perSpecies: 'Per-species rules',
+      perSpeciesHint:
+        'A single species can be blacklisted, or given its own auto-confirm threshold in place of the medium confidence one above.',
+      perSpeciesNone: 'No species has its own rules yet.',
+      perSpeciesCount: 'One species has its own rules. | {n} species have their own rules.',
+      perSpeciesLink: 'Open per-species rules',
       storage: 'Storage',
       storageMaxDiskUsage: 'Maximum disk usage (%)',
       storageMaxDiskUsageHint:
         'Once clip storage reaches this percentage of disk usage, the oldest recordings are deleted (keeping their detection records) until usage drops back under this value',
-      notifications: 'Notifications',
+      notificationRules: 'Notification rules',
       notificationsLanguage: 'Send messages in',
       notificationsLanguageEn: 'English',
       notificationsLanguageEs: 'Español',
@@ -161,7 +180,7 @@ export default {
       microphoneDeviceHint:
         'Which input the recorder listens to. It reads this at startup, so it restarts when you save.',
       microphoneSystemDefault: 'System default',
-      credentials: 'Keys and tokens',
+      telegram: 'Telegram',
       telegramToken: 'Telegram bot token',
       // The @ is written {'@'} because vue-i18n reads a bare one as the start of a
       // linked message (@:some.key) and throws while compiling the string. That throw
@@ -170,7 +189,7 @@ export default {
       telegramChatId: 'Telegram chat ID',
       errors: {
         invalid_boolean: 'Must be true or false.',
-        invalid_confidence: 'Must be a decimal number between 0 and 1.',
+        invalid_confidence: 'Must be a whole number between 0 and 100.',
         invalid_latitude: 'Must be a decimal number between -90 and 90.',
         invalid_longitude: 'Must be a decimal number between -180 and 180.',
         invalid_language: "Must be 'en' or 'es'.",
@@ -184,6 +203,7 @@ export default {
         unknown_setting: 'Unknown setting.',
       },
       save: 'Save',
+      unsaved: 'Unsaved changes',
       saved: 'Saved',
     },
   },
@@ -331,6 +351,7 @@ export default {
     validateAlreadyIdentified: 'Already identified in this recording',
   },
   detectionSettings: {
+    backToSettings: 'Back to settings',
     blacklistedBadge: 'Blacklisted',
     customThresholdBadge: 'Auto-confirm ≥ {value}',
     blacklistedTooltip:
