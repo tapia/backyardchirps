@@ -19,7 +19,6 @@ class _ClipsSettings(TypedDict):
 
 
 class _Birdnet3Settings(TypedDict):
-    model_key: str
     target_sample_rate: int
     window_samples: int
     geomodel_threshold: float
@@ -56,10 +55,6 @@ BIRDNET3_LABELS_FILE = MODELS_DIR / "labels.txt"
 # downloads it from its GitHub release.
 GEOMODEL_MODEL_FILE = MODELS_DIR / "geomodel.onnx"
 GEOMODEL_LABELS_FILE = MODELS_DIR / "geomodel_labels.txt"
-
-# Read by both the settings parser and the analyzer factory. BirdNET 3 is the
-# default, BirdNET 2 the fallback.
-ACOUSTIC_MODELS: tuple[str, ...] = ("birdnet_2", "birdnet_3")
 
 # ---------------------------------------------------------------------------
 # Audio capture
@@ -106,15 +101,11 @@ CLIPS: _ClipsSettings = {
 
 # ---------------------------------------------------------------------------
 # BirdNET 3: a single large ONNX file covering birds worldwide, run straight
-# through onnxruntime, so nothing here needs the birdnet package or TensorFlow. It
-# narrows down to locally plausible species with GeoModel 3 rather than BirdNET 2's
-# SpeciesList, which keeps the acoustic model and the range model on the same
-# generation.
+# through onnxruntime, so nothing here needs TensorFlow. It narrows down to the
+# species plausible at the station with GeoModel 3, which keeps the acoustic model
+# and the range model on the same generation.
 # ---------------------------------------------------------------------------
 BIRDNET_3: _Birdnet3Settings = {
-    # The ACTIVE_ACOUSTIC_MODEL value that selects this model. Which V3 model to run
-    # is fixed in the analyzer, the same way BirdNET 2 pins its own.
-    "model_key": "birdnet_3",
     # The model takes 3 seconds (window_samples) of mono audio at this rate.
     "target_sample_rate": 32000,
     "window_samples": 96000,

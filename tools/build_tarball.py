@@ -25,7 +25,7 @@ any.
 
 --no-project because nothing here needs the project environment: tomllib, shutil and hashlib are
 all standard library. Running it under the project would resolve every dependency a station
-installs, which on a laptop means the dev group and the birdnet2 extra, to build a tarball.
+installs, plus the dev group, to build a tarball.
 """
 
 import argparse

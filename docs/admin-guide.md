@@ -18,7 +18,7 @@ it, what identifies it, and who gets told.
 |---|---|
 | Station | Where the microphone is, the region pack for that part of the world, the units the weather is shown in |
 | Recording | Which input to listen to, and how much disk the clips may fill |
-| Detection | The acoustic model, the three confidence thresholds, and the rules for a single species |
+| Detection | The three confidence thresholds, and the rules for a single species |
 | Notifications | The Telegram credentials and the rules that decide what is worth a message |
 
 Each tab has one save button at the bottom, and it stays in view as you scroll, so on a long tab
@@ -132,25 +132,6 @@ unaffected. The old entries simply lose their play button.
 
 ### Detection
 
-#### Acoustic model
-
-**BirdNET 3** (the default) or **BirdNET 2**. BirdNET 3 is still a preview release and is
-generally more accurate. If it starts behaving oddly, switch back.
-
-BirdNET 2 is not installed by default, because it needs TensorFlow and most stations never run
-it. Switching to it therefore takes one extra command before the restart:
-
-```bash
-cd ~/backyardchirps && uv sync --no-dev --extra birdnet2
-sudo systemctl restart backyardchirps-recorder
-```
-
-Forget it and the recorder refuses to start, saying exactly this. Later deploys keep it
-installed on their own, for as long as BirdNET 2 stays selected.
-
-Both models score on similar scales, so the thresholds below go on working after a switch.
-Older detections keep the confidence given to them by whichever model made them.
-
 #### BirdNET analysis
 
 Three thresholds, and only two of them change what gets recorded.
@@ -203,10 +184,10 @@ Messages go out in Spanish by default; change it under **Send messages in**.
 
 ### What needs a recorder restart
 
-Settings live in the database and take effect at once, with four exceptions. The recorder opens
-the microphone and builds its analyzer only when it starts, so the coordinates, the acoustic
-model, the low confidence threshold and the microphone are read once and then kept. The
-microphone looks after itself, restarting the recorder when you save it. For the other three:
+Settings live in the database and take effect at once, with three exceptions. The recorder opens
+the microphone and builds its analyzer only when it starts, so the coordinates, the low
+confidence threshold and the microphone are read once and then kept. The microphone looks after
+itself, restarting the recorder when you save it. For the other two:
 
 ```bash
 sudo systemctl restart backyardchirps-recorder

@@ -32,9 +32,8 @@ class BirdNet3Analyzer:
     Runs the BirdNET 3 acoustic model over a clip and returns the species it
     identifies at or above min_confidence.
 
-    Everything runs through onnxruntime, including the GeoModel location filter, so
-    neither the birdnet package nor TensorFlow is involved. The model file and its
-    labels come from download_birdnet3_model.
+    Everything runs through onnxruntime, including the GeoModel location filter. The
+    model file and its labels come from download_birdnet3_model.
     """
 
     def __init__(self, latitude: float, longitude: float, min_confidence: float) -> None:

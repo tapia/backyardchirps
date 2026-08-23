@@ -10,7 +10,7 @@ from django.core.management.base import BaseCommand
 from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import Detection
 from backyardchirps.features.notifications.logic import Notifier
-from backyardchirps.features.recording.audio.acoustic_model import build_acoustic_model
+from backyardchirps.features.recording.audio.birdnet3.analyzer import BirdNet3Analyzer
 from backyardchirps.features.recording.audio.consistency_filter import ConsistencyFilter
 from backyardchirps.features.recording.audio.detection import AnalysisResult
 from backyardchirps.features.recording.audio.detection import discard_non_birds
@@ -43,8 +43,7 @@ class Command(BaseCommand):
             step_duration=settings.RECORDING["step_duration"],
             device=Settings.get(SettingsKey.AUDIO_DEVICE),
         )
-        analyzer = build_acoustic_model(
-            model_key=Settings.get(SettingsKey.ACTIVE_ACOUSTIC_MODEL),
+        analyzer = BirdNet3Analyzer(
             latitude=Settings.get(SettingsKey.LOCATION_LAT) or 0.0,
             longitude=Settings.get(SettingsKey.LOCATION_LON) or 0.0,
             min_confidence=Settings.get(SettingsKey.ANALYSIS_LOW_CONFIDENCE),
@@ -117,8 +116,7 @@ class Command(BaseCommand):
         overlap_pct = (1 - settings.RECORDING["step_duration"] / settings.RECORDING["clip_duration"]) * 100
 
         logger.info(
-            "Recording started. model=%s, lat=%s, lon=%s",
-            Settings.get(SettingsKey.ACTIVE_ACOUSTIC_MODEL),
+            "Recording started. lat=%s, lon=%s",
             Settings.get(SettingsKey.LOCATION_LAT),
             Settings.get(SettingsKey.LOCATION_LON),
         )

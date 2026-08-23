@@ -31,14 +31,3 @@ def test_week_48_for_stays_in_range_and_is_monotonic() -> None:
         assert week >= previous  # non-decreasing across the year
         previous = week
         day += timedelta(days=1)
-
-
-def test_week_48_for_matches_birdnetlib_across_two_years() -> None:
-    # Our version has to match birdnetlib's exactly, because GeoModel was trained on that
-    # way of counting weeks. Skipped rather than failed where birdnetlib is missing.
-    birdnetlib_utils = pytest.importorskip("birdnetlib.utils")
-    for year in (2023, 2024):  # a non-leap and a leap year
-        day = datetime(year, 1, 1)
-        while day.year == year:
-            assert week_48_for(day) == int(birdnetlib_utils.return_week_48_from_datetime(day))
-            day += timedelta(days=1)

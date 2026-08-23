@@ -173,11 +173,6 @@ export default {
       weatherWindSpeedUnitKmh: 'Kilómetros por hora (km/h)',
       weatherWindSpeedUnitMph: 'Millas por hora (mph)',
       analysis: 'Análisis BirdNET',
-      activeModel: 'Modelo acústico',
-      activeModelHint:
-        'Qué modelo identifica las especies en el audio. BirdNET 3 es una versión preliminar; vuelve a BirdNET 2 si da problemas. El cambio se aplica al reiniciar el grabador.',
-      activeModelBirdnet3: 'BirdNET 3 (preliminar)',
-      activeModelBirdnet2: 'BirdNET 2',
       analysisLowConfidence: 'Confianza baja',
       analysisLowConfidenceHint: 'Las identificaciones por debajo de este umbral se ignorarán',
       analysisMediumConfidence: 'Confianza media',
@@ -226,7 +221,6 @@ export default {
         invalid_percentage: 'Debe ser un número entero entre 1 y 99.',
         invalid_temperature_unit: "Debe ser 'celsius' o 'fahrenheit'.",
         invalid_wind_speed_unit: "Debe ser 'kmh' o 'mph'.",
-        invalid_acoustic_model: "Debe ser 'birdnet_2' o 'birdnet_3'.",
         invalid_credential: 'Debe ser texto.',
         invalid_audio_device:
           'Debe ser un número entero, o vacío para el predeterminado del sistema.',

@@ -59,7 +59,6 @@ const recording = useSettingsForm({
   clips_max_disk_usage_percent: '',
 })
 const detection = useSettingsForm({
-  active_acoustic_model: 'birdnet_3',
   analysis_low_confidence: '',
   analysis_medium_confidence: '',
   analysis_high_confidence: '',

@@ -13,8 +13,7 @@ logger = logging.getLogger(__name__)
 class GeoModel:
     """
     Given a latitude, longitude and BirdNET 48-week index, returns the species
-    plausible at that place and time. BirdNet3Analyzer uses it as its location filter,
-    the job SpeciesList does for BirdNET 2.
+    plausible at that place and time. BirdNet3Analyzer uses it as its location filter.
     """
 
     def __init__(self, model_path: Path, labels_path: Path) -> None:

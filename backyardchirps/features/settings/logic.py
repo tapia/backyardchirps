@@ -4,8 +4,6 @@ from enum import StrEnum
 from typing import Any
 from typing import Callable
 
-from django.conf import settings
-
 from backyardchirps.features.settings import queries as settings_queries
 
 # Lowercase words joined by dashes, which is what the pack builder writes into pack.json.
@@ -19,7 +17,6 @@ class SettingsKey(StrEnum):
 
     LOCATION_LAT = "location_lat"
     LOCATION_LON = "location_lon"
-    ACTIVE_ACOUSTIC_MODEL = "active_acoustic_model"
     ANALYSIS_LOW_CONFIDENCE = "analysis_low_confidence"
     ANALYSIS_MEDIUM_CONFIDENCE = "analysis_medium_confidence"
     ANALYSIS_HIGH_CONFIDENCE = "analysis_high_confidence"
@@ -73,8 +70,6 @@ class SettingsErrorCode(StrEnum):
     TEMPERATURE_UNIT = "invalid_temperature_unit"
     # The value is not 'kmh' or 'mph'.
     WIND_SPEED_UNIT = "invalid_wind_speed_unit"
-    # The value is not one of the supported acoustic models.
-    ACOUSTIC_MODEL = "invalid_acoustic_model"
     # The value of a credential is not a string.
     CREDENTIAL = "invalid_credential"
     # The value is not a whole number of 0 or more, and not empty.
@@ -162,12 +157,6 @@ def parse_wind_speed_unit(value: Any) -> str:
     raise ValueError(SettingsErrorCode.WIND_SPEED_UNIT)
 
 
-def parse_acoustic_model(value: Any) -> str:
-    if isinstance(value, str) and value in settings.ACOUSTIC_MODELS:
-        return value
-    raise ValueError(SettingsErrorCode.ACOUSTIC_MODEL)
-
-
 def parse_credential(value: Any) -> str:
     """
     A key or token for an external service. Any string will do, since only the service
@@ -238,7 +227,6 @@ def parse_percentage(value: Any) -> int:
 DEFAULTS: dict[SettingsKey, SettingDefinition[Any]] = {
     SettingsKey.LOCATION_LAT: SettingDefinition(default=None, parser=parse_lat),
     SettingsKey.LOCATION_LON: SettingDefinition(default=None, parser=parse_lon),
-    SettingsKey.ACTIVE_ACOUSTIC_MODEL: SettingDefinition(default="birdnet_3", parser=parse_acoustic_model),
     SettingsKey.ANALYSIS_LOW_CONFIDENCE: SettingDefinition(default=0.4, parser=parse_confidence),
     SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE: SettingDefinition(default=0.7, parser=parse_confidence),
     SettingsKey.ANALYSIS_HIGH_CONFIDENCE: SettingDefinition(default=0.9, parser=parse_confidence),

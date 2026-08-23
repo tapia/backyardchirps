@@ -3,9 +3,8 @@ from collections.abc import Iterator
 
 import numpy as np
 
-# sounddevice is imported inside each function below rather than here, the same way
-# build_acoustic_model imports its analyzers inside their branches. Importing it loads
-# PortAudio, a native library, and the Linux wheel bundles none, so on a machine
+# sounddevice is imported inside each function below rather than here. Importing it
+# loads PortAudio, a native library, and the Linux wheel bundles none, so on a machine
 # without libportaudio2 the import raises. This module is reachable from the URL
 # configuration through the setup feature, so importing it here would stop the web
 # process serving any page at all, over the two endpoints that need a microphone.

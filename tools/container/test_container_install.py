@@ -260,13 +260,6 @@ def test_every_message_catalog_is_compiled(station: Station) -> None:
     )
 
 
-def test_tensorflow_stays_out_of_a_default_install(station: Station) -> None:
-    assert station.path_exists(f"{APP_DIR}/.venv/bin/python"), "No virtualenv was built."
-    assert not station.succeeds([f"{APP_DIR}/.venv/bin/python", "-c", "import tensorflow"]), (
-        "TensorFlow is installed. The birdnet2 extra should stay out of a default install."
-    )
-
-
 def test_nginx_serves_the_site(station: Station) -> None:
     assert station.http_status("http://localhost/") == "200"
 

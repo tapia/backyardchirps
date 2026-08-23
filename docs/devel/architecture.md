@@ -20,19 +20,15 @@ touches audio, and either can restart without the other noticing. That is what m
 cheap: the web server restarts on every push while the recorder keeps listening.
 
 The one thing to remember is that **the recorder reads its configuration only at startup**. It
-builds its analyzer once from `active_acoustic_model`, latitude, longitude and
-`analysis_low_confidence` (`run_recorder.py`), so changing any of those in the web UI never
-reaches the running process. Every other setting is read on each request.
+builds its analyzer once from latitude, longitude and `analysis_low_confidence`
+(`run_recorder.py`), so changing any of those in the web UI never reaches the running process.
+Every other setting is read on each request.
 
 ## Local setup
 
 Requires Python 3.13+, [uv](https://docs.astral.sh/uv/), Node.js 18+, and `gettext` for the
 message catalogs. That floor is the version Raspberry Pi OS trixie ships, since a station builds
 against the system interpreter.
-
-`uv sync` gives you everything, BirdNET 2 and TensorFlow included, because the dev group asks
-for the `birdnet2` extra so the tests can exercise both models. A station installs neither
-unless it is set to BirdNET 2.
 
 ```bash
 uv sync
@@ -225,32 +221,14 @@ detection path is filtered, so the raw candidate list stored on the detection st
 
 The user-facing account of all this is in [using the site](../using-the-site.md).
 
-### Choosing a model
+### The model
 
-`build_acoustic_model` (`recording/audio/acoustic_model.py`) constructs the analyzer named by
-`active_acoustic_model`, read once at recorder startup. Each model lives in its own package and
-both satisfy the `AcousticModel` protocol (`analyze(clip) -> Analysis`, bundling the resolved
-`results` that feed the pipeline with the full `raw_candidates` kept for the record).
-
-| `active_acoustic_model` | Implementation | Location filter |
-|---|---|---|
-| `birdnet_3` (default) | `BirdNet3Analyzer`, the V3 acoustic ONNX | GeoModel 3 (`birdnet3/geomodel.py`) |
-| `birdnet_2` | `BirdNet2Analyzer`, birdnetlib | birdnetlib's own `SpeciesList` |
-
-The factory imports each analyzer inside its own branch, so only the chosen model's
-dependencies are loaded: BirdNET 3 brings in onnxruntime but never birdnetlib or TensorFlow, and
-BirdNET 2 never brings in onnxruntime.
-
-BirdNET 3 is still a preview release, which is why BirdNET 2 remains as the fallback. Both models
-score on similar scales at the same floors, so the thresholds carry over untouched.
-
-BirdNET 2 is an optional extra rather than a dependency, since only its analyzer imports
-birdnetlib and that import is lazy. Leaving it out takes a production install from 98 packages to
-68, TensorFlow being most of the difference. Going back to it is a settings change,
-`uv sync --no-dev --extra birdnet2`, and a recorder restart. `apply.sh` reads the setting after
-migrating and installs the extra itself when it finds `birdnet_2`, so a station already on
-BirdNET 2 keeps working across a deploy. Select it without installing it and the factory refuses
-to build an analyzer, which stops the recorder at startup with the command to run.
+`BirdNet3Analyzer` (`recording/audio/birdnet3/analyzer.py`) is the only acoustic model, built
+once by `run_recorder.py` from the station's coordinates and `analysis_low_confidence`. It
+returns an `Analysis`, bundling the resolved `results` that feed the pipeline with the full
+`raw_candidates` kept for the record. Its location filter is GeoModel 3
+(`birdnet3/geomodel.py`), so the acoustic model and the range model stay on the same generation.
+Everything runs through onnxruntime, and nothing in the project needs TensorFlow.
 
 Three things to know about BirdNET 3 on a Pi. It is heavy: a large fp32 ONNX needing a comparable
 amount of extra RAM, and slower inference, against a clip arriving every 1.5 s. Its

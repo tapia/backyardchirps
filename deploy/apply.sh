@@ -134,11 +134,9 @@ if ! command -v uv > /dev/null; then
 fi
 
 echo "[apply] Installing Python dependencies..."
-# The two `uv sync` lines in this script are the only things that decide what is
-# installed. Every `uv run` below passes --no-sync so it uses the environment
-# rather than building its own: a bare `uv run` re-syncs with the dev group, and
-# dev asks for the birdnet2 extra, which would drag TensorFlow onto a station that
-# just took care to leave it out.
+# This `uv sync` is the only thing that decides what is installed. Every `uv run`
+# below passes --no-sync so it uses the environment rather than building its own:
+# a bare `uv run` re-syncs with the dev group, which a station has no use for.
 uv sync --no-dev
 
 # Two accounts have to get into APP_DIR: nginx, which serves the built frontend
@@ -172,20 +170,6 @@ echo "[apply] Using the prebuilt frontend from the release."
 
 echo "[apply] Running database migrations..."
 run_manage migrate --noinput
-
-# BirdNET 2 is an optional extra, left out of the install above because it drags in
-# TensorFlow and most stations run BirdNET 3. A station set to it needs a second pass.
-# This has to come after the migrations, since the setting lives in the database.
-echo "[apply] Checking which acoustic model is selected..."
-active_acoustic_model="$(run_manage shell -c \
-    'from backyardchirps.features.settings.logic import Settings, SettingsKey
-print(Settings.get(SettingsKey.ACTIVE_ACOUSTIC_MODEL))' | tail -n 1)"
-if [ "$active_acoustic_model" = "birdnet_2" ]; then
-    echo "[apply] BirdNET 2 is selected, so installing its extra as well..."
-    uv sync --no-dev --extra birdnet2
-else
-    echo "[apply] BirdNET 3 is selected, so BirdNET 2 and TensorFlow stay uninstalled."
-fi
 
 # A station that has not been through the setup wizard has no coordinates, and with no
 # coordinates BirdNET matches against every species on earth. Recording in that state

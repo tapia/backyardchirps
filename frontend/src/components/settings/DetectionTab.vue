@@ -1,17 +1,6 @@
 <template>
   <form class="settings-form" @submit.prevent="form.save()">
     <SettingsCard icon="bi-cpu" :title="t('page.settings.analysis')">
-      <SettingsSelectField
-        class="mb-3"
-        :form="form"
-        name="active_acoustic_model"
-        :label="t('page.settings.activeModel')"
-        :hint="t('page.settings.activeModelHint')"
-        :options="[
-          { value: 'birdnet_3', label: t('page.settings.activeModelBirdnet3') },
-          { value: 'birdnet_2', label: t('page.settings.activeModelBirdnet2') },
-        ]"
-      />
       <SettingsPercentField
         class="mb-3"
         :form="form"
@@ -45,7 +34,6 @@ import SettingsCard from './SettingsCard.vue'
 import SettingsSaveBar from './SettingsSaveBar.vue'
 import PerSpeciesRulesCard from './PerSpeciesRulesCard.vue'
 import SettingsPercentField from './SettingsPercentField.vue'
-import SettingsSelectField from './SettingsSelectField.vue'
 
 defineProps({
   form: { type: Object, required: true }, // a useSettingsForm() instance

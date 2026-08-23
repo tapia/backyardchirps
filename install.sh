@@ -270,7 +270,7 @@ check_free_disk
 # 2. System packages
 # ---------------------------------------------------------------------------
 # No Node: the release ships the frontend already built. No git: the release is a
-# tarball. No TensorFlow: BirdNET 3 runs on onnxruntime, which uv installs.
+# tarball. Nothing here for BirdNET either: it runs on onnxruntime, which uv installs.
 #
 # python3 is named even though every Raspberry Pi OS image already has it, because
 # it is what the station is built against. uv is told not to download one of its

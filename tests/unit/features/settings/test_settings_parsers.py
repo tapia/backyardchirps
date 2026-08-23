@@ -3,7 +3,6 @@ from typing import Any
 import pytest
 
 from backyardchirps.features.settings.logic import SettingsErrorCode
-from backyardchirps.features.settings.logic import parse_acoustic_model
 from backyardchirps.features.settings.logic import parse_bool
 from backyardchirps.features.settings.logic import parse_confidence
 from backyardchirps.features.settings.logic import parse_days
@@ -140,17 +139,6 @@ def test_parse_days_valid(value: Any, expected: int) -> None:
 def test_parse_days_invalid(value: Any) -> None:
     with pytest.raises(ValueError, match=SettingsErrorCode.DAYS.value):
         parse_days(value)
-
-
-@pytest.mark.parametrize("value", ["birdnet_2", "birdnet_3"])
-def test_parse_acoustic_model_valid(value: str) -> None:
-    assert parse_acoustic_model(value) == value
-
-
-@pytest.mark.parametrize("value", ["perch_v2", "birdnet", "BIRDNET_3", "", None, 3])
-def test_parse_acoustic_model_invalid(value: Any) -> None:
-    with pytest.raises(ValueError, match=SettingsErrorCode.ACOUSTIC_MODEL.value):
-        parse_acoustic_model(value)
 
 
 @pytest.mark.parametrize(("value", "expected"), [(1, 1), (99, 99), ("50", 50)])

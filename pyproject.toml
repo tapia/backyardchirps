@@ -26,16 +26,6 @@ dependencies = [
     "packaging>=24.0",
 ]
 
-[project.optional-dependencies]
-# BirdNET 2, kept as the fallback while BirdNET 3 is a preview release.
-#
-# Install with `uv sync --extra birdnet2` before setting active_acoustic_model to
-# birdnet_2. The factory says so if you forget.
-birdnet2 = [
-    "birdnetlib>=0.18.1",
-    "tensorflow>=2.21.0",
-]
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -51,10 +41,6 @@ exclude = [
 
 [dependency-groups]
 dev = [
-    # Development and CI install BirdNET 2 as well, so its analyzer and the test that
-    # checks our week numbering against birdnetlib's keep running. A station installs
-    # only what it needs.
-    "backyardchirps[birdnet2]",
     "django-stubs>=6.0.5",
     "djangorestframework-stubs>=3.17.0",
     "mypy>=2.1.0",
@@ -92,7 +78,7 @@ plugins = ["mypy_django_plugin.main", "mypy_drf_plugin.main"]
 django_settings_module = "backyardchirps.settings"
 
 [[tool.mypy.overrides]]
-module = ["sounddevice", "birdnetlib", "birdnetlib.*", "rasterio", "onnxruntime", "librosa"]
+module = ["sounddevice", "rasterio", "onnxruntime", "librosa"]
 ignore_missing_imports = true
 
 [tool.ruff]
