@@ -14,6 +14,7 @@
 #   --data-dir DIR        where the station keeps its data (default /var/lib/backyardchirps)
 #   --ignore-preflight    skip the hardware checks (a container is not a Pi)
 #   --preflight-only      run the hardware checks and stop, installing nothing
+#   --print-sudoers       print the sudoers policy and stop, installing nothing
 #   --help
 #
 # Everything it prints also goes to /var/log/backyardchirps-install.log.
@@ -32,6 +33,7 @@ LOG_FILE=/var/log/backyardchirps-install.log
 LOCAL_TARBALL=
 IGNORE_PREFLIGHT=no
 PREFLIGHT_ONLY=no
+PRINT_SUDOERS=no
 
 # Preflight looks at the machine through these four values. They are overridable so the
 # checks can be run against fixtures, which is the only way to exercise them: the
@@ -51,6 +53,17 @@ REQUIRED_DISK_MB=4096
 # roll back once; three leaves room to roll back from a rollback.
 KEEP_RELEASES=3
 
+# The units the web process may control through sudo, and the verbs it may use on
+# them. Section 7 writes the policy from these two lists, and
+# tests/unit/test_sudoers_policy.py fails if they stop matching what the code asks for.
+MANAGED_UNITS=(
+    backyardchirps-web
+    backyardchirps-recorder
+    backyardchirps-update-species
+    backyardchirps-clip-disk-quota
+)
+MANAGED_UNIT_VERBS=(start stop restart)
+
 while [ $# -gt 0 ]; do
     case "$1" in
         --tarball)          LOCAL_TARBALL="$2"; shift 2 ;;
@@ -58,6 +71,7 @@ while [ $# -gt 0 ]; do
         --data-dir)         DATA_DIR="$2"; shift 2 ;;
         --ignore-preflight) IGNORE_PREFLIGHT=yes; shift ;;
         --preflight-only)   PREFLIGHT_ONLY=yes; shift ;;
+        --print-sudoers)    PRINT_SUDOERS=yes; shift ;;
         --help)
             # The help text is the comment block between the shebang and the first line
             # of code, so editing that block also updates --help.
@@ -197,11 +211,38 @@ check_free_disk() {
     info "${available_mb} MB free on /"
 }
 
+# The policy section 7 writes, one entry per unit per verb.
+#
+# Every unit is named in full. The obvious shorter version, `backyardchirps-*`, grants
+# far more than it looks like it does: sudo matches the arguments as one concatenated
+# string, so the wildcard runs across spaces and `systemctl restart backyardchirps-web
+# nginx` matches the pattern too. It would also pre-approve any unit added later that
+# happens to start with the prefix, which is the wrong default for a unit that runs as
+# root.
+render_sudoers_policy() {
+    local unit verb separator=''
+    printf '%s ALL=(ALL) NOPASSWD:' "$SERVICE_USER"
+    for unit in "${MANAGED_UNITS[@]}"; do
+        for verb in "${MANAGED_UNIT_VERBS[@]}"; do
+            printf '%s \\\n  /bin/systemctl %s %s' "$separator" "$verb" "$unit"
+            separator=','
+        done
+    done
+    printf '\n'
+}
+
 # Run the machine checks and stop. For tests/unit/test_preflight.py, which points the
 # four inputs above at fixtures. Deliberately before the root check and the log
 # file below, so the checks can be exercised without either.
 if [ "$PREFLIGHT_ONLY" = yes ]; then
     check_this_machine
+    exit 0
+fi
+
+# The same idea for the policy: tests/unit/test_sudoers_policy.py reads it from here
+# rather than parsing this file, so the test checks what a station is actually given.
+if [ "$PRINT_SUDOERS" = yes ]; then
+    render_sudoers_policy
     exit 0
 fi
 
@@ -407,15 +448,12 @@ fi
 # sudo at all.
 #
 # What the station does need is the web process, which runs as the service user,
-# being able to restart the recorder after a settings change. Narrow on purpose:
-# these four units, and only start, stop and restart.
+# being able to restart the recorder after a settings change. That is the whole
+# reason this file exists: the units in MANAGED_UNITS, the verbs in
+# MANAGED_UNIT_VERBS, and nothing else. See render_sudoers_policy for why no
+# pattern is used.
 say "Writing the sudoers policy"
-cat > /etc/sudoers.d/backyardchirps <<EOF
-$SERVICE_USER ALL=(ALL) NOPASSWD: \\
-  /bin/systemctl restart backyardchirps-*, \\
-  /bin/systemctl start backyardchirps-*, \\
-  /bin/systemctl stop backyardchirps-*
-EOF
+render_sudoers_policy > /etc/sudoers.d/backyardchirps
 chmod 440 /etc/sudoers.d/backyardchirps
 visudo -cf /etc/sudoers.d/backyardchirps > /dev/null \
     || die "The sudoers file that was just written is not valid. Remove /etc/sudoers.d/backyardchirps."
