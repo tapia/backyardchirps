@@ -65,6 +65,7 @@ MANAGED_UNITS=(
     "backyardchirps-update-species:start,stop,restart"
     "backyardchirps-clip-disk-quota:start,stop,restart"
     "backyardchirps-update:start"
+    "backyardchirps-rollback:start"
 )
 
 while [ $# -gt 0 ]; do

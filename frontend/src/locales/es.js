@@ -104,6 +104,10 @@ export default {
       updateChangelog: 'Qué ha cambiado',
       updateCheckFailed: 'No se ha podido comprobar si hay actualizaciones',
       updateNeverChecked: 'Todavía sin comprobar',
+      updateRollback: 'Volver atrás',
+      updateRollbackConfirm:
+        'Volver atrás reinstala la versión anterior. Si la actualización cambió la base de datos, se perderá todo lo registrado desde entonces. ¿Continuar?',
+      updateRollingBack: 'Volviendo a la versión anterior',
       updateInstall: 'Instalar',
       updateInstalling: 'Instalando {version}',
       updateStep: {
@@ -111,6 +115,8 @@ export default {
         'backing-up': 'Copiando la base de datos',
         installing: 'Instalando',
         verifying: 'Comprobando que la estación ha arrancado',
+        'rolling-back': 'Volviendo a la versión anterior',
+        restoring: 'Restaurando la base de datos guardada antes de actualizar',
         finished: 'Listo',
       },
       updateSucceeded: 'Actualizada a la versión {version}. Recarga la página.',

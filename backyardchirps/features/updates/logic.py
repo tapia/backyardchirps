@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 # Root-owned, and granted `start` alone in the sudoers policy install.sh writes.
 UPDATE_UNIT = "backyardchirps-update"
+ROLLBACK_UNIT = "backyardchirps-rollback"
 
 
 def check_for_update() -> AvailableUpdate:
@@ -69,4 +70,14 @@ def start_update(version: str) -> None:
 
     updates_queries.request_version(version)
     if not start_unit(UPDATE_UNIT):
+        raise UpdateRefused("could_not_start_updater")
+
+
+def start_rollback() -> None:
+    """
+    Ask the station to go back to the release installed before this one.
+    """
+    if read_progress().is_running:
+        raise UpdateRefused("update_already_running")
+    if not start_unit(ROLLBACK_UNIT):
         raise UpdateRefused("could_not_start_updater")

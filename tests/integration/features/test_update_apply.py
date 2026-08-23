@@ -138,3 +138,25 @@ def test_an_unreadable_status_file_is_not_treated_as_a_running_update(settings: 
     assert updates_progress.read_progress().state is UpdateState.IDLE
     updates_logic.start_update("9.9.9")
     assert updates_queries.requested_version() == "9.9.9"
+
+
+def test_a_rollback_starts_the_privileged_unit(started_units: list[str]) -> None:
+    """
+    Nothing is checked here on purpose. Whether an earlier release is still on disk, and
+    whether the database has moved past what it understands, are both things only
+    rollback.sh can see, and it refuses rather than half-doing it.
+    """
+    updates_logic.start_rollback()
+
+    assert started_units == [updates_logic.ROLLBACK_UNIT]
+
+
+def test_a_rollback_is_refused_while_an_update_runs(status_dir: Path, started_units: list[str]) -> None:
+    (status_dir / "status.json").write_text(
+        '{"state": "running", "version": "9.9.9", "step": "installing", "message": ""}'
+    )
+
+    with pytest.raises(updates_logic.UpdateRefused, match="update_already_running"):
+        updates_logic.start_rollback()
+
+    assert started_units == []

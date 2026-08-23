@@ -231,7 +231,7 @@ DAEMONS=(backyardchirps-web backyardchirps-recorder)
 TIMED_JOBS=(backyardchirps-update-species backyardchirps-clip-disk-quota backyardchirps-check-update)
 # Installed and left alone: no timer, never enabled, never started from here. The updater
 # runs when an admin asks for it and the web process starts it through sudo.
-ON_DEMAND_UNITS=(backyardchirps-update)
+ON_DEMAND_UNITS=(backyardchirps-update backyardchirps-rollback)
 
 echo "[apply] Installing/updating systemd units..."
 for daemon in "${DAEMONS[@]}"; do

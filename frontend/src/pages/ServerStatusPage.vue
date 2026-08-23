@@ -29,12 +29,25 @@
       >
         {{ t('page.serverStatus.updateInstall') }}
       </button>
+      <button
+        v-if="canRollBack"
+        type="button"
+        class="btn btn-sm btn-outline-secondary update-install"
+        :disabled="starting"
+        @click="rollBack"
+      >
+        {{ t('page.serverStatus.updateRollback') }}
+      </button>
     </div>
 
     <div v-if="running" class="update-progress mb-4" role="status">
       <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
       <span>
-        {{ t('page.serverStatus.updateInstalling', { version: progress.version }) }}
+        {{
+          progress.step === 'rolling-back' || progress.step === 'restoring'
+            ? t('page.serverStatus.updateRollingBack')
+            : t('page.serverStatus.updateInstalling', { version: progress.version })
+        }}
         <span v-if="stepLabel" class="update-note">· {{ stepLabel }}</span>
       </span>
     </div>
@@ -123,7 +136,12 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useServerStatus } from '../composables/useServerStatus.js'
-import { fetchAvailableUpdate, fetchUpdateProgress, startUpdate } from '../api/index.js'
+import {
+  fetchAvailableUpdate,
+  fetchUpdateProgress,
+  rollbackUpdate,
+  startUpdate,
+} from '../api/index.js'
 import ServerStatusMetricCard from '../components/common/ServerStatusMetricCard.vue'
 
 const { t, te } = useI18n()
@@ -153,6 +171,28 @@ async function install() {
   refusal.value = ''
   try {
     progress.value = await startUpdate(update.value.version)
+    startPolling()
+  } catch (error) {
+    const code = error?.response?.data?.error
+    const key = `page.serverStatus.updateRefused.${code}`
+    refusal.value =
+      code && te(key) ? t(key) : t('page.serverStatus.updateFailed', { message: code || '' })
+  } finally {
+    starting.value = false
+  }
+}
+
+// Offered once an update has finished, which is when going back is a thing somebody might
+// want and when there is certainly an earlier release on disk. Whether there really is one
+// is rollback.sh's to answer; it refuses rather than half-doing it.
+const canRollBack = computed(() => progress.value?.state === 'succeeded' && !running.value)
+
+async function rollBack() {
+  if (!window.confirm(t('page.serverStatus.updateRollbackConfirm'))) return
+  starting.value = true
+  refusal.value = ''
+  try {
+    progress.value = await rollbackUpdate()
     startPolling()
   } catch (error) {
     const code = error?.response?.data?.error

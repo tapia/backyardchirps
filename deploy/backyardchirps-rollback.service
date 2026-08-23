@@ -1,0 +1,15 @@
+[Unit]
+Description=Birds Recorder -> go back to the release installed before this one
+After=network.target
+
+[Service]
+Type=oneshot
+# Root, and no [Install] section, so it is static: nothing can enable it and it runs only
+# when something starts it. The web process may start it and may not stop it.
+User=root
+WorkingDirectory=APP_DIR
+Environment=BACKYARDCHIRPS_DATA_DIR=__DATA_DIR__
+Environment=BACKYARDCHIRPS_LINK_DIR=APP_DIR
+ExecStart=/bin/bash APP_DIR/deploy/rollback.sh
+StandardOutput=journal
+StandardError=journal

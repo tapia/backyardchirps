@@ -25,6 +25,8 @@ from station import INSTALL_DIR
 from station import KEPT_CLIP
 from station import Reinstalled
 from station import Release
+from station import RolledBack
+from station import SelfUpdated
 from station import Station
 from station import Updated
 from station import boot
@@ -33,7 +35,10 @@ from station import build_release
 from station import copy_release_in
 from station import install
 from station import remove
+from station import request_and_run_update
 from station import require_docker
+from station import save_models
+from station import seed_models
 from station import snapshot
 from station import uninstall
 
@@ -92,8 +97,20 @@ def station(booted_station: Station, release: Release) -> Station:
     """
     _say("copying the installer and the tarball in")
     copy_release_in(booted_station, release)
-    _say(f"installing {release.version}: the slow part, Python packages and the model download")
+    seeded = seed_models(booted_station)
+    if seeded:
+        _say("seeding the acoustic model and GeoModel from the local cache")
+    _say(
+        f"installing {release.version}: the slow part, Python packages" + ("" if seeded else " and the model download")
+    )
     _refuse_a_failed_run(booted_station, install(booted_station, release), "install.sh failed")
+
+    # Keep what this run fetched, so the next one starts warm. Done after the install rather
+    # than at the end, because everything below reinstalls onto this same machine and only
+    # the first install can have downloaded anything.
+    if not seeded:
+        _say("caching the models for the next run")
+        save_models(booted_station)
     return booted_station
 
 
@@ -155,11 +172,76 @@ def updated(reinstalled: Reinstalled, upgrade_release: Release) -> Updated:
 
 
 @pytest.fixture(scope="session")
-def uninstalled(updated: Updated) -> Station:
+def self_update_release(tmp_path_factory: pytest.TempPathFactory) -> Release:
+    """
+    A third tarball, so the station has somewhere to update itself to after the update it was
+    given by hand. Same trick as upgrade_release: a PEP 440 local version, which can never
+    collide with a tag.
+    """
+    _say("staging a tarball for the station to update itself to")
+    return build_release(tmp_path_factory.mktemp("selfupdate"), version_suffix="+selfupdate")
+
+
+@pytest.fixture(scope="session")
+def self_updated(updated: Updated, self_update_release: Release) -> SelfUpdated:
+    """
+    The station updating itself, through deploy/update.sh, which is what the button does.
+
+    Everything above this installs by running install.sh directly, which is the documented
+    manual path. This is the other one: the request row, the manifest re-read as root, the
+    database backup, install.sh called by the updater, and the health check.
+    """
+    station = updated.station
+    before = snapshot(station)
+
+    _say(f"letting the station update itself to {self_update_release.version}")
+    result = request_and_run_update(station, self_update_release)
+    _refuse_a_failed_run(station, result, "deploy/update.sh failed")
+    return SelfUpdated(
+        station=station,
+        version=self_update_release.version,
+        before=before,
+        output=result.stdout + result.stderr,
+    )
+
+
+@pytest.fixture(scope="session")
+def rolled_back(self_updated: SelfUpdated) -> RolledBack:
+    """
+    The self-update above, taken back out again, on the branch that costs something.
+
+    The backup it restores is the one deploy/update.sh really wrote, which is what joins the
+    two halves: nothing here arranges it.
+
+    One thing is still arranged. Both releases are built from the same checkout, so they ship
+    identical migrations and the database is never actually ahead. The row added below is what
+    "the update changed the shape of the database" looks like from rollback.sh's side, and
+    without it the branch that restores anything would never run.
+    """
+    station = self_updated.station
+    _say("rolling the station back out of the update it made")
+
+    station.sql(
+        "insert into django_migrations (app, name, applied) "
+        "values ('birds_recorder', '0099_only_in_the_newer_release', datetime('now'))"
+    )
+
+    result = station.run(["bash", f"{APP_DIR}/deploy/rollback.sh"])
+    _refuse_a_failed_run(station, result, "rollback.sh failed")
+    return RolledBack(
+        station=station,
+        from_version=self_updated.version,
+        to_release=self_updated.before.release,
+        output=result.stdout + result.stderr,
+    )
+
+
+@pytest.fixture(scope="session")
+def uninstalled(rolled_back: RolledBack) -> Station:
     _say("uninstalling")
-    result = uninstall(updated.station)
-    _refuse_a_failed_run(updated.station, result, "uninstall.sh failed")
-    return updated.station
+    result = uninstall(rolled_back.station)
+    _refuse_a_failed_run(rolled_back.station, result, "uninstall.sh failed")
+    return rolled_back.station
 
 
 def _refuse_a_failed_run(station: Station, result: subprocess.CompletedProcess[str], what_failed: str) -> None:

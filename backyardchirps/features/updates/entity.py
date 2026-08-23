@@ -33,6 +33,8 @@ class UpdateStep(StrEnum):
     BACKING_UP = "backing-up"
     INSTALLING = "installing"
     VERIFYING = "verifying"
+    ROLLING_BACK = "rolling-back"
+    RESTORING = "restoring"
     FINISHED = "finished"
 
 

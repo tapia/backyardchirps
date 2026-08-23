@@ -267,11 +267,30 @@ and switches to it. Your settings, recordings and account are untouched: only th
 replaced. It takes a few minutes and the site goes down briefly partway through, so a failed
 page load while it runs is expected. The page follows along and tells you when it is finished.
 
-Two things worth knowing before you click. Rolling back is not free once a release has changed
-the database, which is why the backup is taken; see the release notes the badge links to. And an
-update that says it cannot be installed over your version is telling you the release is too far
-ahead of the installer you have, so update by hand as
+An update that says it cannot be installed over your version is telling you the release is too
+far ahead of the installer you have, so update by hand as
 [installation.md](installation.md) describes.
+
+**Going back to the previous release** is the other button, and it appears once an update has
+finished. Read this before using it.
+
+Most of the time going back is cheap: the station reinstalls the release it was on before and
+your data is untouched. It stops being cheap when the update changed the shape of the database.
+The old code cannot read the new shape, so going back also restores the copy taken just before
+the update, and **every detection recorded since that update is dropped**. There is no way to
+keep both: the recordings are still on disk, but the station no longer has rows for them.
+
+The station does not throw the newer database away. It is moved aside into `backups/` in the data
+directory, named `detections-rolled-back-<timestamp>.db`, so somebody who knows SQLite can get
+the lost detections out of it afterwards.
+
+If the update did not change the database, nothing is restored and nothing is lost. The station
+works out which case it is on its own, by asking the older release which migrations it knows
+about. You are not expected to.
+
+One more thing it does without being asked: if an update installs but the site does not answer
+afterwards, the station goes back on its own rather than leaving you with a machine you can only
+reach over ssh.
 
 The **sound processing queue** card answers one question: is the recorder analyzing clips
 faster than they arrive? A clip arrives every 1.5 seconds, so there are 1500 ms available to

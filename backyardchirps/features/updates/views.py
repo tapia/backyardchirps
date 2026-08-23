@@ -82,3 +82,17 @@ def _progress_body() -> dict[str, str]:
         "step": progress.step,
         "message": progress.message,
     }
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def rollback_update(request: Request) -> Response:
+    """
+    Go back to the release before this one. Admin only, like everything else here.
+    """
+    try:
+        updates_logic.start_rollback()
+    except UpdateRefused as refusal:
+        return Response({"error": str(refusal)}, status=409)
+
+    return Response(_progress_body(), status=202)

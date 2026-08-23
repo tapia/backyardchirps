@@ -15,3 +15,10 @@ export async function fetchUpdateProgress() {
   const { data } = await client.get('/api/updates/progress/')
   return data
 }
+
+// Reinstalls the previous release, and restores the database saved before the update when
+// that update crossed a migration. Destructive: the caller confirms first.
+export async function rollbackUpdate() {
+  const { data } = await client.post('/api/updates/rollback/')
+  return data
+}

@@ -12,6 +12,7 @@ MANAGED_UNITS = {
     "backyardchirps-update-species": ("start", "stop", "restart"),
     "backyardchirps-clip-disk-quota": ("start", "stop", "restart"),
     "backyardchirps-update": ("start",),
+    "backyardchirps-rollback": ("start",),
 }
 
 # Long enough for the recorder to release the microphone and come back, short enough

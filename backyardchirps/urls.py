@@ -52,6 +52,7 @@ urlpatterns = [
     path("api/updates/available/", updates_views.available_update, name="api-updates-available"),
     path("api/updates/apply/", updates_views.apply_update, name="api-updates-apply"),
     path("api/updates/progress/", updates_views.update_progress, name="api-updates-progress"),
+    path("api/updates/rollback/", updates_views.rollback_update, name="api-updates-rollback"),
     path("api/weather/current/", weather_views.current_weather, name="api-weather-current"),
     path(
         "api/detections/hourly/",

@@ -54,3 +54,11 @@ def test_applying_an_update_rejects_anonymous(api_client: APIClient) -> None:
     it is a POST, so the GET list above cannot cover it.
     """
     assert api_client.post("/api/updates/apply/", {"version": "9.9.9"}, format="json").status_code == 403
+
+
+def test_rolling_back_rejects_anonymous(api_client: APIClient) -> None:
+    """
+    The other endpoint that starts a root-owned unit, and the more destructive of the two:
+    a rollback across a migration drops everything recorded since the update.
+    """
+    assert api_client.post("/api/updates/rollback/", {}, format="json").status_code == 403

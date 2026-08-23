@@ -103,6 +103,10 @@ export default {
       updateChangelog: 'What changed',
       updateCheckFailed: 'Could not check for updates',
       updateNeverChecked: 'Not checked yet',
+      updateRollback: 'Go back',
+      updateRollbackConfirm:
+        'Going back reinstalls the previous release. If the update changed the database, everything recorded since it will be lost. Continue?',
+      updateRollingBack: 'Going back to the previous release',
       updateInstall: 'Install',
       updateInstalling: 'Installing {version}',
       updateStep: {
@@ -110,6 +114,8 @@ export default {
         'backing-up': 'Backing up the database',
         installing: 'Installing',
         verifying: 'Checking the station came up',
+        'rolling-back': 'Going back to the previous release',
+        restoring: 'Restoring the database saved before the update',
         finished: 'Done',
       },
       updateSucceeded: 'Updated to {version}. Reload the page.',

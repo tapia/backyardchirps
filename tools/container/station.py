@@ -11,6 +11,7 @@ and once with a newer version to prove an update.
 
 import dataclasses
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -97,6 +98,32 @@ class Reinstalled:
 
 
 @dataclasses.dataclass(frozen=True)
+class SelfUpdated:
+    """
+    A station that updated itself, through deploy/update.sh rather than through somebody
+    running the installer, and what it said while doing it.
+    """
+
+    station: "Station"
+    version: str
+    before: Snapshot
+    output: str
+
+
+@dataclasses.dataclass(frozen=True)
+class RolledBack:
+    """
+    A station taken back to the release it was on before the update, and what it looked like
+    on the way in.
+    """
+
+    station: "Station"
+    from_version: str
+    to_release: str
+    output: str
+
+
+@dataclasses.dataclass(frozen=True)
 class Updated:
     """
     A station moved to a newer release, with what it looked like before.
@@ -129,6 +156,23 @@ class Station:
         execing as it, which is also how apply.sh reaches it.
         """
         return self.run(["sudo", "-u", SERVICE_USER, "bash", "-c", shell_command])
+
+    def sql(self, statement: str) -> str:
+        """
+        Run one statement against the station's database as the service user.
+
+        Through the release's own interpreter rather than the sqlite3 command line tool,
+        which is installed in this image for the test's convenience and not on a real
+        station.
+        """
+        script = (
+            "import sqlite3, sys; "
+            f"connection = sqlite3.connect('{DATA_DIR}/detections.db'); "
+            "rows = connection.execute(sys.argv[1]).fetchall(); "
+            "connection.commit(); "
+            "print('\\n'.join(str(row[0]) for row in rows))"
+        )
+        return self.run_as_service_user(f'{APP_DIR}/.venv/bin/python -c "{script}" "{statement}"').stdout.strip()
 
     def sudo_permits(self, command: str) -> bool:
         """
@@ -282,6 +326,52 @@ def build_release(output_dir: Path, version_suffix: str = "") -> Release:
     )
 
 
+# Where the acoustic model and GeoModel are kept between runs, so a suite that installs a
+# station four times downloads them once ever rather than once per install.
+#
+# The cache fills itself from the first run that downloads them, which is why nothing here
+# repeats a URL or a published size: those live in the code under test and would rot here.
+# A cold cache still needs the network; every run after it does not.
+MODEL_CACHE_DIR = Path(
+    os.environ.get("BACKYARDCHIRPS_MODEL_CACHE", Path.home() / ".cache" / "backyardchirps-container-models")
+)
+STATION_MODELS_DIR = f"{DATA_DIR}/models"
+
+
+def seed_models(station: Station) -> bool:
+    """
+    Put cached models where a fresh install will find them, before install.sh runs.
+
+    apply.sh skips a download when the file is already there at the published size, so this
+    is not a stub: the same check a real station makes on its second deploy is what decides.
+    They land root-owned and world-readable, which is enough, since provision-data-dir.sh
+    creates the data directory without touching what is already inside it.
+    """
+    cached = sorted(MODEL_CACHE_DIR.glob("*")) if MODEL_CACHE_DIR.is_dir() else []
+    if not cached:
+        return False
+
+    station.run(["mkdir", "-p", STATION_MODELS_DIR])
+    for path in cached:
+        station.copy_in(path, f"{STATION_MODELS_DIR}/{path.name}")
+    station.run(["chmod", "-R", "a+rX", STATION_MODELS_DIR])
+    return True
+
+
+def save_models(station: Station) -> None:
+    """
+    Keep what this run downloaded, so the next one does not have to.
+    """
+    MODEL_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    listed = station.output_of(["ls", "-1", STATION_MODELS_DIR])
+    for name in [line.strip() for line in listed.splitlines() if line.strip()]:
+        subprocess.run(
+            ["docker", "cp", f"{station.name}:{STATION_MODELS_DIR}/{name}", str(MODEL_CACHE_DIR / name)],
+            capture_output=True,
+            check=False,
+        )
+
+
 def build_image() -> None:
     result = subprocess.run(
         ["docker", "build", "-t", IMAGE, str(CONTAINER_DIR)],
@@ -391,4 +481,58 @@ def _wait_for_systemd(station: Station) -> None:
         f"at 'systemctl status'.\n"
         f"--- container output ---\n{station.container_logs()}\n"
         f"--- failed units ---\n{', '.join(station.failed_units()) or 'none'}"
+    )
+
+
+def serve_release_locally(station: Station, release: Release) -> str:
+    """
+    Put a release where the station can install it from, and write the manifest that offers
+    it. Returns the manifest URL.
+
+    A file:// URL, not a web server. curl reads those, and both install.sh and update.sh
+    reach the manifest and the tarball through curl and take the URL from a variable, so
+    nothing is stubbed and no code path is skipped: the download, the checksum and the
+    unpack are the ones a real update runs.
+    """
+    station.copy_in(release.tarball_path, f"{INSTALL_DIR}/{release.tarball_name}")
+    checksum = station.output_of(["sha256sum", f"{INSTALL_DIR}/{release.tarball_name}"]).split()[0]
+    manifest = json.dumps(
+        {
+            "version": release.version,
+            "released": "2026-08-23",
+            "sha256": checksum,
+            "url": f"file://{INSTALL_DIR}/{release.tarball_name}",
+            "min_upgrade_from": "0.1.0",
+            "changelog_url": "https://example.com/releases",
+        }
+    )
+    station.run(["bash", "-c", f"cat > {INSTALL_DIR}/manifest.json <<'EOF'\n{manifest}\nEOF"])
+    return f"file://{INSTALL_DIR}/manifest.json"
+
+
+def request_and_run_update(station: Station, release: Release) -> subprocess.CompletedProcess[str]:
+    """
+    Ask for a version the way the web process does, by writing the request row, then run the
+    privileged half the way systemd does.
+
+    The unit is not started through systemctl here, because the point is to see what the
+    script does and to read its output when it does not.
+    """
+    manifest_url = serve_release_locally(station, release)
+    requested = station.run_as_service_user(
+        f"BACKYARDCHIRPS_DATA_DIR={DATA_DIR} {APP_DIR}/.venv/bin/python {APP_DIR}/manage.py shell -c "
+        f"'from backyardchirps.features.updates import queries; queries.request_version(\"{release.version}\")'"
+    )
+    if requested.returncode != 0:
+        raise RuntimeError(f"Could not record the update request:\n{requested.stderr}")
+
+    return station.run(
+        [
+            "env",
+            f"BACKYARDCHIRPS_DATA_DIR={DATA_DIR}",
+            f"BACKYARDCHIRPS_LINK_DIR={APP_DIR}",
+            f"BACKYARDCHIRPS_MANIFEST_URL={manifest_url}",
+            "bash",
+            f"{APP_DIR}/deploy/update.sh",
+        ]
     )

@@ -157,4 +157,11 @@ for _ in $(seq 1 30); do
     sleep 2
 done
 
-fail verifying "The site did not answer after the update. Check journalctl -u backyardchirps-web."
+# The site is not answering on the new release. Put the old one back rather than leaving a
+# station that a person has to reach over ssh to fix, and let rollback.sh own the status
+# file from here: it reports what it did, including whether it had to restore the database.
+say "The site did not answer on $VERSION, going back to the release before it"
+if bash "$LINK_DIR/deploy/rollback.sh"; then
+    exit 1
+fi
+fail verifying "$VERSION did not come up, and going back to the previous release failed too."

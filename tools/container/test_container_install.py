@@ -23,6 +23,8 @@ from station import KEPT_CLIP
 from station import SERVICE_USER
 from station import TIMED_JOBS
 from station import Reinstalled
+from station import RolledBack
+from station import SelfUpdated
 from station import Station
 from station import Updated
 
@@ -81,6 +83,38 @@ def test_the_service_user_may_start_the_updater(station: Station) -> None:
     refusals below it are what keep the web process from killing an update it started.
     """
     assert station.sudo_permits("/bin/systemctl start backyardchirps-update")
+
+
+@pytest.mark.parametrize("unit", ["backyardchirps-update", "backyardchirps-rollback"])
+def test_the_on_demand_units_are_installed(station: Station, unit: str) -> None:
+    assert station.path_exists(f"/etc/systemd/system/{unit}.service")
+
+
+def test_the_service_user_may_start_a_rollback(station: Station) -> None:
+    assert station.sudo_permits("/bin/systemctl start backyardchirps-rollback")
+    assert not station.sudo_permits("/bin/systemctl stop backyardchirps-rollback")
+
+
+def test_the_release_carries_the_rollback_script(station: Station) -> None:
+    assert station.path_exists(f"{APP_DIR}/deploy/rollback.sh")
+
+
+def test_a_rollback_with_nothing_to_go_back_to_refuses(station: Station) -> None:
+    """
+    A freshly installed station has exactly one release, so there is nothing behind it.
+    Refusing has to leave the station where it was: the symlink still pointing at the only
+    release it has, and the site still answering.
+    """
+    before = station.real_path(APP_DIR)
+
+    result = station.run(["bash", f"{APP_DIR}/deploy/rollback.sh"])
+
+    assert result.returncode != 0, "A rollback with no earlier release reported success."
+    assert station.real_path(APP_DIR) == before
+    assert station.unit_is_active("backyardchirps-web")
+
+    status = station.read(f"{DATA_DIR}/update/status.json")
+    assert '"state": "failed"' in status, status
 
 
 def test_the_updater_unit_is_static_and_idle(station: Station) -> None:
@@ -404,6 +438,115 @@ def test_a_failed_build_leaves_the_running_release_alone(updated: Updated) -> No
         assert station.unit_is_active("backyardchirps-web"), "A failed build took the web server down with it."
     finally:
         station.run(["rm", "-rf", broken_release])
+
+
+# ---------------------------------------------------------------------------
+# The station updating itself, through deploy/update.sh
+# ---------------------------------------------------------------------------
+
+
+def test_the_self_update_went_live(self_updated: SelfUpdated) -> None:
+    live = self_updated.station.real_path(APP_DIR)
+
+    assert live != self_updated.before.release, f"{APP_DIR} still points at {self_updated.before.release}."
+    assert live.endswith(f"/releases/{self_updated.version}"), f"current points at {live}."
+
+
+def test_the_updater_backed_the_database_up_before_migrating(self_updated: SelfUpdated) -> None:
+    """
+    The reason this fixture exists. Migrations run above the symlink swap, so the copy taken
+    before them is the only way back across one, and rollback.sh restores whatever it finds
+    here. Nothing else in the suite proves the updater actually writes it.
+    """
+    backups = self_updated.station.files_matching(f"{DATA_DIR}/backups", "detections-before-*.db")
+
+    assert backups, "deploy/update.sh migrated without leaving a copy of the database behind."
+
+
+def test_the_backup_names_the_version_it_was_taken_before(self_updated: SelfUpdated) -> None:
+    """
+    rollback.sh takes the newest backup, but a person reading backups/ has to be able to tell
+    which update each one belongs to.
+    """
+    backups = self_updated.station.files_matching(f"{DATA_DIR}/backups", "detections-before-*.db")
+
+    assert any(self_updated.version in name for name in backups), backups
+
+
+def test_the_data_directory_came_through_the_self_update(self_updated: SelfUpdated) -> None:
+    station = self_updated.station
+
+    assert station.output_of(["grep", "^SECRET_KEY=", f"{DATA_DIR}/.env"]) == self_updated.before.secret_key
+    assert station.inode_of(f"{DATA_DIR}/detections.db") == self_updated.before.database_inode
+    assert station.path_exists(KEPT_CLIP)
+
+
+def test_the_updater_reported_that_it_finished(self_updated: SelfUpdated) -> None:
+    status = self_updated.station.read(f"{DATA_DIR}/update/status.json")
+
+    assert '"state": "succeeded"' in status, status
+    assert self_updated.version in status, status
+
+
+def test_the_self_updated_station_still_serves_the_site(self_updated: SelfUpdated) -> None:
+    assert self_updated.station.http_status("http://localhost/") == "200"
+    assert self_updated.station.http_status("http://localhost/api/species/") == "200"
+
+
+# ---------------------------------------------------------------------------
+# Rolled back to the release before the update
+# ---------------------------------------------------------------------------
+
+
+def test_the_rollback_went_live(rolled_back: RolledBack) -> None:
+    live = rolled_back.station.real_path(APP_DIR)
+
+    assert live == rolled_back.to_release, f"current points at {live} rather than back at {rolled_back.to_release}."
+
+
+def test_the_running_release_reports_the_older_version(rolled_back: RolledBack) -> None:
+    reported = rolled_back.station.output_of(
+        [
+            f"{APP_DIR}/.venv/bin/python",
+            "-c",
+            "from importlib.metadata import version; print(version('backyardchirps'))",
+        ]
+    )
+    assert reported != rolled_back.from_version, "The station still reports the version it was rolled back from."
+
+
+def test_the_database_ahead_of_the_older_release_was_restored(rolled_back: RolledBack) -> None:
+    """
+    The branch that costs something. The migration row standing in for "this update changed the
+    database" has to be gone, because the copy that was restored predates it.
+    """
+    rows = rolled_back.station.sql(
+        "select count(*) from django_migrations where name = '0099_only_in_the_newer_release'"
+    )
+    assert rows == "0", "The database was not restored, so the older release is running against a newer schema."
+
+
+def test_the_replaced_database_is_kept(rolled_back: RolledBack) -> None:
+    """
+    It holds every detection recorded since the update. Dropping those is the cost of going back;
+    deleting the only copy of them would be losing them.
+    """
+    kept = rolled_back.station.files_matching(f"{DATA_DIR}/backups", "detections-rolled-back-*.db")
+    assert kept, "Nothing under backups/ holds what the restore replaced."
+
+
+def test_the_recordings_survived_the_rollback(rolled_back: RolledBack) -> None:
+    assert rolled_back.station.path_exists(KEPT_CLIP)
+
+
+def test_the_station_still_serves_the_site_after_going_back(rolled_back: RolledBack) -> None:
+    assert rolled_back.station.unit_is_active("backyardchirps-web")
+    assert rolled_back.station.http_status("http://localhost/") == "200"
+
+
+def test_the_rollback_reported_that_it_finished(rolled_back: RolledBack) -> None:
+    status = rolled_back.station.read(f"{DATA_DIR}/update/status.json")
+    assert '"state": "succeeded"' in status, status
 
 
 # ---------------------------------------------------------------------------
