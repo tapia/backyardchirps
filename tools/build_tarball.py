@@ -49,6 +49,10 @@ RELEASE_PATHS = [
     "backyardchirps",
     "deploy",
     "docs",
+    # Shipped so a station carries the installer it was installed with. deploy/update.sh
+    # runs it to install the next release, rather than repeating its download, checksum
+    # and unpack logic in a second place.
+    "install.sh",
     "manage.py",
     "pyproject.toml",
     "uv.lock",

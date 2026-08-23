@@ -85,6 +85,7 @@ The recorder reads it at startup, so restart it after changing it.
 | `download_birdnet3_model` | Fetches the acoustic model and GeoModel when the local copy is missing or no longer the published size |
 | `enforce_clip_disk_quota` | Deletes the oldest clip files when disk usage exceeds the configured percentage |
 | `check_for_update` | Reads the published release manifest and stores what it found, so the UI can say a newer version exists (daily timer in production) |
+| `show_update_request` | Prints the version an admin asked to install, for `deploy/update.sh` to read as root |
 
 ## Backend layout
 

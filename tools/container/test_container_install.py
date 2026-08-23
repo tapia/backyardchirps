@@ -85,6 +85,43 @@ def test_the_sudoers_policy_is_valid(station: Station) -> None:
     assert station.succeeds(["visudo", "-cf", "/etc/sudoers.d/backyardchirps"])
 
 
+def test_the_service_user_may_start_the_updater(station: Station) -> None:
+    """
+    Start and nothing else. 5.2 turns this grant into the update button, and the two
+    refusals below it are what keep the web process from killing an update it started.
+    """
+    assert station.sudo_permits("/bin/systemctl start backyardchirps-update")
+
+
+def test_the_updater_unit_is_installed_but_not_enabled(station: Station) -> None:
+    """
+    It has no timer and must never start on its own. apply.sh installs it and leaves it,
+    unlike every other unit the station carries.
+    """
+    assert station.path_exists("/etc/systemd/system/backyardchirps-update.service")
+    assert not station.unit_is_enabled("backyardchirps-update")
+    assert not station.unit_is_active("backyardchirps-update")
+
+
+def test_the_updater_can_only_write_its_status_where_the_web_process_cannot(station: Station) -> None:
+    """
+    Root writes the status file and the service user only reads it. If the service user
+    owned that directory it could leave a symlink there and have root follow it on the
+    next update.
+    """
+    assert station.owner_of(f"{DATA_DIR}/update") == "root"
+    assert station.mode_of(f"{DATA_DIR}/update") == "755"
+
+
+def test_the_release_carries_the_installer_it_needs_to_update(station: Station) -> None:
+    """
+    deploy/update.sh runs this rather than repeating install.sh's download, checksum and
+    unpack in a second place.
+    """
+    assert station.path_exists(f"{APP_DIR}/install.sh")
+    assert station.path_exists(f"{APP_DIR}/deploy/update.sh")
+
+
 def test_the_service_user_may_restart_its_own_recorder(station: Station) -> None:
     """
     The grant the station cannot work without. The recorder reads lat/lon and the confidence
@@ -99,7 +136,8 @@ def test_the_service_user_may_restart_its_own_recorder(station: Station) -> None
         pytest.param("/bin/systemctl restart nginx", id="a-unit-that-is-not-ours"),
         pytest.param("/bin/systemctl restart backyardchirps-recorder nginx", id="ours-and-then-one-that-is-not"),
         pytest.param("/bin/systemctl stop backyardchirps-web ssh", id="ours-and-then-the-way-back-in"),
-        pytest.param("/bin/systemctl restart backyardchirps-update", id="a-unit-that-does-not-exist-yet"),
+        pytest.param("/bin/systemctl restart backyardchirps-update", id="restarting-the-updater"),
+        pytest.param("/bin/systemctl stop backyardchirps-update", id="stopping-an-update-half-way"),
         pytest.param("/bin/systemctl daemon-reload", id="a-verb-the-policy-does-not-grant"),
         pytest.param("/bin/su", id="something-that-is-not-systemctl"),
     ],

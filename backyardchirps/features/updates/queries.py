@@ -3,6 +3,7 @@ from typing import Any
 
 from backyardchirps.features.updates.entity import AvailableUpdate
 from backyardchirps.models.update_check import StoredUpdateCheck
+from backyardchirps.models.update_request import StoredUpdateRequest
 
 
 def last_check() -> AvailableUpdate | None:
@@ -38,3 +39,20 @@ def _store(manifest: str, error: str) -> AvailableUpdate:
     row.error = error
     row.save()
     return row.to_entity()
+
+
+def requested_version() -> str:
+    """
+    The version an admin last asked for, or empty if none ever has been.
+    """
+    row = StoredUpdateRequest.objects.first()
+    return row.version if row is not None else ""
+
+
+def request_version(version: str) -> None:
+    """
+    Record what to install. One row, replaced.
+    """
+    row = StoredUpdateRequest.objects.first() or StoredUpdateRequest()
+    row.version = version
+    row.save()

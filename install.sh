@@ -53,16 +53,19 @@ REQUIRED_DISK_MB=4096
 # roll back once; three leaves room to roll back from a rollback.
 KEEP_RELEASES=3
 
-# The units the web process may control through sudo, and the verbs it may use on
-# them. Section 7 writes the policy from these two lists, and
-# tests/unit/test_sudoers_policy.py fails if they stop matching what the code asks for.
+# Which units the web process may control through sudo, and which verbs on each.
+# Section 7 writes the policy from this list, and tests/unit/test_sudoers_policy.py fails
+# if it stops matching what the code asks for.
+#
+# The updater is start and nothing else. It runs as root and replaces the release, so the
+# web process may ask for it to run and may not stop it half way.
 MANAGED_UNITS=(
-    backyardchirps-web
-    backyardchirps-recorder
-    backyardchirps-update-species
-    backyardchirps-clip-disk-quota
+    "backyardchirps-web:start,stop,restart"
+    "backyardchirps-recorder:start,stop,restart"
+    "backyardchirps-update-species:start,stop,restart"
+    "backyardchirps-clip-disk-quota:start,stop,restart"
+    "backyardchirps-update:start"
 )
-MANAGED_UNIT_VERBS=(start stop restart)
 
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -220,10 +223,12 @@ check_free_disk() {
 # happens to start with the prefix, which is the wrong default for a unit that runs as
 # root.
 render_sudoers_policy() {
-    local unit verb separator=''
+    local entry unit verbs verb separator=''
     printf '%s ALL=(ALL) NOPASSWD:' "$SERVICE_USER"
-    for unit in "${MANAGED_UNITS[@]}"; do
-        for verb in "${MANAGED_UNIT_VERBS[@]}"; do
+    for entry in "${MANAGED_UNITS[@]}"; do
+        unit="${entry%%:*}"
+        verbs="${entry#*:}"
+        for verb in ${verbs//,/ }; do
             printf '%s \\\n  /bin/systemctl %s %s' "$separator" "$verb" "$unit"
             separator=','
         done
@@ -449,9 +454,8 @@ fi
 #
 # What the station does need is the web process, which runs as the service user,
 # being able to restart the recorder after a settings change. That is the whole
-# reason this file exists: the units in MANAGED_UNITS, the verbs in
-# MANAGED_UNIT_VERBS, and nothing else. See render_sudoers_policy for why no
-# pattern is used.
+# reason this file exists: the unit and verb pairs in MANAGED_UNITS and nothing
+# else. See render_sudoers_policy for why no pattern is used.
 say "Writing the sudoers policy"
 render_sudoers_policy > /etc/sudoers.d/backyardchirps
 chmod 440 /etc/sudoers.d/backyardchirps

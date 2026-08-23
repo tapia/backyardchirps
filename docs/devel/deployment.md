@@ -140,8 +140,10 @@ only after `nginx -t` accepts the new file.
 
 One sharp edge remains: migrations run at step 2, above the swap, so a build that fails after
 them leaves a database ahead of the code still serving. Additive migrations are harmless there,
-but a destructive one would not be. The backup-before-migrating half of that belongs to the
-updater, in [installer-plan.md](installer-plan.md) Phase 5.2.
+but a destructive one would not be. An update started from the UI copies the database first, into
+`backups/` in the data directory, which is what a rollback across a migration restores. A deploy
+run by hand does not, so take your own copy before applying anything that drops or rewrites a
+column.
 
 To run it by hand on the station, against whatever `current` points at:
 

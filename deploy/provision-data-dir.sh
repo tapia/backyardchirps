@@ -74,6 +74,15 @@ sudo chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
 # user still reads .env through sudo rather than through the permission bits.
 sudo chmod 755 "$DATA_DIR"
 
+# Where the updater reports progress. Root writes it and the service user only reads
+# it, which is the point of the separate directory: the status file sits inside a
+# directory the web process cannot write, so it cannot replace it with a symlink and
+# have root follow that symlink on the next update.
+echo "[provision] Creating $DATA_DIR/update..."
+sudo mkdir -p "$DATA_DIR/update"
+sudo chown root:root "$DATA_DIR/update"
+sudo chmod 755 "$DATA_DIR/update"
+
 # This is what apply.sh reads when its caller passes no data directory, so a person
 # running it by hand on the station gets the same one the units use.
 echo "[provision] Recording it in /etc/default/backyardchirps..."

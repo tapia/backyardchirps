@@ -229,6 +229,9 @@ DAEMONS=(backyardchirps-web backyardchirps-recorder)
 # Timer-driven oneshots. Each name is both a .service (the job) and a .timer
 # (the schedule); only the timer is enabled, systemd starts the service.
 TIMED_JOBS=(backyardchirps-update-species backyardchirps-clip-disk-quota backyardchirps-check-update)
+# Installed and left alone: no timer, never enabled, never started from here. The updater
+# runs when an admin asks for it and the web process starts it through sudo.
+ON_DEMAND_UNITS=(backyardchirps-update)
 
 echo "[apply] Installing/updating systemd units..."
 for daemon in "${DAEMONS[@]}"; do
@@ -237,6 +240,9 @@ done
 for job in "${TIMED_JOBS[@]}"; do
     install_file "$APP_DIR/deploy/$job.service" "/etc/systemd/system/$job.service" || true
     install_file "$APP_DIR/deploy/$job.timer" "/etc/systemd/system/$job.timer" || true
+done
+for unit in "${ON_DEMAND_UNITS[@]}"; do
+    install_file "$APP_DIR/deploy/$unit.service" "/etc/systemd/system/$unit.service" || true
 done
 sudo systemctl daemon-reload
 

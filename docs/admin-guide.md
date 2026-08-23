@@ -261,6 +261,18 @@ the station was installed, which sorts itself out overnight. "Could not check fo
 it ran and failed, usually because the station has no route to the internet, and it stays until
 a later check succeeds. Neither means you are up to date.
 
+**Installing an update** is the button beside that badge. The station backs up its database
+first, into `backups/` in the data directory, then installs the new release beside the old one
+and switches to it. Your settings, recordings and account are untouched: only the code is
+replaced. It takes a few minutes and the site goes down briefly partway through, so a failed
+page load while it runs is expected. The page follows along and tells you when it is finished.
+
+Two things worth knowing before you click. Rolling back is not free once a release has changed
+the database, which is why the backup is taken; see the release notes the badge links to. And an
+update that says it cannot be installed over your version is telling you the release is too far
+ahead of the installer you have, so update by hand as
+[installation.md](installation.md) describes.
+
 The **sound processing queue** card answers one question: is the recorder analyzing clips
 faster than they arrive? A clip arrives every 1.5 seconds, so there are 1500 ms available to
 analyze each one. The big number is the average analysis time as a percentage of that, and it

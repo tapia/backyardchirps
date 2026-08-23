@@ -12,6 +12,7 @@ _ADMIN_ONLY_PATHS = [
     "/api/server-status/",
     "/api/species/detection-settings/",
     "/api/updates/available/",
+    "/api/updates/progress/",
 ]
 
 # Public read endpoints: anonymous is allowed.
@@ -45,3 +46,11 @@ def test_species_detection_settings_put_requires_staff(
     response = api_client.put("/api/species/turdus-merula/detection-settings/", {"blacklisted": True}, format="json")
 
     assert response.status_code == 403
+
+
+def test_applying_an_update_rejects_anonymous(api_client: APIClient) -> None:
+    """
+    The one endpoint here that starts a root-owned unit. Anonymous must not reach it, and
+    it is a POST, so the GET list above cannot cover it.
+    """
+    assert api_client.post("/api/updates/apply/", {"version": "9.9.9"}, format="json").status_code == 403

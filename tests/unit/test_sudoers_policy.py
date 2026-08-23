@@ -14,8 +14,9 @@ from pathlib import Path
 import pytest
 
 from backyardchirps.features.setup import logic as setup_logic
-from backyardchirps.integrations.systemd import ALLOWED_UNITS
+from backyardchirps.integrations.systemd import MANAGED_UNITS
 from backyardchirps.integrations.systemd import restart_unit
+from backyardchirps.integrations.systemd import start_unit
 
 INSTALLER = Path(__file__).resolve().parents[2] / "install.sh"
 
@@ -86,14 +87,33 @@ def test_the_policy_carries_no_wildcard(policy: str) -> None:
         assert character not in policy, f"the policy contains {character!r}: {policy}"
 
 
-def test_the_policy_names_the_units_the_code_knows_about(policy: str) -> None:
-    units = {ENTRY_PATTERN.match(entry).group(2) for entry in parse_entries(policy)}  # type: ignore[union-attr]
-    assert units == set(ALLOWED_UNITS)
+def test_the_policy_grants_exactly_the_pairs_the_code_knows_about(policy: str) -> None:
+    """
+    Pairs, not just unit names. The updater runs as root and replaces the release, so it
+    is granted `start` alone: a policy that quietly gave it `stop` as well would let the
+    web process kill an update half way through, and a unit-only check would not notice.
+    """
+    granted = set()
+    for entry in parse_entries(policy):
+        match = ENTRY_PATTERN.match(entry)
+        assert match, f"unexpected entry: {entry}"
+        granted.add((match.group(2), match.group(1)))
+
+    expected = {(unit, verb) for unit, verbs in MANAGED_UNITS.items() for verb in verbs}
+    assert granted == expected
 
 
 def test_the_policy_grants_no_verb_beyond_start_stop_and_restart(policy: str) -> None:
     verbs = {ENTRY_PATTERN.match(entry).group(1) for entry in parse_entries(policy)}  # type: ignore[union-attr]
     assert verbs <= ALLOWED_VERBS
+
+
+def test_the_updater_may_be_started_and_nothing_more(policy: str) -> None:
+    entries = parse_entries(policy)
+
+    assert "/bin/systemctl start backyardchirps-update" in entries
+    assert "/bin/systemctl stop backyardchirps-update" not in entries
+    assert "/bin/systemctl restart backyardchirps-update" not in entries
 
 
 def test_the_unit_the_wizard_restarts_is_covered(policy: str) -> None:
@@ -113,3 +133,18 @@ def test_a_unit_outside_the_list_is_refused_without_calling_sudo(
     monkeypatch.setattr(subprocess, "run", fail)
     assert restart_unit("nginx") is False
     assert restart_unit("backyardchirps-web nginx") is False
+    # Granted start, so restarting it has to be refused by the verb rather than the unit.
+    assert restart_unit("backyardchirps-update") is False
+
+
+def test_the_updater_can_be_started_through_the_verb_it_was_granted(monkeypatch: pytest.MonkeyPatch) -> None:
+    called: list[list[str]] = []
+
+    def record(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        called.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", record)
+
+    assert start_unit("backyardchirps-update") is True
+    assert called == [["sudo", "systemctl", "start", "backyardchirps-update"]]
