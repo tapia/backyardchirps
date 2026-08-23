@@ -130,6 +130,17 @@ class Station:
         """
         return self.run(["sudo", "-u", SERVICE_USER, "bash", "-c", shell_command])
 
+    def sudo_permits(self, command: str) -> bool:
+        """
+        Whether the service user's sudo policy allows a command, asked without running it.
+
+        `sudo -l COMMAND` exits 0 when the policy permits it and 1 when it does not, and
+        prints the answer either way rather than executing anything. The listing needs no
+        password, since every entry the service user has is NOPASSWD, and `-n` makes a
+        prompt an error instead of a hang if that ever stops being true.
+        """
+        return self.run_as_service_user(f"sudo -n -l {command}").returncode == 0
+
     def succeeds(self, command: list[str]) -> bool:
         return self.run(command).returncode == 0
 

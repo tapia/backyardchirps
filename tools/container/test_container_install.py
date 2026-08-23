@@ -85,6 +85,39 @@ def test_the_sudoers_policy_is_valid(station: Station) -> None:
     assert station.succeeds(["visudo", "-cf", "/etc/sudoers.d/backyardchirps"])
 
 
+def test_the_service_user_may_restart_its_own_recorder(station: Station) -> None:
+    """
+    The grant the station cannot work without. The recorder reads lat/lon and the confidence
+    threshold once at startup, so the wizard has to restart it after those change.
+    """
+    assert station.sudo_permits("/bin/systemctl restart backyardchirps-recorder")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        pytest.param("/bin/systemctl restart nginx", id="a-unit-that-is-not-ours"),
+        pytest.param("/bin/systemctl restart backyardchirps-recorder nginx", id="ours-and-then-one-that-is-not"),
+        pytest.param("/bin/systemctl stop backyardchirps-web ssh", id="ours-and-then-the-way-back-in"),
+        pytest.param("/bin/systemctl restart backyardchirps-update", id="a-unit-that-does-not-exist-yet"),
+        pytest.param("/bin/systemctl daemon-reload", id="a-verb-the-policy-does-not-grant"),
+        pytest.param("/bin/su", id="something-that-is-not-systemctl"),
+    ],
+)
+def test_the_service_user_may_not_reach_past_its_own_units(station: Station, command: str) -> None:
+    """
+    The policy used to say `backyardchirps-*`, which reads like "our units" and was not.
+    sudo matches the arguments as one concatenated string, so the wildcard ran across word
+    boundaries: `stop backyardchirps-web ssh` matched it, and so would the root-owned
+    updater of Phase 5, from the moment its unit was installed.
+
+    tests/unit/test_sudoers_policy.py checks the policy install.sh renders, which is fast and
+    runs anywhere. This checks the one a station is really running, and it is the only place
+    sudo itself gets a say in what the policy means.
+    """
+    assert not station.sudo_permits(command)
+
+
 @pytest.mark.parametrize("unit", [*DAEMONS, *TIMED_JOBS])
 def test_every_unit_runs_as_the_service_user(station: Station, unit: str) -> None:
     """
