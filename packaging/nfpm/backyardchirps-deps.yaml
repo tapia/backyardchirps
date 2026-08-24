@@ -1,0 +1,37 @@
+# The virtualenv, on its own because it changes at a different rate from everything else:
+# only when uv.lock does. A release that touches code alone is then a few MB rather than a
+# few hundred.
+#
+# Built by packaging/Dockerfile at the path it installs to. Nothing in here knows about
+# backyardchirps: the code is another package and a .pth file joins the two.
+name: backyardchirps-deps
+arch: arm64
+platform: linux
+version: ${DEPS_VERSION}
+version_schema: none
+section: net
+priority: optional
+maintainer: tapia <tapia@users.noreply.github.com>
+vendor: Backyard Chirps
+homepage: https://github.com/tapia/backyardchirps
+license: AGPL-3.0-only
+description: |
+  Python environment for Backyard Chirps.
+  Every third-party package a station runs, built against the interpreter
+  Debian ships.
+
+depends:
+  # The venv is bound to this interpreter: its path is baked into the .pth location, the
+  # shebangs and the bytecode. Naming the minor version is what makes a future move to
+  # Debian 14 loud rather than silent.
+  - python3.13
+  - libportaudio2
+
+contents:
+  - src: ${STAGING_DEPS}/opt/backyardchirps/venv
+    dst: /opt/backyardchirps/venv
+    type: tree
+
+  # The licence, at the path a Debian package keeps it.
+  - src: ${STAGING_DEPS}/usr/share/doc/backyardchirps-deps/copyright
+    dst: /usr/share/doc/backyardchirps-deps/copyright

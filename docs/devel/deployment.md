@@ -262,6 +262,35 @@ since an installer proves little from a different architecture. When it fails it
 of the station's install log into the job output, so the reason is visible without opening a
 container that no longer exists.
 
+## Testing a package install
+
+`test_container_apt.py` is the same idea for the Debian packages: a second machine, of the same
+image, installed with `apt` instead of `install.sh`. It is where the maintainer scripts get
+debugged, since `preinst`, `postinst`, `prerm` and `postrm` are what now hold every decision
+`install.sh` and `apply.sh` used to make.
+
+```bash
+uv run --no-project --with pytest pytest -o addopts="" tools/container/test_container_apt.py -v -s
+uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s   # both chains
+```
+
+The packages go into `/srv/apt` inside the machine and are read through a `file:` source, so
+nothing is served over HTTP and nothing is signed. What that skips is the transport, which is the
+part this project does not write; the download, the dependency resolution and the unpack are
+apt's real ones.
+
+One machine, walked through five states: installed, given an owner, upgraded to a newer app
+package, removed, purged. **The tests are written in that order and depend on it.** The last two
+take the station apart, so an assertion about a working one belongs above them.
+
+Building the packages is the slow part, minutes on a cold cache, and the fixtures do it by
+default. `--packages-dir DIR` installs .deb files that are already built, which is what a second
+run wants and what `packages.yml` passes so that CI builds them once.
+
+Two things this chain proves that no unit test can. A station compiles nothing: there is no `uv`
+and no compiler on the machine, and the virtualenv arrives built. And `apt remove` leaves the
+recordings while `apt purge` takes them, which is the distinction an owner is promised.
+
 ## Where else to look
 
 | | |

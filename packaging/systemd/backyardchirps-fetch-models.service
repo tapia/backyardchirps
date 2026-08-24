@@ -1,0 +1,18 @@
+[Unit]
+Description=Backyard Chirps -> download the BirdNET acoustic model and GeoModel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# No [Install] section, so it is static: postinst starts it with --no-block and the
+# recorder pulls it in. Keeping the download out of postinst is what stops an outage at
+# Zenodo from leaving the package unconfigured and apt broken.
+User=backyardchirps
+WorkingDirectory=/usr/lib/backyardchirps
+EnvironmentFile=/var/lib/backyardchirps/.env
+EnvironmentFile=/etc/default/backyardchirps
+Environment=BACKYARDCHIRPS_DATA_DIR=/var/lib/backyardchirps
+ExecStart=/usr/lib/backyardchirps/bin/manage download_birdnet3_model
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,28 @@
+[Unit]
+Description=Backyard Chirps -> audio capture and BirdNET analyzer
+After=network.target sound.target
+# Started by postinst as well, so the models are on their way down before this unit is
+# reached on a fresh install. Not a hard dependency: the ExecStartPre below is what
+# decides whether this can run.
+Wants=backyardchirps-fetch-models.service
+
+[Service]
+Type=simple
+User=backyardchirps
+Group=audio
+WorkingDirectory=/usr/lib/backyardchirps
+EnvironmentFile=/var/lib/backyardchirps/.env
+EnvironmentFile=/etc/default/backyardchirps
+Environment=BACKYARDCHIRPS_DATA_DIR=/var/lib/backyardchirps
+# The analyzer cannot start without the acoustic model and GeoModel, and a fresh install
+# fetches those in the background. This compares the local files against the published
+# sizes, which needs no network once they are there, and downloads whatever is missing.
+# A station with no network yet fails here, and Restart= below is what retries it, so the
+# wait shows up in the journal rather than as a package that will not configure.
+ExecStartPre=/usr/lib/backyardchirps/bin/manage download_birdnet3_model
+ExecStart=/usr/lib/backyardchirps/bin/manage run_recorder
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

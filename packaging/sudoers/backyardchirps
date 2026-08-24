@@ -1,0 +1,33 @@
+# What the web process may ask systemd to do, and nothing else. It runs as the
+# backyardchirps user and has no other sudo rights at all.
+#
+# Every unit is named in full. The obvious shorter version, backyardchirps-*, grants far
+# more than it looks like it does: sudo matches the arguments as one concatenated string,
+# so the wildcard runs across spaces and `systemctl restart backyardchirps-web nginx`
+# matches the pattern too. It would also pre-approve any unit added later that happens to
+# start with the prefix, which is the wrong default for a unit that runs as root.
+#
+# The updater is start and nothing else. It runs as root and replaces the release, so the
+# web process may ask for it to run and may not stop it half way.
+#
+# Deliberately not a dpkg conffile. A conffile dpkg refuses to overwrite is a stale
+# privilege grant, so every upgrade restores this file verbatim and postinst runs
+# `visudo -cf` over it.
+#
+# MANAGED_UNITS in backyardchirps/integrations/systemd.py is the same list, and
+# tests/unit/test_sudoers_policy.py fails when the two stop matching.
+backyardchirps ALL=(ALL) NOPASSWD: \
+  /bin/systemctl start backyardchirps-web, \
+  /bin/systemctl stop backyardchirps-web, \
+  /bin/systemctl restart backyardchirps-web, \
+  /bin/systemctl start backyardchirps-recorder, \
+  /bin/systemctl stop backyardchirps-recorder, \
+  /bin/systemctl restart backyardchirps-recorder, \
+  /bin/systemctl start backyardchirps-update-species, \
+  /bin/systemctl stop backyardchirps-update-species, \
+  /bin/systemctl restart backyardchirps-update-species, \
+  /bin/systemctl start backyardchirps-clip-disk-quota, \
+  /bin/systemctl stop backyardchirps-clip-disk-quota, \
+  /bin/systemctl restart backyardchirps-clip-disk-quota, \
+  /bin/systemctl start backyardchirps-update, \
+  /bin/systemctl start backyardchirps-rollback

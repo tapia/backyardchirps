@@ -1,0 +1,39 @@
+#!/bin/sh
+# Runs before the files go away.
+#
+#   $1  remove | upgrade | deconfigure | failed-upgrade
+#
+# backyardchirps-update is never touched here. On a station updating itself, that unit is
+# the transaction this script is part of, and stopping it would kill the update halfway.
+set -e
+
+DAEMONS="backyardchirps-web.service backyardchirps-recorder.service"
+TIMERS="backyardchirps-update-species.timer backyardchirps-clip-disk-quota.timer"
+
+case "$1" in
+    remove)
+        if [ -d /run/systemd/system ]; then
+            for unit in $DAEMONS $TIMERS; do
+                deb-systemd-invoke stop "$unit" > /dev/null 2>&1 || true
+            done
+        fi
+        if command -v deb-systemd-helper > /dev/null; then
+            for unit in $DAEMONS $TIMERS; do
+                deb-systemd-helper disable "$unit" > /dev/null || true
+            done
+        fi
+        ;;
+
+    upgrade)
+        # The new package's preinst stops these as well, and does it from the version
+        # being installed rather than the one being replaced. Both, because this file is
+        # the only one that runs when the *new* package is too old to know about a unit.
+        if [ -d /run/systemd/system ]; then
+            for unit in $DAEMONS; do
+                deb-systemd-invoke stop "$unit" > /dev/null 2>&1 || true
+            done
+        fi
+        ;;
+esac
+
+exit 0

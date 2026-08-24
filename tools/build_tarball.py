@@ -30,6 +30,7 @@ installs, plus the dev group, to build a tarball.
 
 import argparse
 import hashlib
+import json
 import os
 import re
 import shutil
@@ -41,6 +42,13 @@ from pathlib import Path
 from typing import NoReturn
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+
+sys.path.insert(0, str(REPO_ROOT))
+
+# Imports nothing but the standard library, which is what lets this run under --no-project.
+from backyardchirps.integrations.birdnet import TaxonomyDownloadError
+from backyardchirps.integrations.birdnet import check_taxonomy
+from backyardchirps.integrations.birdnet import download_taxonomy
 
 # An allowlist, deliberately, not a list of exclusions. Anything not named here stays out, so a
 # file added to the repository root later can never leak into a public release by being
@@ -62,6 +70,14 @@ RELEASE_PATHS = [
 ]
 
 EXCLUDED_EVERYWHERE = ("__pycache__", "*.pyc", "*.mo")
+
+# The taxonomy a release ships. The repository tracks a seed of a few hundred species, which is
+# all a checkout and the test suite need, so a release has to carry the full one instead: a
+# station resolves every BirdNET label through it, and a species it cannot name is a detection it
+# drops. Written over the seed while staging, from the checkout's own copy when there is one and
+# from upstream otherwise.
+TAXONOMY_IN_RELEASE = "backyardchirps/species_data/taxonomy/birdnet_taxonomy.json"
+TAXONOMY_IN_CHECKOUT = REPO_ROOT / "backyardchirps/species_data/generated/taxonomy/birdnet_taxonomy.json"
 
 # The species_data seeds travel with the code. Anything downloaded at runtime lives in the data
 # directory and must not be in here.
@@ -92,6 +108,12 @@ def main() -> None:
         default="",
         help="PEP 440 local version marking a build that is not a release, for example +main.a1b2c3d",
     )
+    parser.add_argument(
+        "--taxonomy",
+        type=Path,
+        default=None,
+        help="the full taxonomy to ship (default: this checkout's copy, or a fresh download)",
+    )
     arguments = parser.parse_args()
 
     output_dir = arguments.output_dir.resolve()
@@ -104,7 +126,7 @@ def main() -> None:
 
     release_name = f"backyardchirps-{version}"
     with tempfile.TemporaryDirectory() as staging_parent:
-        _stage(Path(staging_parent) / release_name, version, arguments.version_suffix)
+        _stage(Path(staging_parent) / release_name, version, arguments.version_suffix, arguments.taxonomy)
         tarball_path = _write_archive(Path(staging_parent), release_name, output_dir)
 
     with tarball_path.open("rb") as archive:
@@ -162,7 +184,7 @@ def _build_frontend() -> None:
     (frontend / "dist" / ".prebuilt").touch()
 
 
-def _stage(staging: Path, version: str, version_suffix: str) -> None:
+def _stage(staging: Path, version: str, version_suffix: str, taxonomy: Path | None) -> None:
     """
     Lay out the release under a temporary directory, exactly as it will be unpacked.
     """
@@ -191,12 +213,43 @@ def _stage(staging: Path, version: str, version_suffix: str) -> None:
     for generated_path in GENERATED_PATHS:
         shutil.rmtree(staging / generated_path, ignore_errors=True)
 
+    _stage_taxonomy(staging / TAXONOMY_IN_RELEASE, taxonomy)
+
     if version_suffix:
         _write_staged_version(staging / "pyproject.toml", version)
 
     shutil.copytree(REPO_ROOT / "frontend" / "dist", staging / "frontend" / "dist")
 
     _refuse_secrets(staging)
+
+
+def _stage_taxonomy(staged_taxonomy: Path, taxonomy: Path | None) -> None:
+    """
+    Put the full taxonomy where the seed sits, so a station installs with every species
+    BirdNET knows rather than the sample the repository tracks.
+
+    A copy in the checkout is used when there is one, which is what keeps a test build from
+    downloading 80 MB every time. CI has none, so a release is always built from a fresh
+    download. Either way the file is checked before it goes in.
+    """
+    source = taxonomy or (TAXONOMY_IN_CHECKOUT if TAXONOMY_IN_CHECKOUT.exists() else None)
+    try:
+        if source is None:
+            _say("downloading the taxonomy, since this checkout has no copy of it")
+            taxa = download_taxonomy()
+        else:
+            if not source.exists():
+                _fail(f"Refusing to build: no taxonomy at {source}.")
+            _say(f"taking the taxonomy from {source}")
+            with source.open(encoding="utf-8") as taxonomy_file:
+                taxa = json.load(taxonomy_file)
+            check_taxonomy(taxa)
+    except TaxonomyDownloadError as error:
+        _fail(f"Refusing to build: {error}")
+
+    with staged_taxonomy.open("w", encoding="utf-8") as staged_file:
+        json.dump(taxa, staged_file, ensure_ascii=False, indent=2)
+    _say(f"staged {len(taxa)} species")
 
 
 def _write_staged_version(staged_pyproject: Path, version: str) -> None:

@@ -82,8 +82,10 @@ jobs:
       - uses: actions/checkout@v4
 
       # install.sh is what every user runs first, as root, so it is checked at the
-      # same severity as the rest of the tree.
+      # same severity as the rest of the tree. So are the maintainer scripts: dpkg
+      # runs those as root too, and a failing one leaves apt in a state the owner of
+      # a station cannot reason about.
       - name: ShellCheck
         run: |
           shellcheck --severity=style \
-            install.sh uninstall.sh deploy/*.sh
+            install.sh uninstall.sh deploy/*.sh packaging/scripts/* packaging/bin/*

@@ -1,0 +1,118 @@
+# Build the Debian packages a station installs, and check what came out.
+#
+# Nothing is published here. The point is that the build itself is a test: nfpm fails when
+# a file the manifest names was never staged, lintian fails on a large class of packaging
+# mistake for free, and installing the packages on a clean machine says whether the
+# maintainer scripts work. That last part is the deb half of tools/container/.
+#
+# The path filters keep it off pushes that cannot affect a package. They are written out
+# twice because GitHub Actions does not support YAML anchors, so the two lists have to be
+# kept in step by hand.
+name: Packages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - packaging/**
+      - tools/build_packages.py
+      - tools/container/**
+      - backyardchirps/**
+      - frontend/**
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/packages.yml
+  pull_request:
+    paths:
+      - packaging/**
+      - tools/build_packages.py
+      - tools/container/**
+      - backyardchirps/**
+      - frontend/**
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/packages.yml
+  workflow_dispatch:
+
+concurrency:
+  group: packages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build the packages and install them on a clean machine
+    # arm64, because that is what a Pi is, and because the virtualenv inside one of these
+    # packages is native code. Building it anywhere else produces wheels no station can
+    # run, and the smoke test at the end of packaging/Dockerfile is what would catch it.
+    #
+    # Free for public repositories. On a private one this label finds no runner and the job
+    # queues until it times out.
+    runs-on: ubuntu-24.04-arm
+    # Generous: the virtualenv is resolved and downloaded from scratch on a cold cache, and
+    # the container half installs the result on a machine that starts with nothing.
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # The builder runs with --no-project, so this is here for the interpreter and for
+      # `uv build`. Nothing is synced: the virtualenv is built in a container from uv.lock.
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # Only the package build needs Node, and only out here. Nothing on a station has it,
+      # which is the point of shipping the frontend already built.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # msgfmt. The catalogs are compiled here and travel inside the wheel, so gettext is
+      # off a station's dependency list entirely.
+      - name: Install gettext and lintian
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gettext lintian
+
+      # The full taxonomy is not in git any more, so a build fetches it. Cached by week: a
+      # station refreshes its own copy nightly, so a few days old is fine here, and this
+      # keeps a bad afternoon at the BirdNET API from stopping every build. Deliberately no
+      # restore-keys, since falling back to an older cache would mean it never refreshed.
+      - name: Work out this week's taxonomy cache key
+        run: echo "TAXONOMY_WEEK=$(date -u +%Y-%V)" >> "$GITHUB_ENV"
+
+      - name: Cache the taxonomy
+        uses: actions/cache@v4
+        with:
+          path: backyardchirps/species_data/generated/taxonomy
+          key: taxonomy-${{ env.TAXONOMY_WEEK }}
+
+      # SECRET_KEY because compilemessages starts Django, which reads it at import.
+      - name: Build the packages
+        env:
+          SECRET_KEY: build-only-secret-key
+        run: uv run --no-project python tools/build_packages.py --output-dir build/packages
+
+      # The packaging equivalent of a linter. Not fatal: it also has opinions about things
+      # a station does not need, such as a Debian changelog and a manual page, and the ones
+      # that matter here are the errors.
+      - name: Lintian
+        run: lintian --no-tag-display-limit build/packages/*.deb || true
+
+      # --packages-dir hands it what the step above already built, so the packages under
+      # test are the ones lintian looked at and the ones this job publishes as an artifact.
+      # The upgrade half still builds an app package of its own, because it needs a second,
+      # newer version to move to.
+      - name: Install them on a clean machine and check what came out
+        run: >
+          uv run --no-project --with pytest pytest -o addopts=""
+          tools/container/test_container_apt.py -v -s --packages-dir build/packages
+
+      - name: Keep the packages for anyone who wants to look
+        uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          # The virtualenv package is a few hundred MB, so this is the app package alone:
+          # it is the one a person would want to open, and the other two are reproducible
+          # from uv.lock and the taxonomy fetch date.
+          path: build/packages/backyardchirps_*.deb
+          retention-days: 7

@@ -32,8 +32,9 @@ from backyardchirps.features.recording.audio.clip import AudioClip
 from backyardchirps.features.recording.audio.detection import AnalysisResult
 from backyardchirps.features.species.entity import Species
 
-# A handful of scientific names verified present in the bundled taxonomy JSON,
-# used across tests that need a real, valid Species without hitting the database.
+# A handful of scientific names the tracked taxonomy sample carries, used across tests
+# that need a real, valid Species without hitting the database. tools/build_taxonomy_seed.py
+# is what keeps them in the sample.
 BLACKBIRD = "Turdus merula"
 ROBIN = "Erithacus rubecula"
 HOUSE_SPARROW = "Passer domesticus"

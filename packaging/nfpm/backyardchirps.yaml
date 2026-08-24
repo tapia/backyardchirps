@@ -1,0 +1,110 @@
+# The application package: the code, the site it serves, and every file that says how a
+# station is wired together. Rebuilt on every release.
+#
+# tools/build_packages.py stages a tree and then runs nfpm over this file. Every src below
+# is inside that staged tree, so a file only ships when the builder put it there on
+# purpose: this list is an allowlist by construction, the same property the tarball's
+# RELEASE_PATHS was written to have.
+name: backyardchirps
+# Could be Architecture: all, which would be more correct: nothing in here is compiled.
+# It stays arm64 because "all" makes the repository carry a binary-all tree as well, and
+# that buys nothing while a Pi is the only target. It is this one line when it does.
+arch: arm64
+platform: linux
+version: ${APP_VERSION}
+# Our versions are PEP 440 (0.2.0, or 0.2.0+main.abc1234 for a build off main). Under
+# nfpm's default semver schema the +main.abc1234 half is build metadata and gets dropped,
+# which would give two different builds the same package version.
+version_schema: none
+section: net
+priority: optional
+maintainer: tapia <tapia@users.noreply.github.com>
+vendor: Backyard Chirps
+homepage: https://github.com/tapia/backyardchirps
+license: AGPL-3.0-only
+description: |
+  Continuous bird species identification via BirdNET.
+  A station records from a microphone around the clock, identifies what it
+  hears with BirdNET, and serves the result as a site on the local network.
+
+depends:
+  - backyardchirps-deps (>= ${DEPS_VERSION})
+  - backyardchirps-species-data (>= ${DATA_VERSION})
+  - nginx
+  - sudo
+  - ca-certificates
+  - adduser
+
+deb:
+  fields:
+    # What the updater used to read out of manifest.json. apt-cache show is where it comes
+    # from now, so the two keys survive the move without the manifest.
+    Changelog-Url: ${CHANGELOG_URL}
+    Released: ${RELEASED}
+
+contents:
+  # The code, its unversioned dist-info, and bin/. Unversioned matters: importlib.metadata
+  # takes the distribution name from the directory name before the first dash, so
+  # backyardchirps.dist-info is discovered correctly and the version comes out of METADATA,
+  # while a versioned name would change every release and two could coexist during the
+  # window dpkg unpacks in.
+  - src: ${STAGING_APP}/usr/lib/backyardchirps
+    dst: /usr/lib/backyardchirps
+    type: tree
+
+  # One line naming /usr/lib/backyardchirps, dropped into a directory the deps package
+  # owns. dpkg tracks files rather than directories, so two packages sharing a directory is
+  # fine. This beats PYTHONPATH in the units because it also works for a maintainer script
+  # and for a person typing the venv's python by hand.
+  - src: ${STAGING_APP}/opt/backyardchirps/venv/lib/python3.13/site-packages/backyardchirps.pth
+    dst: /opt/backyardchirps/venv/lib/python3.13/site-packages/backyardchirps.pth
+
+  - src: ${STAGING_APP}/usr/share/backyardchirps/frontend
+    dst: /usr/share/backyardchirps/frontend
+    type: tree
+
+  # collectstatic output, produced by the build rather than on the station. It is Django
+  # admin and DRF browsable-API files, which are architecture-independent. As package
+  # content dpkg also removes what a new version stops shipping, which collectstatic never
+  # did: it overwrites and never deletes.
+  - src: ${STAGING_APP}/usr/share/backyardchirps/staticfiles
+    dst: /usr/share/backyardchirps/staticfiles
+    type: tree
+
+  # Under /usr rather than /etc, so they are ordinary package files and an upgrade always
+  # restores them. Local changes belong in /etc/systemd/system/<unit>.d/ drop-ins, which is
+  # the systemd idiom and survives an upgrade.
+  #
+  # /usr/lib rather than /lib: trixie has a merged /usr, so /lib is a symlink, and a package
+  # that installs through it is writing to an aliased path. It works and dpkg dislikes it.
+  - src: ${STAGING_APP}/usr/lib/systemd/system
+    dst: /usr/lib/systemd/system
+    type: tree
+
+  - src: ${STAGING_APP}/etc/nginx/sites-available/backyardchirps
+    dst: /etc/nginx/sites-available/backyardchirps
+    type: config|noreplace
+
+  - src: ${STAGING_APP}/etc/default/backyardchirps
+    dst: /etc/default/backyardchirps
+    type: config|noreplace
+
+  # Deliberately not a conffile. A conffile dpkg refuses to overwrite is a stale privilege
+  # grant, so this is restored verbatim on every upgrade and postinst validates it with
+  # visudo, removing it and failing if it does not parse.
+  - src: ${STAGING_APP}/etc/sudoers.d/backyardchirps
+    dst: /etc/sudoers.d/backyardchirps
+    file_info:
+      mode: 0440
+
+  # The licence, at the path a Debian package keeps it.
+  - src: ${STAGING_APP}/usr/share/doc/backyardchirps/copyright
+    dst: /usr/share/doc/backyardchirps/copyright
+
+# nfpm's own names for them. In the built package they are the ordinary Debian
+# maintainer scripts: preinst, postinst, prerm and postrm, in that order.
+scripts:
+  preinstall: ${SCRIPTS}/preinst
+  postinstall: ${SCRIPTS}/postinst
+  preremove: ${SCRIPTS}/prerm
+  postremove: ${SCRIPTS}/postrm

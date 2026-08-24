@@ -35,8 +35,14 @@ uv sync
 cp .env.example .env              # SECRET_KEY is the only required value
 uv run python manage.py migrate
 uv run python manage.py compilemessages --ignore .venv --ignore frontend
+uv run python manage.py update_species_data   # optional, see below
 uv run python manage.py runserver
 ```
+
+The repository tracks a sample of the BirdNET taxonomy, a few hundred species, which is what the
+tests read and what a fresh clone boots on. Search and the species pages then know only those.
+`update_species_data` downloads the full taxonomy into `species_data/generated/`, which the app
+prefers from then on. See [species-data.md](species-data.md).
 
 ### Translations
 
@@ -307,13 +313,24 @@ and `tests/integration/features/<feature>/`. Endpoint and permission tests go in
 builders, HTTP clients) in `tests/integration/conftest.py`. Test-only code may import
 `backyardchirps.models` directly to arrange state.
 
-One test sits outside that mirror, because what it tests is not in `backyardchirps/`.
+Some tests sit outside that mirror, because what they test is not in `backyardchirps/`.
+
 `tests/unit/test_preflight.py` runs `install.sh --preflight-only` against fixture files in a
 temporary directory, which is the only way to reach the installer's hardware checks: the
 container test is not a Raspberry Pi, and the one machine that is cannot be a fixture. It writes
 files, so the rule above would make it an integration test, but it needs no database and finishes
 in well under a second, so it stays with the fast suite. See
 [deployment.md](deployment.md).
+
+`tests/unit/packaging/` reads the files under `packaging/`: the nfpm manifests and the systemd
+units. They hold those to each other and to `MANAGED_UNITS` without building or installing
+anything, which is what keeps them in the fast suite. Building a real package and installing it is
+the container test's job. See [releases.md](releases.md).
+
+A second trap comes with the taxonomy. CI reads the tracked sample, but a checkout that has run
+`update_species_data` reads the full taxonomy instead, because the app prefers the downloaded
+copy. So a test naming a species outside the sample passes locally and fails in CI. Name one the
+sample has, or add it in `tools/build_taxonomy_seed.py`.
 
 One trap: `tests/` has no `__init__.py`, which is what pytest's import mode needs. The result is
 that **every test filename must be unique across the whole suite**. Two files named
@@ -400,10 +417,10 @@ On a development machine there is no `BACKYARDCHIRPS_DATA_DIR` and `DATA_DIR` fa
 `BASE_DIR`, so everything lands inside the checkout. That is `django_settings.py` doing it, not
 `apply.sh`, which never runs on a development machine at all.
 
-Species data falls on both sides. The committed taxonomy and photos ship with the code. The
-regenerated copies, the models and everything a region pack carries are downloaded on the machine
-and stay with the data, so an update never fetches them again. See
-[species-data.md](species-data.md).
+Species data falls on both sides. The taxonomy and the photos ship with the code, the taxonomy as
+a sample in the repository and in full in a release. The regenerated copies, the models and
+everything a region pack carries are downloaded on the machine and stay with the data, so an
+update never fetches them again. See [species-data.md](species-data.md).
 
 ```
 /var/lib/backyardchirps/

@@ -1,0 +1,13 @@
+# Where a packaged station finds the parts of itself that are not code.
+#
+# Both are read by django_settings.py and default, when unset, to the layout a source
+# checkout has. A package sets them because its species data and its collected static
+# files are their own files on the filesystem, owned by other packages, rather than
+# directories inside the source tree.
+#
+# The units read this file. The data directory is not here: it is set in each unit, after
+# this file, so that neither this nor .env can move it. An alternate data directory is a
+# systemd drop-in under /etc/systemd/system/<unit>.d/.
+
+BACKYARDCHIRPS_SPECIES_DATA_DIR=/usr/share/backyardchirps/species-data
+BACKYARDCHIRPS_STATIC_ROOT=/usr/share/backyardchirps/staticfiles

@@ -1,0 +1,61 @@
+#!/bin/sh
+# Runs before the new files are unpacked.
+#
+#   $1  install | upgrade | abort-upgrade
+#   $2  on an upgrade, the version being replaced. Empty on a first install.
+#
+# That second argument is the whole reason this script is short. It answers "is this a
+# fresh station or an existing one" outright, where the tarball installer had to guess
+# from whether detections.db was there.
+set -e
+
+MANAGED_DAEMONS="backyardchirps-web.service backyardchirps-recorder.service"
+
+# The oldest version that may move straight to this one. Empty means no gate, which is the
+# normal state: it only needs a value when a migration forces an in-between release, and
+# tools/build_packages.py writes it in with --min-upgrade-from.
+MIN_UPGRADE_FROM=""
+
+case "$1" in
+    upgrade)
+        if [ -n "$MIN_UPGRADE_FROM" ] && [ -n "$2" ]; then
+            if dpkg --compare-versions "$2" lt "$MIN_UPGRADE_FROM"; then
+                echo "Cannot upgrade straight from $2." >&2
+                echo "Install $MIN_UPGRADE_FROM first. See docs/installation.md." >&2
+                exit 1
+            fi
+        fi
+
+        # Stopped here rather than only in the old package's prerm, which is the file the
+        # *previous* release shipped and therefore cannot be relied on to have done it.
+        # dpkg unpacks in place, so anything still running would be running new code
+        # against a database the migrations below have not reached yet.
+        #
+        # backyardchirps-update is deliberately absent: on a station updating itself, that
+        # unit is the transaction this script is part of.
+        if [ -d /run/systemd/system ]; then
+            for unit in $MANAGED_DAEMONS; do
+                deb-systemd-invoke stop "$unit" > /dev/null 2>&1 || true
+            done
+        fi
+        ;;
+
+    install)
+        # A machine the tarball installer set up. Taking one of those over means removing
+        # the units it left in /etc/systemd/system, which shadow the packaged ones under
+        # /usr/lib forever and silently, and moving its unowned config files aside. systemd
+        # searches /etc first, so a leftover there wins for good. That is written
+        # and tested as its own step; until then, refusing is the honest answer, because
+        # installing over it would leave a station running its old code from a directory
+        # nothing manages any more.
+        if [ -e /opt/backyardchirps/current ]; then
+            echo "This machine has a station installed from a release tarball." >&2
+            echo "Installing the package over it is not supported yet: it would leave the" >&2
+            echo "old units in /etc/systemd/system shadowing the packaged ones." >&2
+            echo "Remove it first with uninstall.sh, which keeps your recordings." >&2
+            exit 1
+        fi
+        ;;
+esac
+
+exit 0

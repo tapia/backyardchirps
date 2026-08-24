@@ -1,8 +1,11 @@
 """
-The options and the phase fixtures for the container install test.
+The options and the phase fixtures for the container install tests.
 
-A run walks one machine through four states, and each fixture here is one of them. They are
-chained, so asking for a later one brings up every earlier one in order:
+There are two chains, one machine each, and they run side by side while the move from
+tarballs to packages is under way. Each fixture is one state of one machine, and they are
+chained, so asking for a later one brings up every earlier one in order.
+
+From a release tarball, through install.sh and deploy/apply.sh:
 
   station             a clean machine with the release installed
   station_with_owner  the same machine, given an admin account and no setup token
@@ -10,19 +13,44 @@ chained, so asking for a later one brings up every earlier one in order:
   updated             a newer version installed beside it and switched to
   uninstalled         the software removed, the recordings kept
 
-The assertions are in test_container_install.py and the driver in station.py.
+From .deb files, through apt and the maintainer scripts:
+
+  apt_station             a clean machine with the packages installed
+  apt_station_with_owner  the same machine, set up
+  apt_upgraded            a newer app package installed over it
+  apt_removed             the software gone, the recordings kept
+  apt_purged              everything gone, data included
+
+The assertions are in test_container_install.py and test_container_apt.py, and the drivers
+in station.py and apt.py.
 """
 
 import subprocess
 from collections.abc import Iterator
+from pathlib import Path
 
 import pytest
+from apt import APT_CONTAINER_NAME
+from apt import MANAGE
+from apt import VENV_PYTHON
+from apt import Installed
+from apt import Packages
+from apt import Upgraded
+from apt import add_source
+from apt import build_packages
+from apt import install as apt_install
+from apt import packages_in
+from apt import publish
+from apt import purge as apt_purge
+from apt import remove as apt_remove
+from apt import upgrade as apt_upgrade
 from station import APP_DIR
 from station import CONTAINER_NAME
 from station import CREATE_ADMIN
 from station import DATA_DIR
 from station import INSTALL_DIR
 from station import KEPT_CLIP
+from station import SERVICE_USER
 from station import Reinstalled
 from station import Release
 from station import RolledBack
@@ -50,6 +78,11 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         action="store_true",
         default=False,
         help="leave the container running afterwards, to look around inside it",
+    )
+    group.addoption(
+        "--packages-dir",
+        default=None,
+        help="install these .deb files instead of building them, for a second run or for CI",
     )
 
 
@@ -266,3 +299,138 @@ def _say(message: str) -> None:
     progress.
     """
     print(f"[station] {message}", flush=True)
+
+
+# ---------------------------------------------------------------------------
+# The package chain
+# ---------------------------------------------------------------------------
+# A second machine, installed from .deb files through apt rather than from a tarball
+# through install.sh. It runs beside the chain above rather than replacing it, so both
+# paths stay green while the move from one to the other is under way.
+
+
+@pytest.fixture(scope="session")
+def packages(request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory) -> Packages:
+    already_built = request.config.getoption("--packages-dir")
+    if already_built:
+        _say(f"installing the packages in {already_built}")
+        return packages_in(Path(already_built))
+    _say("building the packages: the slow part, since the virtualenv is built in a container")
+    return build_packages(tmp_path_factory.mktemp("packages"))
+
+
+@pytest.fixture(scope="session")
+def upgrade_packages(tmp_path_factory: pytest.TempPathFactory) -> Packages:
+    """
+    A newer app package and nothing else, which is what an ordinary release looks like: the
+    code changes, the virtualenv and the species data do not. The version is a PEP 440 local
+    version, so it can never collide with a tag and still sorts above the release it came
+    from, in dpkg's ordering as well as PEP 440's.
+    """
+    _say("building an app package for the station to upgrade to")
+    return build_packages(
+        tmp_path_factory.mktemp("upgrade-packages"),
+        version_suffix="+upgradetest",
+        only=["backyardchirps"],
+    )
+
+
+@pytest.fixture(scope="session")
+def booted_apt_station(request: pytest.FixtureRequest) -> Iterator[Station]:
+    require_docker()
+    keep_station = bool(request.config.getoption("--keep-station"))
+    build_image()
+    _say("booting a clean machine for the package install")
+    booted = boot(name=APT_CONTAINER_NAME, python=VENV_PYTHON)
+    try:
+        yield booted
+    finally:
+        if keep_station:
+            _say(f"still running. Look around with: docker exec -it {APT_CONTAINER_NAME} bash")
+        else:
+            remove(booted)
+
+
+@pytest.fixture(scope="session")
+def apt_station(booted_apt_station: Station, packages: Packages) -> Installed:
+    """
+    A clean machine with the packages installed on it, which is where every assertion about
+    a packaged station starts.
+    """
+    seeded = seed_models(booted_apt_station)
+    if seeded:
+        _say("seeding the acoustic model and GeoModel from the local cache")
+    publish(booted_apt_station, packages)
+    add_source(booted_apt_station)
+    _say(f"installing {packages.app_version} through apt")
+    result = apt_install(booted_apt_station)
+    _refuse_a_failed_run(booted_apt_station, result, "apt-get install backyardchirps failed")
+    return Installed(
+        station=booted_apt_station,
+        version=packages.app_version,
+        output=result.stdout + result.stderr,
+    )
+
+
+@pytest.fixture(scope="session")
+def apt_station_with_owner(apt_station: Installed) -> Installed:
+    """
+    A station somebody has finished setting up: an admin account and no setup token, which
+    is what the wizard leaves behind.
+    """
+    _say("giving the packaged station an owner")
+    station = apt_station.station
+    created = station.run(["sudo", "-u", SERVICE_USER, MANAGE, "shell", "-c", CREATE_ADMIN])
+    if created.returncode != 0:
+        raise RuntimeError(f"Could not create an admin account:\n{created.stderr}")
+    station.run(["rm", "-f", f"{DATA_DIR}/setup-token"])
+    return apt_station
+
+
+@pytest.fixture(scope="session")
+def apt_upgraded(apt_station_with_owner: Installed, upgrade_packages: Packages) -> Upgraded:
+    """
+    The same machine moved to a newer app package, which is every upgrade a station will
+    ever do: dpkg unpacks over the old files and postinst migrates and restarts.
+    """
+    station = apt_station_with_owner.station
+    station.run(["mkdir", "-p", f"{DATA_DIR}/clips"])
+    station.run(["touch", KEPT_CLIP])
+    station.run(["chown", "-R", f"{SERVICE_USER}:{SERVICE_USER}", f"{DATA_DIR}/clips"])
+    database_inode = station.inode_of(f"{DATA_DIR}/detections.db")
+    secret_key = station.output_of(["grep", "-h", "SECRET_KEY", f"{DATA_DIR}/.env"])
+
+    publish(station, upgrade_packages)
+    _say(f"upgrading to {upgrade_packages.app_version}")
+    result = apt_upgrade(station)
+    _refuse_a_failed_run(station, result, "apt-get install --only-upgrade failed")
+    return Upgraded(
+        station=station,
+        version=upgrade_packages.app_version,
+        output=result.stdout + result.stderr,
+        database_inode=database_inode,
+        secret_key=secret_key,
+    )
+
+
+@pytest.fixture(scope="session")
+def apt_removed(apt_upgraded: Upgraded) -> Station:
+    """
+    The software taken away, the recordings left alone. This is `uninstall.sh` without the
+    --all, and the promise an owner is given in the docs.
+    """
+    _say("removing the package")
+    station = apt_upgraded.station
+    _refuse_a_failed_run(station, apt_remove(station), "apt-get remove failed")
+    return station
+
+
+@pytest.fixture(scope="session")
+def apt_purged(apt_removed: Station) -> Station:
+    """
+    Everything, data included. Debian policy leaves no room for a purge that keeps
+    something, so this is the one step nothing can soften.
+    """
+    _say("purging every package")
+    _refuse_a_failed_run(apt_removed, apt_purge(apt_removed), "apt-get purge failed")
+    return apt_removed

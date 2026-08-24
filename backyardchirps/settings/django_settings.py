@@ -147,7 +147,13 @@ USE_I18N = True
 USE_TZ = True
 
 STATIC_URL = "static/"
-STATIC_ROOT = DATA_DIR / "staticfiles"
+
+# Where collectstatic writes, and where nginx serves /static/ from. It defaults inside
+# DATA_DIR because the service user owns that and can run collectstatic there. A packaged
+# install sets the variable instead: the assets are collected once when the package is
+# built and ship read-only next to the code, so nothing collects them on a station.
+_configured_static_root = os.environ.get("BACKYARDCHIRPS_STATIC_ROOT")
+STATIC_ROOT = Path(_configured_static_root) if _configured_static_root else DATA_DIR / "staticfiles"
 
 LOCALE_PATHS = [BASE_DIR / "backyardchirps" / "locale"]
 
@@ -158,7 +164,15 @@ LOCALE_PATHS = [BASE_DIR / "backyardchirps" / "locale"]
 # range maps and the occurrence rasters are framed on one region and come from a region
 # pack instead, which a station downloads for wherever it sits. Nothing here is named
 # after a country: the species list is derived from the station's coordinates.
-SPECIES_DATA_DIR = BASE_DIR / "backyardchirps" / "species_data"
+#
+# BACKYARDCHIRPS_SPECIES_DATA_DIR points this somewhere else. Two callers need that: a
+# packaged install, where the taxonomy and the photos are their own package and do not sit
+# inside the code tree, and the test suite, which reads a small committed fixture instead
+# of the real taxonomy.
+_configured_species_data_dir = os.environ.get("BACKYARDCHIRPS_SPECIES_DATA_DIR")
+SPECIES_DATA_DIR = (
+    Path(_configured_species_data_dir) if _configured_species_data_dir else BASE_DIR / "backyardchirps" / "species_data"
+)
 SPECIES_TAXONOMY_FILE = SPECIES_DATA_DIR / "taxonomy" / "birdnet_taxonomy.json"
 SPECIES_IMAGES_DIR = SPECIES_DATA_DIR / "assets" / "images"
 

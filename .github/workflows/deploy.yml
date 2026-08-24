@@ -47,6 +47,19 @@ jobs:
         with:
           node-version: 22
 
+      # The full taxonomy is not in git any more, so a build fetches it. Cached by week: a
+      # station refreshes its own copy nightly, so a few days old is fine here, and this
+      # keeps a bad afternoon at the BirdNET API from stopping every build. Deliberately no
+      # restore-keys, since falling back to an older cache would mean it never refreshed.
+      - name: Work out this week's taxonomy cache key
+        run: echo "TAXONOMY_WEEK=$(date -u +%Y-%V)" >> "$GITHUB_ENV"
+
+      - name: Cache the taxonomy
+        uses: actions/cache@v4
+        with:
+          path: backyardchirps/species_data/generated/taxonomy
+          key: taxonomy-${{ env.TAXONOMY_WEEK }}
+
       # Node lives here and nowhere else. The tarball carries frontend/dist already
       # built, which is what lets the Pi install without npm.
       #

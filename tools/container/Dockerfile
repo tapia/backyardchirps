@@ -23,10 +23,18 @@ ENV container=docker
 # look inside the database afterwards. Everything the station itself needs, uv
 # included, is install.sh's job, so leaving it out here is what proves the
 # installer installs it.
+# apt-utils is apt-ftparchive, which indexes the local package repository the deb
+# chain installs from. It is a test fixture, not something a station has.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         systemd systemd-sysv dbus \
-        ca-certificates sudo procps sqlite3 \
+        ca-certificates sudo procps sqlite3 apt-utils \
     && rm -rf /var/lib/apt/lists/*
+
+# The debian image ships a policy-rc.d that answers "no" to every request to start a
+# service, so that building an image never brings one up. This machine is standing in for
+# a Pi, and a package's maintainer scripts ask that policy before starting anything, so
+# leaving it here would mean testing an install that starts nothing.
+RUN rm -f /usr/sbin/policy-rc.d
 
 # systemd in a container: units that want real hardware never become ready, and
 # would hold up boot forever.

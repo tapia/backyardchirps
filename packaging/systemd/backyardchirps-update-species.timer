@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily update of BirdNET taxonomy and species list
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=1800
+Persistent=true
+
+[Install]
+WantedBy=timers.target

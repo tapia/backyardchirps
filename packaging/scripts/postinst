@@ -1,0 +1,287 @@
+#!/bin/sh
+# Runs after the files are unpacked, and is what turns them into a working station.
+#
+#   $1  configure | abort-upgrade | abort-remove | abort-deconfigure
+#   $2  on an upgrade, the version being replaced. Empty on a first install.
+
+set -e
+
+DATA_DIR=/var/lib/backyardchirps
+SERVICE_USER=backyardchirps
+MANAGE=/usr/lib/backyardchirps/bin/manage
+# The virtualenv's own interpreter. /usr/bin/python3 is a metapackage a station does not
+# install: it depends on python3.13, which provides the versioned binary and nothing else.
+PYTHON=/opt/backyardchirps/venv/bin/python
+DATABASE="$DATA_DIR/detections.db"
+BACKUP_DIR="$DATA_DIR/backups"
+
+# How many database backups to keep. Nothing pruned these before, so a station that
+# updates often grew a copy of its database per update, for good.
+KEEP_BACKUPS=5
+
+DAEMONS="backyardchirps-web.service backyardchirps-recorder.service"
+TIMERS="backyardchirps-update-species.timer backyardchirps-clip-disk-quota.timer"
+
+if [ "$1" != configure ]; then
+    exit 0
+fi
+
+say() { printf '[backyardchirps] %s\n' "$*"; }
+
+run_as_service_user() {
+    # env -i would drop the variables the units set, so this keeps the environment and
+    # only changes who is running. The manage wrapper decides the rest.
+    sudo -u "$SERVICE_USER" "$@"
+}
+
+# ---------------------------------------------------------------------------
+# 1. What apt cannot say for itself
+# ---------------------------------------------------------------------------
+# Architecture and the Debian release are Depends: and Architecture:, so apt refuses
+# those on its own. These two are advisory and never fatal: a failing postinst leaves a
+# half-configured package and an apt an owner cannot reason about, which is far worse
+# than a station that records nothing until a microphone is plugged in.
+if [ -r /proc/device-tree/model ]; then
+    if ! tr -d '\000' < /proc/device-tree/model | grep -q "Raspberry Pi"; then
+        say "This does not look like a Raspberry Pi. Installing anyway."
+    fi
+fi
+if [ -r /proc/asound/pcm ] && ! grep -q "capture" /proc/asound/pcm; then
+    say "No capture device found, so there is nothing to record from yet."
+    say "Plug a USB microphone in and restart backyardchirps-recorder."
+fi
+
+# ---------------------------------------------------------------------------
+# 2. The service user
+# ---------------------------------------------------------------------------
+# A system account with no password and no login shell, whose home is the data
+# directory. The units run as it, it owns everything the station collects, and the audio
+# group is what lets the recorder open the capture device without giving the account
+# anything else. adduser is idempotent, so an existing station keeps the account it has
+# and every file stays owned by it.
+if ! getent passwd "$SERVICE_USER" > /dev/null; then
+    adduser --system --group --home "$DATA_DIR" --no-create-home \
+        --shell /usr/sbin/nologin --quiet "$SERVICE_USER"
+fi
+if getent group audio > /dev/null; then
+    adduser --quiet "$SERVICE_USER" audio
+else
+    say "No audio group here, so the recorder cannot reach a capture device."
+fi
+
+# ---------------------------------------------------------------------------
+# 3. The data directory
+# ---------------------------------------------------------------------------
+mkdir -p "$DATA_DIR"
+chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR"
+# Traversable by everyone, because nginx serves clips out of it and runs as www-data.
+# What protects the secrets is the mode on .env below, not the mode on this directory.
+chmod 755 "$DATA_DIR"
+
+# Where the updater reports its progress. Root writes it and the service user only reads
+# it. The separate owner is the point: the status file sits in a directory the web
+# process cannot write, so it cannot replace the file with a symlink and have root follow
+# it on the next update.
+mkdir -p "$DATA_DIR/update"
+chown root:root "$DATA_DIR/update"
+chmod 755 "$DATA_DIR/update"
+
+# ---------------------------------------------------------------------------
+# 4. .env
+# ---------------------------------------------------------------------------
+# Written once and never again: re-running this on a configured station must not throw
+# away its secret key or the hostnames it answers to. It holds only what has to exist
+# before Django starts. Everything else is set in the wizard and kept in the database.
+if [ ! -f "$DATA_DIR/.env" ]; then
+    secret_key="$(head -c 48 /dev/urandom | base64 | tr -d '\n=+/')"
+    host_name="$(hostname)"
+    lan_address="$(hostname -I 2> /dev/null | awk '{ print $1 }')"
+    allowed_hosts=".local,localhost,127.0.0.1"
+    [ -n "$lan_address" ] && allowed_hosts="$allowed_hosts,$lan_address"
+
+    cat > "$DATA_DIR/.env" <<EOF
+SECRET_KEY=$secret_key
+DEBUG=false
+ALLOWED_HOSTS=$allowed_hosts
+CSRF_TRUSTED_ORIGINS=http://$host_name.local
+EOF
+    say "Wrote $DATA_DIR/.env"
+fi
+chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/.env"
+chmod 640 "$DATA_DIR/.env"
+
+# ---------------------------------------------------------------------------
+# 5. Setup token, for a station that is new
+# ---------------------------------------------------------------------------
+# A station with no database has never run a migration, so it cannot have an admin and it
+# needs a token. Written now, before the slow and failure-prone steps below, so that its
+# absence has exactly one meaning. A station left with no token and no admin is one
+# anyone on the network can claim, because "no token" is also how a finished setup looks.
+write_setup_token() {
+    head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$DATA_DIR/setup-token"
+    printf '\n' >> "$DATA_DIR/setup-token"
+    chown "$SERVICE_USER:$SERVICE_USER" "$DATA_DIR/setup-token"
+    chmod 600 "$DATA_DIR/setup-token"
+}
+
+station_is_new=no
+if [ ! -f "$DATABASE" ]; then
+    station_is_new=yes
+    write_setup_token
+    say "Setup token written to $DATA_DIR/setup-token"
+fi
+
+# ---------------------------------------------------------------------------
+# 6. Back up the database, because the migrations below cannot be undone
+# ---------------------------------------------------------------------------
+# On an upgrade only, and on any upgrade: an owner running `apt upgrade` by hand gets the
+# same backup the update button does, which was never true of the tarball path.
+if [ -n "$2" ] && [ -f "$DATABASE" ]; then
+    mkdir -p "$BACKUP_DIR"
+    chown "$SERVICE_USER:$SERVICE_USER" "$BACKUP_DIR"
+    backup="$BACKUP_DIR/detections-before-$(date -u +%Y%m%dT%H%M%SZ).db"
+    # SQLite's own backup API rather than cp, so a write in flight cannot leave a torn
+    # copy. Through Python because the sqlite3 command line tool is not installed on a
+    # station and adding a package for one line of an upgrade is a poor trade.
+    run_as_service_user "$PYTHON" -c '
+import sqlite3
+import sys
+
+live = sqlite3.connect(sys.argv[1])
+copy = sqlite3.connect(sys.argv[2])
+with copy:
+    live.backup(copy)
+copy.close()
+live.close()
+' "$DATABASE" "$backup"
+    say "Database backed up to $backup"
+
+    # Newest first, then drop everything past the ones worth keeping, so what goes is
+    # always the oldest copy.
+    find "$BACKUP_DIR" -maxdepth 1 -name 'detections-before-*.db' -printf '%T@ %p\n' 2> /dev/null \
+        | sort -rn \
+        | tail -n "+$((KEEP_BACKUPS + 1))" \
+        | cut -d' ' -f2- \
+        | while read -r old; do
+            rm -f "$old"
+        done
+fi
+
+# ---------------------------------------------------------------------------
+# 7. Migrations
+# ---------------------------------------------------------------------------
+run_as_service_user "$MANAGE" migrate --noinput
+
+# ---------------------------------------------------------------------------
+# 8. Setup token, for a first install over a database that was already there
+# ---------------------------------------------------------------------------
+# Unreachable on an ordinary upgrade, which is the point: a token written onto a station
+# that has an admin undoes its setup, because completion is "has an admin and no longer
+# has a token". So this asks, and writes only on a clear no.
+if [ "$station_is_new" = no ] && [ -z "$2" ] && [ ! -f "$DATA_DIR/setup-token" ]; then
+    has_admin="$(
+        run_as_service_user "$MANAGE" shell -c \
+            'from backyardchirps.features.setup.logic import get_status
+print("yes" if get_status().has_admin else "no")' 2> /dev/null | tail -n 1
+    )" || has_admin=unknown
+
+    case "$has_admin" in
+        no)
+            write_setup_token
+            say "Setup was never finished, so a fresh token is at $DATA_DIR/setup-token"
+            ;;
+        yes) ;;
+        *)
+            # Never guess. Guessing "no" writes a token onto what may be a working station
+            # and undoes its setup; guessing "yes" is harmless but silent.
+            say "Could not tell whether this station has an owner, so no token was written."
+            ;;
+    esac
+fi
+
+# ---------------------------------------------------------------------------
+# 9. The units
+# ---------------------------------------------------------------------------
+# deb-systemd-helper rather than plain systemctl enable, because it remembers a unit an
+# owner disabled and does not quietly turn it back on with every upgrade.
+if command -v deb-systemd-helper > /dev/null; then
+    for unit in $DAEMONS $TIMERS; do
+        deb-systemd-helper unmask "$unit" > /dev/null || true
+        if deb-systemd-helper --quiet was-enabled "$unit"; then
+            deb-systemd-helper enable "$unit" > /dev/null || true
+        else
+            deb-systemd-helper update-state "$unit" > /dev/null || true
+        fi
+    done
+fi
+
+if [ -d /run/systemd/system ]; then
+    systemctl --system daemon-reload > /dev/null || true
+
+    # deb-systemd-invoke rather than systemctl for anything that starts a service: it is
+    # what respects policy-rc.d, so a station being built inside a chroot or an image does
+    # not have its services started underneath the build.
+    #
+    # The model download is not waited on and deliberately not run inline. A Zenodo outage
+    # would otherwise fail this script, and a failed postinst leaves the package
+    # unconfigured and apt broken. The recorder retries it as an ExecStartPre and restarts
+    # on failure, so a station with no network yet ends up with the wait in its journal
+    # rather than in a broken install.
+    systemctl start --no-block backyardchirps-fetch-models.service || true
+
+    deb-systemd-invoke restart backyardchirps-web.service > /dev/null || true
+    for timer in $TIMERS; do
+        deb-systemd-invoke start "$timer" > /dev/null || true
+    done
+
+    # A station that has not been through the wizard has no coordinates, and with no
+    # coordinates BirdNET matches against every species on earth. Recording then would
+    # fill the database with rubbish before the owner has seen the site, so the recorder
+    # waits for the wizard to finish and start it.
+    setup_complete="$(
+        run_as_service_user "$MANAGE" shell -c \
+            'from backyardchirps.features.setup.logic import get_status
+print("yes" if get_status().is_complete else "no")' 2> /dev/null | tail -n 1
+    )" || setup_complete=no
+
+    if [ "$setup_complete" = yes ]; then
+        deb-systemd-invoke restart backyardchirps-recorder.service > /dev/null || true
+    else
+        say "Setup is unfinished, so the recorder stays stopped for now."
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 10. The sudoers policy
+# ---------------------------------------------------------------------------
+# Shipped as an ordinary file rather than a conffile, so every upgrade restores it
+# verbatim. An invalid file here would be worse than no file: sudo refuses to read the
+# whole of /etc/sudoers.d when one entry in it does not parse.
+if ! visudo -cf /etc/sudoers.d/backyardchirps > /dev/null; then
+    rm -f /etc/sudoers.d/backyardchirps
+    echo "The sudoers policy this package ships does not parse, so it was removed." >&2
+    exit 1
+fi
+
+# ---------------------------------------------------------------------------
+# 11. nginx
+# ---------------------------------------------------------------------------
+ln -sf /etc/nginx/sites-available/backyardchirps /etc/nginx/sites-enabled/backyardchirps
+# Debian's default site claims the same port with an exact server_name, and an exact name
+# beats a default_server, so leaving it in place serves a browser the wrong document root.
+rm -f /etc/nginx/sites-enabled/default
+if nginx -t > /dev/null 2>&1; then
+    if [ -d /run/systemd/system ]; then
+        systemctl enable nginx > /dev/null 2>&1 || true
+        if systemctl is-active --quiet nginx; then
+            systemctl reload nginx || true
+        else
+            systemctl start nginx || true
+        fi
+    fi
+else
+    say "nginx will not accept its configuration, so the site was left as it was."
+    nginx -t || true
+fi
+
+exit 0

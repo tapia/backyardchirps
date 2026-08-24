@@ -1,0 +1,26 @@
+[Unit]
+Description=Backyard Chirps -> Django web server (Gunicorn)
+After=network.target
+
+[Service]
+Type=notify
+User=backyardchirps
+Group=backyardchirps
+WorkingDirectory=/usr/lib/backyardchirps
+EnvironmentFile=/var/lib/backyardchirps/.env
+EnvironmentFile=/etc/default/backyardchirps
+# Deliberately after both EnvironmentFile lines, so this wins over anything in either.
+# .env lives inside the data directory, so it cannot be what decides where that is.
+Environment=BACKYARDCHIRPS_DATA_DIR=/var/lib/backyardchirps
+RuntimeDirectory=backyardchirps-web
+ExecStart=/opt/backyardchirps/venv/bin/gunicorn \
+    --bind unix:/run/backyardchirps-web/gunicorn.sock \
+    --workers 2 \
+    --threads 2 \
+    --timeout 60 \
+    backyardchirps.wsgi:application
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

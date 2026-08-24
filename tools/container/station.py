@@ -141,6 +141,9 @@ class Station:
     """
 
     name: str
+    # Where this machine's Python is. A tarball station builds a virtualenv inside the
+    # release; a packaged one gets it from backyardchirps-deps, at a path no release owns.
+    python: str = f"{APP_DIR}/.venv/bin/python"
 
     def run(self, command: list[str]) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -172,7 +175,7 @@ class Station:
             "connection.commit(); "
             "print('\\n'.join(str(row[0]) for row in rows))"
         )
-        return self.run_as_service_user(f'{APP_DIR}/.venv/bin/python -c "{script}" "{statement}"').stdout.strip()
+        return self.run_as_service_user(f'{self.python} -c "{script}" "{statement}"').stdout.strip()
 
     def sudo_permits(self, command: str) -> bool:
         """
@@ -383,15 +386,18 @@ def build_image() -> None:
         raise RuntimeError(f"Building the {IMAGE} image failed:\n{result.stdout}\n{result.stderr}")
 
 
-def boot() -> Station:
+def boot(name: str = CONTAINER_NAME, python: str | None = None) -> Station:
     """
     A machine that has never worked before. Anything that only passes because of state left
     behind by an earlier attempt fails here, which is exactly the class of problem an installer
     has.
+
+    The two chains bring up one machine each, under different names, so neither can pass
+    because of something the other left behind.
     """
-    remove(Station(name=CONTAINER_NAME))
+    remove(Station(name=name))
     result = subprocess.run(
-        ["docker", "run", "-d", "--name", CONTAINER_NAME, *RUN_FLAGS, IMAGE],
+        ["docker", "run", "-d", "--name", name, *RUN_FLAGS, IMAGE],
         capture_output=True,
         text=True,
         check=False,
@@ -399,7 +405,7 @@ def boot() -> Station:
     if result.returncode != 0:
         raise RuntimeError(f"Could not start the container:\n{result.stderr}")
 
-    station = Station(name=CONTAINER_NAME)
+    station = Station(name=name, python=python) if python else Station(name=name)
     _wait_for_systemd(station)
     return station
 

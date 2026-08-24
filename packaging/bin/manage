@@ -1,0 +1,26 @@
+#!/bin/bash
+# Run a Django management command against this station.
+#
+#   /usr/lib/backyardchirps/bin/manage migrate
+#   /usr/lib/backyardchirps/bin/manage show_migrations_ahead
+#
+# Run it as the service user for anything that touches the database:
+#
+#   sudo -u backyardchirps /usr/lib/backyardchirps/bin/manage migrate
+#
+# SECRET_KEY and the rest are not read here. django_settings.py loads them from the .env
+# inside the data directory, which is why setting BACKYARDCHIRPS_DATA_DIR is enough.
+set -euo pipefail
+
+# Our own file, written by the package, so sourcing it is safe: plain KEY=value lines and
+# comments, no quoting or expansion to get wrong.
+if [ -f /etc/default/backyardchirps ]; then
+    set -a
+    # shellcheck disable=SC1091
+    . /etc/default/backyardchirps
+    set +a
+fi
+
+export BACKYARDCHIRPS_DATA_DIR=/var/lib/backyardchirps
+
+exec /opt/backyardchirps/venv/bin/python -m backyardchirps.manage "$@"

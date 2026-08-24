@@ -1,0 +1,37 @@
+# The taxonomy and the species photos. Its own package because the taxonomy is not
+# maintained here: it is the BirdNET API's output, it dominates the size of everything that
+# ships, and it changes on upstream's schedule rather than on ours.
+#
+# The taxonomy in here is downloaded while the package is built, so the same commit built
+# on two days gives two different packages. Fetched-Taxonomy below is what makes a station
+# able to say which one it got.
+name: backyardchirps-species-data
+# Could be Architecture: all, which would be more correct: nothing in here is compiled.
+# It stays arm64 because "all" makes the repository carry a binary-all tree as well, and
+# that buys nothing while a Pi is the only target. It is this one line when it does.
+arch: arm64
+platform: linux
+version: ${DATA_VERSION}
+version_schema: none
+section: net
+priority: optional
+maintainer: tapia <tapia@users.noreply.github.com>
+vendor: Backyard Chirps
+homepage: https://github.com/tapia/backyardchirps
+license: AGPL-3.0-only
+description: |
+  Species data for Backyard Chirps.
+  The BirdNET taxonomy, and one photo per species.
+
+deb:
+  fields:
+    Fetched-Taxonomy: ${TAXONOMY_FETCHED}
+
+contents:
+  - src: ${STAGING_DATA}/usr/share/backyardchirps/species-data
+    dst: /usr/share/backyardchirps/species-data
+    type: tree
+
+  # The licence, at the path a Debian package keeps it.
+  - src: ${STAGING_DATA}/usr/share/doc/backyardchirps-species-data/copyright
+    dst: /usr/share/doc/backyardchirps-species-data/copyright

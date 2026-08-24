@@ -1,0 +1,15 @@
+[Unit]
+Description=Backyard Chirps -> enforce clip storage disk quota
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=backyardchirps
+WorkingDirectory=/usr/lib/backyardchirps
+EnvironmentFile=/var/lib/backyardchirps/.env
+EnvironmentFile=/etc/default/backyardchirps
+Environment=BACKYARDCHIRPS_DATA_DIR=/var/lib/backyardchirps
+ExecStart=/usr/lib/backyardchirps/bin/manage enforce_clip_disk_quota
+StandardOutput=journal
+StandardError=journal

@@ -1,0 +1,59 @@
+#!/bin/sh
+# Runs after the files are gone.
+#
+#   $1  remove | purge | upgrade | disappear | failed-upgrade | abort-*
+#
+# The distinction this file draws is the one that matters most to an owner:
+#
+#   apt remove   takes the software away and leaves every recording where it is
+#   apt purge    deletes the data directory as well, and Debian policy says purge may
+#                keep nothing, so there is no way to make it ask first
+set -e
+
+DATA_DIR=/var/lib/backyardchirps
+SERVICE_USER=backyardchirps
+UNITS="backyardchirps-web.service backyardchirps-recorder.service \
+    backyardchirps-fetch-models.service backyardchirps-update-species.service \
+    backyardchirps-clip-disk-quota.service backyardchirps-update-species.timer \
+    backyardchirps-clip-disk-quota.timer"
+
+case "$1" in
+    remove)
+        rm -f /etc/nginx/sites-enabled/backyardchirps
+        if [ -d /run/systemd/system ]; then
+            systemctl --system daemon-reload > /dev/null || true
+            if systemctl is-active --quiet nginx; then
+                systemctl reload nginx > /dev/null 2>&1 || true
+            fi
+        fi
+        ;;
+
+    purge)
+        rm -f /etc/nginx/sites-enabled/backyardchirps
+
+        if command -v deb-systemd-helper > /dev/null; then
+            for unit in $UNITS; do
+                deb-systemd-helper purge "$unit" > /dev/null || true
+                deb-systemd-helper unmask "$unit" > /dev/null || true
+            done
+        fi
+
+        if [ -d "$DATA_DIR" ]; then
+            clips="$(find "$DATA_DIR/clips" -name '*.wav' 2> /dev/null | wc -l | tr -d ' ')"
+            printf '[backyardchirps] Purging %s, including %s recordings.\n' "$DATA_DIR" "$clips"
+            rm -rf "$DATA_DIR"
+        fi
+
+        # The account and the group it was given. --system on both, so neither can remove
+        # something a person created that happens to share the name, and --only-if-empty so
+        # a group somebody else was added to stays.
+        if getent passwd "$SERVICE_USER" > /dev/null; then
+            deluser --system --quiet "$SERVICE_USER" > /dev/null 2>&1 || true
+        fi
+        if getent group "$SERVICE_USER" > /dev/null; then
+            delgroup --system --only-if-empty --quiet "$SERVICE_USER" > /dev/null 2>&1 || true
+        fi
+        ;;
+esac
+
+exit 0

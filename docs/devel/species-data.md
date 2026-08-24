@@ -13,8 +13,11 @@ reference recordings. Nothing in the repository is named after a country.
 ```
 backyardchirps/species_data/
 ├── taxonomy/
-│   └── birdnet_taxonomy.json     SHIPPED. Common names, eBird codes, and Wikipedia
-│                                 links for every species BirdNET knows.
+│   └── birdnet_taxonomy.json     SHIPPED, but only a sample. A few hundred species,
+│                                 entries copied unchanged from the full file: common
+│                                 names, eBird codes and Wikipedia links. Enough for a
+│                                 fresh clone to boot and for the tests to assert on.
+│                                 See "The seed" below for the full one.
 ├── assets/
 │   ├── images/                   SHIPPED. One photo per species (<slug>.jpg)
 │   └── ebird_occurrence/         GIT-IGNORED. eBird Status & Trends rasters, one
@@ -78,8 +81,34 @@ kept its rasters. So a locally installed pack gives you its range maps, and its 
 
 ## The seed and the generated files
 
-Only `birdnet_taxonomy.json` is a **seed**: it ships in the repository so tests, CI and fresh
-installs always have a taxonomy to work from.
+Only `birdnet_taxonomy.json` is a **seed**: it ships in the repository so tests, CI and a fresh
+clone always have a taxonomy to work from.
+
+The tracked seed is a sample. The full taxonomy is the BirdNET API's output, committed verbatim,
+and it is the largest file in a release by a wide margin. Tracking it meant every refresh added
+tens of megabytes to the history for good, so the repository keeps a few hundred species instead
+and the full file is fetched where it is needed:
+
+| Who needs it | Where it comes from |
+|---|---|
+| A station | The release it installed, then `update_species_data` nightly into `generated/` |
+| A release | `build_tarball.py` downloads it while staging, over the seed |
+| A checkout | `uv run python manage.py update_species_data`, which writes `generated/taxonomy/` |
+| The tests | The seed, which is why the species they name have to be in it |
+
+`_runtime_or_seed` prefers `generated/taxonomy/` whenever it exists, so a checkout that has
+downloaded the full taxonomy uses it and the seed simply stops being read.
+
+Regenerate the seed with `uv run --no-project python tools/build_taxonomy_seed.py`, which cuts it
+out of the full taxonomy in `generated/`. Selection is deterministic and entries are copied
+unchanged, so the seed is a real sample of the upstream shape. The species the tests spell out
+are named in that script.
+
+Both the download and the seed are checked before anything is written: `check_taxonomy` in
+`integrations/birdnet.py` refuses a payload that is not a list, that holds fewer species than a
+real taxonomy does, or whose entries have lost a field the app reads. That guard runs on a
+station's nightly refresh and again on every build, which are the two places a bad download would
+land on disk.
 
 The species list is not, and nothing ships one. A station builds its own under `generated/` from
 its own coordinates, so a list is only ever right for the station that made it. Committing one

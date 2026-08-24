@@ -36,10 +36,12 @@ updater checks to notice a new one. `min_upgrade_from` (the `MIN_UPGRADE_FROM` e
 workflow) is the oldest version that can move straight to this one. It only needs raising when a
 migration forces users to install an in-between release first.
 
-Almost all of the tarball's size is the committed taxonomy and the species photos. The code
-itself is a rounding error next to them. The eBird occurrence rasters and everything under
-`species_data/generated/` are dropped during staging, because a station downloads those at
-runtime into its data directory. Range maps are not in a release at all: they are pack content,
+Almost all of the tarball's size is the taxonomy and the species photos. The code itself is a
+rounding error next to them. The taxonomy is not the seed the repository tracks: staging writes
+the full one over it, taken from `species_data/generated/` when the checkout has a copy and
+downloaded from the BirdNET API otherwise, so a release always carries every species BirdNET
+knows. The eBird occurrence rasters and everything under `species_data/generated/` are dropped
+during staging, because a station downloads those at runtime into its data directory. Range maps are not in a release at all: they are pack content,
 and a station downloads the pack for its own region rather than everybody's.
 
 ## Why the tarball is built from an allowlist
@@ -113,6 +115,64 @@ local version can equal the tag a release is cut from, and `release.yml` never p
 Worth knowing for the updater: `0.1.0+main.a1b2c3d` sorts **above** `0.1.0` under PEP 440. A
 station tracking `main` is therefore ahead of the newest stable release by that comparison, which
 is true but not what a plain "is there something newer" check should conclude.
+
+## The Debian packages
+
+A second way to ship the same code, built on every pull request and published nowhere yet. It is
+the first part of the move described in [debian-packaging.md](debian-packaging.md), and no
+station installs one: a release is still a tarball.
+
+```bash
+uv run --no-project python tools/build_packages.py                      # all three
+uv run --no-project python tools/build_packages.py --only backyardchirps
+```
+
+Three packages, split by how often each changes:
+
+| Package | Holds | Rebuilt when | Size |
+|---|---|---|---|
+| `backyardchirps` | the code, the built frontend, the collected static files, the units, the nginx site, the sudoers policy | every release | a couple of MB |
+| `backyardchirps-deps` | the virtualenv | `uv.lock` changes | a few hundred MB |
+| `backyardchirps-species-data` | the taxonomy and the species photos | the taxonomy changes | tens of MB |
+
+The split is what makes an ordinary release small. Everything that dominates the size of a
+tarball today changes on somebody else's schedule, not on ours.
+
+**The virtualenv is built in a container**, from `packaging/Dockerfile`, on `debian:trixie` and at
+`/opt/backyardchirps/venv`, the path it installs to. Build path and install path being the same
+means no shebang is rewritten afterwards and the bytecode compiled there is bytecode a station
+uses. It has to be built on arm64: the wheels are native code, and the import check at the end of
+that Dockerfile is what catches a build on the wrong machine. `collectstatic` runs in the same
+container, so the admin assets come from exactly the Django a station will run.
+
+**The wheel is the manifest.** `tools/build_packages.py` runs `uv build --wheel` and unpacks the
+result into `/usr/lib/backyardchirps`, so `[tool.hatch.build.targets.wheel]` in `pyproject.toml`
+decides what counts as code, and there is no second allowlist to keep in step with it. Beside the
+code goes an unversioned `backyardchirps.dist-info/METADATA`, which is where `settings.VERSION`
+is read from, and the venv gets a one-line `.pth` file naming the code directory.
+
+`packaging/nfpm/*.yaml` names what goes in each package. Every `src` in them is inside a staging
+tree the builder lays out, so a file ships only when the build put it there on purpose. The rest
+of `packaging/` is the files a station gets as they are: the units, the nginx site,
+`/etc/default/backyardchirps`, the sudoers policy and the four maintainer scripts.
+
+`tests/unit/packaging/` holds those files to each other without building anything, and
+`.github/workflows/packages.yml` builds the real thing, runs `lintian` over it, and installs it on
+a clean machine.
+
+`lintian` is advisory here and the job never fails on it, because a few of its rules are about
+being in the Debian archive rather than about being a correct package. Four findings are expected
+and deliberate:
+
+| Finding | Why |
+|---|---|
+| `dir-or-file-in-opt` | The virtualenv lives in `/opt`, which is exactly what that directory is for: software that does not come from the distribution |
+| `file-in-etc-not-marked-as-conffile` | The sudoers policy, on purpose. A privilege grant dpkg refuses to overwrite is a stale privilege grant |
+| `package-installs-python-pycache-dir` | The bytecode is compiled into the package, so a station writes none of its own and `apt remove` takes the code directory with it |
+| `no-changelog` | A Debian changelog would duplicate the release notes on GitHub, which is where `Changelog-Url` points |
+
+Anything else it reports about the virtualenv package is upstream's: unstripped wheels, vendored
+libraries and the like. What is worth reading is a new finding against `backyardchirps` itself.
 
 ## Region packs
 
