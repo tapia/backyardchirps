@@ -104,10 +104,14 @@ jobs:
       # newer version to move to.
       #
       # The suite carries its own pytest.ini, which is what keeps the project virtualenv the
-      # build step left behind from pulling pytest-django into a run that has no Django.
+      # build step left behind from pulling pytest-django into a run that has no Django. It
+      # is named with -c because pytest would not find it here on its own: --packages-dir is
+      # unknown until conftest.py loads, so the early parser takes build/packages for a test
+      # path, and the rootdir becomes the ancestor the two paths share, the repository root.
+      # pyproject.toml then wins and the run dies on a missing SECRET_KEY.
       - name: Install them on a clean machine and check what came out
         run: >
-          uv run --no-project --with pytest pytest
+          uv run --no-project --with pytest pytest -c tools/container/pytest.ini
           tools/container/test_container_apt.py -v -s --packages-dir build/packages
 
       - name: Keep the packages for anyone who wants to look
