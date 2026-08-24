@@ -94,6 +94,10 @@ jobs:
         # itself. The coverage report and the Django settings the project suite asks for
         # stay out of the way through tools/container/pytest.ini. -s lets the fixtures say
         # which slow step they are on while they are on it.
+        #
+        # The install file rather than the whole directory: the package chain beside it is
+        # packages.yml's job, and running it here would build the packages a second time on
+        # a machine with no gettext for the catalogs.
         run: >
           uv run --no-project --with pytest pytest
-          tools/container -v -s
+          tools/container/test_container_install.py -v -s
