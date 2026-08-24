@@ -12,7 +12,7 @@ station apart, so every assertion about a working one has to come before them.
 
 Run it with:
 
-    uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s
+    uv run --no-project --with pytest pytest tools/container -v -s
 
 Needs docker, and an arm64 machine for the packages to be installable at all.
 """

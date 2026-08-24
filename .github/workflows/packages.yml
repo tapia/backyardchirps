@@ -102,9 +102,12 @@ jobs:
       # test are the ones lintian looked at and the ones this job publishes as an artifact.
       # The upgrade half still builds an app package of its own, because it needs a second,
       # newer version to move to.
+      #
+      # The suite carries its own pytest.ini, which is what keeps the project virtualenv the
+      # build step left behind from pulling pytest-django into a run that has no Django.
       - name: Install them on a clean machine and check what came out
         run: >
-          uv run --no-project --with pytest pytest -o addopts=""
+          uv run --no-project --with pytest pytest
           tools/container/test_container_apt.py -v -s --packages-dir build/packages
 
       - name: Keep the packages for anyone who wants to look

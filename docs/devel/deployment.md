@@ -233,14 +233,20 @@ then uninstalls. Nothing has to be tagged or published, and the artifact under t
 user downloads. It covers everything except real audio.
 
 ```bash
-uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s
-uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s --keep-station
+uv run --no-project --with pytest pytest tools/container -v -s
+uv run --no-project --with pytest pytest tools/container -v -s --keep-station
 ```
 
-It is pytest, but it is not part of the project suite: `tools/container` is outside `testpaths`,
-so `uv run pytest` never picks it up and a slow run stays something you ask for. `--no-project` keeps it out of the project environment, which none of it needs, and
-`-o addopts=""` drops the coverage report so a container run cannot overwrite `coverage.xml`.
-`-s` is what lets the fixtures report progress while they work.
+It is pytest, but it is not part of the project suite: `tools/container` is outside
+`testpaths`, so `uv run pytest` never picks it up and a slow run stays something you ask for.
+`--no-project` keeps it out of the project environment, which none of it needs, and `-s` is
+what lets the fixtures report progress while they work.
+
+`tools/container/pytest.ini` is why nothing else has to be passed. pytest reads one
+configuration file, the nearest one above the paths it was given, so that file is the whole
+configuration of a container run: no coverage report to overwrite `coverage.xml` with, and no
+`DJANGO_SETTINGS_MODULE`, which would otherwise wake pytest-django up and have it import
+settings that read `SECRET_KEY` from an environment CI does not set.
 
 One machine is walked through five states, each fixture in `conftest.py` building on the one
 before: installed, given an owner, installed again, updated, uninstalled. **The tests are written
@@ -270,8 +276,8 @@ debugged, since `preinst`, `postinst`, `prerm` and `postrm` are what now hold ev
 `install.sh` and `apply.sh` used to make.
 
 ```bash
-uv run --no-project --with pytest pytest -o addopts="" tools/container/test_container_apt.py -v -s
-uv run --no-project --with pytest pytest -o addopts="" tools/container -v -s   # both chains
+uv run --no-project --with pytest pytest tools/container/test_container_apt.py -v -s
+uv run --no-project --with pytest pytest tools/container -v -s   # both chains
 ```
 
 The packages go into `/srv/apt` inside the machine and are read through a `file:` source, so
