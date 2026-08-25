@@ -19,6 +19,7 @@ import pytest
 from tools.build_repository import MAIN
 from tools.build_repository import STABLE
 from tools.build_repository import DebianVersion
+from tools.build_repository import keyring_files_that_changed
 from tools.build_repository import plan_additions
 from tools.build_repository import plan_pool
 from tools.build_repository import stanzas_for
@@ -185,3 +186,46 @@ def test_an_empty_pool_takes_everything() -> None:
     incoming = [("backyardchirps", "0.3.0"), ("backyardchirps-deps", "1.41")]
 
     assert plan_additions(set(), incoming) == set(incoming)
+
+
+# ---------------------------------------------------------------------------
+# The keyring package, whose version does not track its own content
+# ---------------------------------------------------------------------------
+# Every other version scheme here moves when its input moves. This one counts commits over
+# packaging/apt while the key comes from a secret and the host from a repository variable,
+# so it is the only package that can change while its version does not. Publishing that
+# silently would leave every station reading a dead host or trusting only a retired key.
+
+KEY = "./usr/share/keyrings/backyardchirps-archive-keyring.gpg"
+SOURCE = "./etc/apt/sources.list.d/backyardchirps.sources"
+
+
+def test_a_rebuilt_keyring_with_the_same_content_is_not_a_change() -> None:
+    """
+    The ordinary case, and the one that must stay quiet: nearly every publish rebuilds this
+    package without changing either file.
+    """
+    same = {KEY: "aaa", SOURCE: "bbb"}
+    assert keyring_files_that_changed(same, dict(same)) == []
+
+
+def test_a_changed_host_is_caught() -> None:
+    assert keyring_files_that_changed({KEY: "aaa", SOURCE: "new"}, {KEY: "aaa", SOURCE: "old"}) == [SOURCE]
+
+
+def test_a_rotated_key_is_caught() -> None:
+    """
+    The sharper of the two. A rotation changes nothing in git at all, so the version cannot
+    move on its own, and the first publish signed with the new key fails verification on
+    every station at once.
+    """
+    assert keyring_files_that_changed({KEY: "new", SOURCE: "bbb"}, {KEY: "old", SOURCE: "bbb"}) == [KEY]
+
+
+def test_both_changing_together_reports_both() -> None:
+    """
+    A change of host and a rotation travel together, which is the case the docstring on
+    _keyring_version calls usual.
+    """
+    changed = keyring_files_that_changed({KEY: "new", SOURCE: "new"}, {KEY: "old", SOURCE: "old"})
+    assert changed == sorted([KEY, SOURCE])

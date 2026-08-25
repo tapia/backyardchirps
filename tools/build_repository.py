@@ -3,18 +3,10 @@ Turn a pool of .deb files into the signed apt repository a station installs from
 
   uv run --no-project python tools/build_repository.py --pool build/pool --add build/packages/*.deb
 
-The pool is the state. There is no database: this reads the .deb files it is given, decides
-which ones to keep, lays them out, and regenerates every index from scratch. Pruning is
-deleting a file. That is the whole reason apt-ftparchive was chosen over reprepro or aptly,
-and it is what makes the repository copyable to any host that serves files over HTTPS.
-
 Two suites share one pool:
 
   stable   what a station follows. Releases only
-  main     the per-commit suite the deploy Pi follows. Releases and builds off main
-
-A version carrying a PEP 440 local part (0.3.0+main.abc1234) is a build off main and goes
-only to main. Everything else goes to both.
+  main     the per-commit suite. Releases and builds off main
 
 Output is key=value lines on stdout and progress on stderr, the same shape the other two
 builders use, so a caller can do:
@@ -27,10 +19,13 @@ are pure and live at the top of the file.
 """
 
 import argparse
+import hashlib
+import io
 import os
 import shutil
 import subprocess
 import sys
+import tarfile
 from collections import defaultdict
 from itertools import zip_longest
 from pathlib import Path
@@ -69,13 +64,15 @@ ORIGIN = "Backyard Chirps"
 LABEL = "Backyard Chirps"
 DESCRIPTION = "Backyard Chirps station packages"
 
+# The keyring package, and the two files inside it that decide what a station trusts and
+# where it looks.
+KEYRING_PACKAGE = "backyardchirps-archive-keyring"
+KEYRING_FILES = (
+    "./usr/share/keyrings/backyardchirps-archive-keyring.gpg",
+    "./etc/apt/sources.list.d/backyardchirps.sources",
+)
+
 # A pooled file is identified by its own control data, never by its name.
-#
-# The pool is kept as the assets of a GitHub release, and that store rewrites a name it does
-# not like: a + becomes a dot, so backyardchirps_0.3.0+main.abc1234_arm64.deb comes back as
-# backyardchirps_0.3.0.main.abc1234_arm64.deb. Every build off main carries a +, so a pool
-# that read filenames would mistake each one for a version it had never seen. dpkg-deb reads
-# what the package says about itself, and the published tree is named from that.
 CONTROL_FIELDS = ("Package", "Version", "Architecture")
 
 
@@ -146,33 +143,26 @@ def plan_additions(pooled: set[tuple[str, str]], incoming: list[tuple[str, str]]
     """
     Which of the packages just built are actually new, given what the pool already holds.
 
-    Identity is the package name and its version, and nothing else. Most publishes rebuild
-    something whose version has not moved: the venv package is versioned by commit count over
-    uv.lock and the keyring package by commit count over packaging/apt, neither of which
-    changes on an ordinary commit, and the species data package is versioned by the day. Those
-    rebuilds are not new versions and must not replace what is published.
-
-    Comparing the bytes instead would answer a different question and answer it wrongly: nfpm
-    stamps the build time into a .deb, so two builds of one version never match. What keeps a
-    version honest is that each version scheme moves when its own input moves. The one gap is
-    rotating the archive key without touching packaging/apt, which is what --keyring-version
-    on the package builder is for.
+    Identity is the package name and its version, and nothing else.
     """
     return {identity for identity in incoming if identity not in pooled}
+
+
+def keyring_files_that_changed(built: dict[str, str], published: dict[str, str]) -> list[str]:
+    """
+    Which of the keyring package's files differ between a fresh build and the published copy
+    carrying the same version. Empty means the two are the same package.
+
+    Compared file by file rather than by the .deb's bytes, because nfpm stamps the build time
+    into an archive and two builds of one version therefore never match.
+    """
+    return sorted(name for name in set(built) | set(published) if built.get(name) != published.get(name))
 
 
 def plan_pool(pooled: dict[str, tuple[str, str]]) -> tuple[list[str], list[str]]:
     """
     Decide which pooled files survive, given every file name mapped to its package and
     version.
-
-    Newest first within each suite, keeping KEEP_PER_SUITE of each package, and a file
-    survives when any suite wants it. Returns the names to keep and the names to delete,
-    both sorted, so a caller can act on them and print them.
-
-    One version means one file. Two files carrying the same package and version would index
-    as two identical stanzas, and they happen for a dull reason: the pool store rewrites some
-    names, so re-uploading a build can land beside itself under a different one.
     """
     one_per_version: dict[tuple[str, str], str] = {}
     for name in sorted(pooled):
@@ -194,11 +184,6 @@ def plan_pool(pooled: dict[str, tuple[str, str]]) -> tuple[list[str], list[str]]
 def stanzas_for(packages_text: str, pooled: dict[str, tuple[str, str]], suite: str) -> str:
     """
     Cut one suite's Packages index out of the index of the whole pool.
-
-    apt-ftparchive walks a directory, and both suites share one, so it is run once and the
-    result is split here. A Packages file is RFC822 stanzas separated by blank lines, and
-    the Filename field says which pooled file each stanza describes, so the split needs no
-    second scan of several hundred MB.
     """
     wanted = []
     for stanza in packages_text.strip().split("\n\n"):
@@ -216,11 +201,6 @@ def stanzas_for(packages_text: str, pooled: dict[str, tuple[str, str]], suite: s
 class DebianVersion:
     """
     A Debian version that sorts the way dpkg sorts it.
-
-    Written out rather than shelling to `dpkg --compare-versions` so that pruning can be
-    tested on a machine with no dpkg, which is every developer laptop here.
-    tests/unit/packaging/test_debian_version.py checks this against dpkg itself wherever
-    dpkg exists, so the two cannot drift apart quietly.
     """
 
     def __init__(self, version: str) -> None:
@@ -256,10 +236,6 @@ def _compare(left: DebianVersion, right: DebianVersion) -> int:
 def _compare_parts(left: str, right: str) -> int:
     """
     Compare one half of two versions, run by run, padding the shorter one.
-
-    The padding is what a shorter version means to dpkg: it ran out, which is neither
-    smaller nor larger by itself. An empty run compares as [0], and that is also what a
-    non-digit run that has ended looks like, so one fill value covers both kinds.
     """
     for mine, theirs in zip_longest(_comparable(left), _comparable(right), fillvalue=[0]):
         if mine != theirs:
@@ -270,14 +246,6 @@ def _compare_parts(left: str, right: str) -> int:
 def _comparable(part: str) -> list[list[int]]:
     """
     Turn one half of a version into runs Python can compare, following dpkg's rule.
-
-    The string is read as alternating runs, always starting with a non-digit one: characters
-    that are not digits, compared one at a time in an order of dpkg's own, then digits,
-    compared as a number so that 9 sorts below 10.
-
-    Every non-digit run ends with a 0 standing for "the string ended here". That is the part
-    that makes the tilde work: it orders below that 0, so 1.0~rc1 is older than 1.0, while
-    every other character orders above it and 1.0a is newer.
     """
     runs: list[list[int]] = []
     index = 0
@@ -311,18 +279,20 @@ def _character_order(character: str) -> int:
 def _add_to_pool(pool: Path, new_packages: list[Path]) -> list[str]:
     """
     Copy the newly built packages in, keeping any version that is already published.
-
-    A published version never changes. A station that has it will not download it again, so
-    replacing the file would leave two stations reporting one version and running different
-    code, and there would be nothing to see from either end.
     """
     pooled = _pooled(pool)
     incoming = [(package, _identity(package)) for package in new_packages if _exists(package)]
     wanted = plan_additions(set(pooled.values()), [identity for _, identity in incoming])
+    # By identity rather than by name, for the reason everything else here is: the pool store
+    # rewrites some names, so the published copy of a version is not always where its own
+    # name would put it.
+    published = {identity: pool / name for name, identity in sorted(pooled.items(), reverse=True)}
 
     added = []
     for package, identity in incoming:
         if identity not in wanted:
+            if identity[0] == KEYRING_PACKAGE:
+                _refuse_a_changed_keyring(package, published[identity], identity[1])
             _say(f"{identity[0]} {identity[1]} is already published, keeping the pooled copy")
             continue
         wanted.remove(identity)
@@ -330,6 +300,43 @@ def _add_to_pool(pool: Path, new_packages: list[Path]) -> list[str]:
         added.append(_canonical_name(identity))
         _say(f"added {identity[0]} {identity[1]}")
     return added
+
+
+def _refuse_a_changed_keyring(built: Path, published: Path, version: str) -> None:
+    """
+    Stop the publish when the keyring package was rebuilt with new content at a version that
+    has already been published.
+    """
+    changed = keyring_files_that_changed(_keyring_digests(built), _keyring_digests(published))
+    if not changed:
+        return
+    _say(f"the keyring package differs from the published {version} in: {', '.join(changed)}")
+    _fail(
+        f"The keyring package was rebuilt with new content at version {version}, which is "
+        "already published, so no station would ever be offered it.\n"
+        "Rotating the archive key or changing APT_BASE_URL does not move that version on its "
+        "own: it counts commits over packaging/apt.\n"
+        "Give it a version of its own with --keyring-version on tools/build_packages.py, or "
+        "change a file in packaging/apt in the same commit."
+    )
+
+
+def _keyring_digests(package: Path) -> dict[str, str]:
+    """
+    A sha256 of each of the keyring package's two files, read out of the .deb itself.
+    """
+    payload = _capture_bytes(["dpkg-deb", "--fsys-tarfile", str(package)])
+    digests = {}
+    with tarfile.open(fileobj=io.BytesIO(payload)) as archive:
+        for name in KEYRING_FILES:
+            try:
+                member = archive.extractfile(name)
+            except KeyError:
+                member = None
+            if member is None:
+                _fail(f"{package.name} does not carry {name}.")
+            digests[name] = hashlib.sha256(member.read()).hexdigest()
+    return digests
 
 
 def _exists(package: Path) -> bool:
