@@ -142,6 +142,25 @@ def suites_for(version: str) -> tuple[str, ...]:
     return (MAIN,) if "+" in version else SUITES
 
 
+def plan_additions(pooled: set[tuple[str, str]], incoming: list[tuple[str, str]]) -> set[tuple[str, str]]:
+    """
+    Which of the packages just built are actually new, given what the pool already holds.
+
+    Identity is the package name and its version, and nothing else. Most publishes rebuild
+    something whose version has not moved: the venv package is versioned by commit count over
+    uv.lock and the keyring package by commit count over packaging/apt, neither of which
+    changes on an ordinary commit, and the species data package is versioned by the day. Those
+    rebuilds are not new versions and must not replace what is published.
+
+    Comparing the bytes instead would answer a different question and answer it wrongly: nfpm
+    stamps the build time into a .deb, so two builds of one version never match. What keeps a
+    version honest is that each version scheme moves when its own input moves. The one gap is
+    rotating the archive key without touching packaging/apt, which is what --keyring-version
+    on the package builder is for.
+    """
+    return {identity for identity in incoming if identity not in pooled}
+
+
 def plan_pool(pooled: dict[str, tuple[str, str]]) -> tuple[list[str], list[str]]:
     """
     Decide which pooled files survive, given every file name mapped to its package and
@@ -291,33 +310,32 @@ def _character_order(character: str) -> int:
 
 def _add_to_pool(pool: Path, new_packages: list[Path]) -> list[str]:
     """
-    Copy the newly built packages in, refusing to change one that is already there.
+    Copy the newly built packages in, keeping any version that is already published.
 
-    A published version is immutable: a station that already has it would never download it
-    again, so two files under one name would mean two stations running different code and
-    reporting the same version. Rebuilding the same version is a mistake somewhere upstream,
-    and it should stop here rather than at a station.
+    A published version never changes. A station that has it will not download it again, so
+    replacing the file would leave two stations reporting one version and running different
+    code, and there would be nothing to see from either end.
     """
+    pooled = _pooled(pool)
+    incoming = [(package, _identity(package)) for package in new_packages if _exists(package)]
+    wanted = plan_additions(set(pooled.values()), [identity for _, identity in incoming])
+
     added = []
-    already_pooled = {identity: name for name, identity in _pooled(pool).items()}
-    for package in new_packages:
-        if not package.exists():
-            _fail(f"{package} does not exist.")
-        identity = _identity(package)
-        pooled_as = already_pooled.get(identity)
-        if pooled_as is not None:
-            if (pool / pooled_as).read_bytes() == package.read_bytes():
-                _say(f"{identity[0]} {identity[1]} is already in the pool, unchanged")
-                continue
-            _fail(
-                f"Refusing to publish: {identity[0]} {identity[1]} is already in the pool with different "
-                "content. A published version cannot change, or two stations would report the same "
-                "version and run different code."
-            )
+    for package, identity in incoming:
+        if identity not in wanted:
+            _say(f"{identity[0]} {identity[1]} is already published, keeping the pooled copy")
+            continue
+        wanted.remove(identity)
         shutil.copy2(package, pool / _canonical_name(identity))
         added.append(_canonical_name(identity))
         _say(f"added {identity[0]} {identity[1]}")
     return added
+
+
+def _exists(package: Path) -> bool:
+    if not package.exists():
+        _fail(f"{package} does not exist.")
+    return True
 
 
 def _pooled(pool: Path) -> dict[str, tuple[str, str]]:

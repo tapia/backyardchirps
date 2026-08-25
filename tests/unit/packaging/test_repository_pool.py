@@ -19,6 +19,7 @@ import pytest
 from tools.build_repository import MAIN
 from tools.build_repository import STABLE
 from tools.build_repository import DebianVersion
+from tools.build_repository import plan_additions
 from tools.build_repository import plan_pool
 from tools.build_repository import stanzas_for
 from tools.build_repository import suites_for
@@ -160,3 +161,27 @@ def test_one_version_survives_even_when_the_pool_store_renamed_it() -> None:
 
     assert len(kept) == 1
     assert len(pruned) == 1
+
+
+def test_a_rebuild_of_a_published_version_is_not_added_again() -> None:
+    """
+    The case that broke the first working publish. Most pushes rebuild a package whose
+    version has not moved: the venv package is versioned by commit count over uv.lock and
+    the keyring package by commit count over packaging/apt, and an ordinary commit changes
+    neither. Those rebuilds must leave the published file alone.
+    """
+    published = {("backyardchirps-archive-keyring", "1.1"), ("backyardchirps-deps", "1.41")}
+
+    assert plan_additions(published, [("backyardchirps-archive-keyring", "1.1")]) == set()
+
+
+def test_a_version_that_moved_is_added() -> None:
+    published = {("backyardchirps-deps", "1.41")}
+
+    assert plan_additions(published, [("backyardchirps-deps", "1.42")]) == {("backyardchirps-deps", "1.42")}
+
+
+def test_an_empty_pool_takes_everything() -> None:
+    incoming = [("backyardchirps", "0.3.0"), ("backyardchirps-deps", "1.41")]
+
+    assert plan_additions(set(), incoming) == set(incoming)
