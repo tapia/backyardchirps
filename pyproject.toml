@@ -37,7 +37,7 @@ build-backend = "hatchling.build"
 packages = ["backyardchirps"]
 # The wheel is the manifest for the backyardchirps package: tools/build_packages.py unpacks
 # it into /usr/lib/backyardchirps, so what is in here is what a station gets and there is no
-# second list to keep in step.
+# second list to keep in step
 #
 # These directories are data, not code:
 exclude = [
