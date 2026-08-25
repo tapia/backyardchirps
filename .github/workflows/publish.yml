@@ -239,10 +239,56 @@ jobs:
       - id: deploy
         uses: actions/deploy-pages@v4
 
+      # deploy-pages reports where the site actually went. When that is not the domain the
+      # keyring package tells stations to read, every check below would be asking about a site
+      # no station will ever fetch, and the first symptom is a bare 404 that explains nothing.
+      #
+      # The usual cause is a custom domain that was never set under Settings, Pages. Pages then
+      # cannot map the Host header to a site and answers its catch-all 404, which looks like a
+      # DNS problem and is not: the request arrived.
+      - name: Check the deploy went where stations are told to look
+        env:
+          APT_BASE_URL: ${{ vars.APT_BASE_URL }}
+          PAGE_URL: ${{ steps.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          deployed="${PAGE_URL%/}"
+          expected="${APT_BASE_URL%/}"
+          if [ "$deployed" != "$expected" ]; then
+            echo "Pages published to $deployed" >&2
+            echo "but vars.APT_BASE_URL, which is baked into every station's apt source, is $expected." >&2
+            echo "Set the custom domain under Settings, Pages, or correct the variable." >&2
+            exit 1
+          fi
+          echo "published to $deployed"
+
+      # deploy-pages returns before the content is reachable, so a publish that is perfectly
+      # fine can 404 for a few seconds. Wait for it rather than failing the run and sending
+      # somebody to look for a problem that is not there. A CDN in front of Pages widens this
+      # window, since its edges pick the new content up at their own pace.
+      - name: Wait for the site to start serving
+        env:
+          APT_BASE_URL: ${{ vars.APT_BASE_URL }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 12); do
+            if curl -fsS --head "$APT_BASE_URL/KEY.gpg" >/dev/null 2>&1; then
+              echo "serving after $attempt attempt(s)"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "$APT_BASE_URL/KEY.gpg did not start serving within two minutes." >&2
+          curl -sS -o /dev/null -w 'last response: %{http_code}\n' "$APT_BASE_URL/KEY.gpg" >&2
+          exit 1
+
       # apt verifies the hashes recorded in Release, so a host or a CDN that transforms a file
       # breaks every station at once. A container test reading a file: source cannot see that,
       # because the transport is the part being skipped. This is the same check against the
       # real domain, and it is the last thing standing between a bad publish and a station.
+      #
+      # It fetches through whatever sits in front of the site, so a CDN serving a stale dists/
+      # is caught here too, as a hash mismatch or a 404 on a pruned package.
       - name: Check a station can read what was published
         env:
           APT_BASE_URL: ${{ vars.APT_BASE_URL }}
