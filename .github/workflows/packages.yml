@@ -53,7 +53,12 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # fetch-depth 0, because the venv and keyring package versions are commit counts over
+      # their own inputs. A shallow clone answers 1 for every path, so the version would never
+      # move again and build_packages.py refuses to build from one.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # The builder runs with --no-project, so this is here for the interpreter and for
       # `uv build`. Nothing is synced: the virtualenv is built in a container from uv.lock.

@@ -281,6 +281,29 @@ def _keyring_version() -> str:
 
 
 def _commits_over(path: str) -> str:
+    """
+    How many commits have touched a path, which is what orders the two packages nothing else
+    can order.
+
+    A shallow clone is refused rather than counted. It answers 1 for every path, because the
+    single commit it holds looks like the one that created everything, and the version would
+    then never move again however often the input changed. The package would keep the version
+    it already has, the pool would skip it as already published, and stations would go on
+    running the old one with nothing anywhere saying so. actions/checkout defaults to
+    fetch-depth 1, so this is the normal state of a CI checkout and not an exotic case.
+    """
+    shallow = subprocess.run(
+        ["git", "rev-parse", "--is-shallow-repository"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if shallow.returncode == 0 and shallow.stdout.strip() == "true":
+        _fail(
+            f"Refusing to build: this is a shallow clone, so the commit count over {path} is "
+            "meaningless and the version would never move. Check out with fetch-depth: 0."
+        )
     counted = subprocess.run(
         ["git", "rev-list", "--count", "HEAD", "--", path],
         cwd=REPO_ROOT,
