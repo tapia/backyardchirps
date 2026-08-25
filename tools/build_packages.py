@@ -661,7 +661,7 @@ def _run_nfpm(package: str, environment: dict[str, str], output_dir: Path, stagi
             environment={**os.environ, **environment},
         )
     else:
-        _run(_nfpm_in_docker(configuration, environment, output_dir))
+        _run(_nfpm_in_docker(configuration, environment, output_dir, staging))
 
     debs = sorted(output_dir.glob(f"{package}_*.deb"), key=lambda path: path.stat().st_mtime)
     if not debs:
@@ -687,14 +687,18 @@ def _rendered(configuration: Path, environment: dict[str, str], staging: Path) -
     return rendered
 
 
-def _nfpm_in_docker(configuration: Path, environment: dict[str, str], output_dir: Path) -> list[str]:
+def _nfpm_in_docker(configuration: Path, environment: dict[str, str], output_dir: Path, staging: Path) -> list[str]:
     """
     The same run, in nfpm's own image.
 
-    Everything nfpm reads is under the repository and everything it writes goes to the
-    output directory, so those two are mounted at the paths they already have. Same path on
-    both sides means every path in the configuration means the same thing inside and out,
-    and no path has to be translated anywhere.
+    Three directories have to be visible: the repository, the staging tree nfpm reads every
+    `contents.src` out of, and the output directory it writes to. Each is mounted at the path
+    it already has, so every path in the configuration means the same thing inside and out and
+    none has to be translated.
+
+    The staging tree is usually under the repository, and so is mounted twice over without
+    anybody noticing. It is not when --staging-dir points somewhere else, and then leaving it
+    out means nfpm cannot even read its own rendered configuration.
     """
     command = [
         "docker",
@@ -705,7 +709,7 @@ def _nfpm_in_docker(configuration: Path, environment: dict[str, str], output_dir
         "--workdir",
         str(REPO_ROOT),
     ]
-    for mounted in _mount_points(output_dir):
+    for mounted in _mount_points(REPO_ROOT, output_dir, staging):
         command += ["--volume", f"{mounted}:{mounted}"]
     for name, value in environment.items():
         command += ["--env", f"{name}={value}"]
@@ -722,14 +726,17 @@ def _nfpm_in_docker(configuration: Path, environment: dict[str, str], output_dir
     return command
 
 
-def _mount_points(output_dir: Path) -> list[Path]:
+def _mount_points(*wanted: Path) -> list[Path]:
     """
-    The directories nfpm needs to see, with anything already inside another dropped. The
-    output directory is usually under the repository and occasionally somewhere else
-    entirely, which is what a test run passing a temporary directory looks like.
+    The directories to mount, with duplicates and anything already inside another dropped.
+
+    Both matter, because docker refuses a repeated mount point and these three overlap in
+    whatever combination the caller chose: a default run has the staging and output
+    directories under the repository, and a test run puts one or both in a temporary
+    directory somewhere else.
     """
-    wanted = [REPO_ROOT, output_dir.resolve()]
-    return [path for path in wanted if not any(path != other and path.is_relative_to(other) for other in wanted)]
+    unique = sorted({path.resolve() for path in wanted})
+    return [path for path in unique if not any(other != path and path.is_relative_to(other) for other in unique)]
 
 
 def _copy_to(source: Path, destination: Path) -> None:
