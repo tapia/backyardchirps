@@ -252,8 +252,11 @@ jobs:
           PAGE_URL: ${{ steps.deploy.outputs.page_url }}
         run: |
           set -euo pipefail
-          deployed="${PAGE_URL%/}"
-          expected="${APT_BASE_URL%/}"
+          # Host and path only. The scheme is a separate question, and the two steps below
+          # answer it properly by fetching the site over HTTPS: what matters here is whether
+          # the deploy landed on the site stations will actually read.
+          deployed="$(printf '%s' "${PAGE_URL%/}" | sed -E 's|^https?://||')"
+          expected="$(printf '%s' "${APT_BASE_URL%/}" | sed -E 's|^https?://||')"
           if [ "$deployed" != "$expected" ]; then
             echo "Pages published to $deployed" >&2
             echo "but vars.APT_BASE_URL, which is baked into every station's apt source, is $expected." >&2
@@ -261,6 +264,15 @@ jobs:
             exit 1
           fi
           echo "published to $deployed"
+
+          # GitHub reports http:// until it has issued a certificate for the custom domain and
+          # Enforce HTTPS is on. A CDN in front can still serve stations over TLS with its own
+          # certificate, so this is not fatal, but it leaves the leg between the CDN and Pages
+          # unverifiable and blocks Full (strict) mode.
+          case "$PAGE_URL" in
+            https://*) ;;
+            *) echo "::warning::Pages reports $PAGE_URL. Turn on Enforce HTTPS under Settings, Pages. If a CDN proxies this domain, set the DNS record to DNS only until the certificate is issued." ;;
+          esac
 
       # deploy-pages returns before the content is reachable, so a publish that is perfectly
       # fine can 404 for a few seconds. Wait for it rather than failing the run and sending
