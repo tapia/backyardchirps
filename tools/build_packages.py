@@ -1,10 +1,10 @@
 """
-Build the three Debian packages a station installs.
+Build the Debian packages a station installs.
 
   uv run --no-project python tools/build_packages.py [--output-dir DIR] [--version-suffix +main.a1b2c3d]
 
 This is the one place that decides what a station gets, the way build_tarball.py was for a
-release tarball. It stages three trees and then runs nfpm over the YAML files in
+release tarball. It stages a tree per package and then runs nfpm over the YAML files in
 packaging/nfpm/, which name what goes in. Nothing is published here: it writes .deb files
 and prints where they went.
 
@@ -12,6 +12,12 @@ and prints where they went.
                                policy. Rebuilt every release.
   backyardchirps-deps          the virtualenv. Rebuilt when uv.lock changes.
   backyardchirps-species-data  the taxonomy and the species photos.
+
+Those three are what a plain run builds. There is a fourth, built only when asked for by
+name because it needs the archive key that only the publish job has:
+
+  backyardchirps-archive-keyring   the key a station trusts and the source it reads.
+                                   Needs --apt-key and --apt-base-url.
 
 The virtualenv is built by packaging/Dockerfile in a debian:trixie container, at the path
 it will be installed to, so nothing on a Pi ever compiles anything and no shebang has to be
@@ -32,6 +38,7 @@ container's job and the wheel is uv's.
 """
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -45,6 +52,7 @@ from datetime import datetime
 from datetime import timezone
 from pathlib import Path
 from string import Template
+from typing import Any
 from typing import NoReturn
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -86,7 +94,12 @@ REPOSITORY_URL = "https://github.com/tapia/backyardchirps"
 
 PEP_440_LOCAL_VERSION = re.compile(r"^\+[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*$")
 
-PACKAGES = ("backyardchirps", "backyardchirps-deps", "backyardchirps-species-data")
+# What a station installs. The keyring package is not among them: it needs the archive key,
+# which only the publish job has, so it is built when asked for by name and left out of a
+# build that is only checking the station packages still come out.
+STATION_PACKAGES = ("backyardchirps", "backyardchirps-deps", "backyardchirps-species-data")
+KEYRING_PACKAGE = "backyardchirps-archive-keyring"
+PACKAGES = (*STATION_PACKAGES, KEYRING_PACKAGE)
 
 
 def main() -> None:
@@ -125,9 +138,25 @@ def main() -> None:
         action="append",
         help="build just this package, repeatable. Its dependencies are still staged",
     )
+    parser.add_argument(
+        "--apt-key",
+        type=Path,
+        default=None,
+        help=f"the exported archive public key, required to build {KEYRING_PACKAGE}",
+    )
+    parser.add_argument(
+        "--apt-base-url",
+        default="",
+        help=f"the repository a station reads, required to build {KEYRING_PACKAGE}",
+    )
+    parser.add_argument(
+        "--keyring-version",
+        default="",
+        help="version for the keyring package (default: commit count over packaging/apt)",
+    )
     arguments = parser.parse_args()
 
-    wanted = tuple(arguments.only) if arguments.only else PACKAGES
+    wanted = tuple(arguments.only) if arguments.only else STATION_PACKAGES
     output_dir = arguments.output_dir.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     staging = arguments.staging_dir.resolve()
@@ -136,11 +165,14 @@ def main() -> None:
         "APP_VERSION": _app_version(arguments.version_suffix),
         "DEPS_VERSION": _deps_version(),
         "DATA_VERSION": _data_version(),
+        "KEYRING_VERSION": arguments.keyring_version or _keyring_version(),
     }
     _say(f"app {versions['APP_VERSION']}, deps {versions['DEPS_VERSION']}, data {versions['DATA_VERSION']}")
 
     shutil.rmtree(staging, ignore_errors=True)
 
+    if KEYRING_PACKAGE in wanted:
+        _stage_keyring(staging, arguments.apt_key, arguments.apt_base_url)
     if "backyardchirps-deps" in wanted or "backyardchirps" in wanted:
         # Staged first either way: the app package's collectstatic step runs inside this
         # same image, so the venv has to exist before the app tree can be finished.
@@ -148,17 +180,19 @@ def main() -> None:
     if "backyardchirps" in wanted:
         _stage_app(staging, versions["APP_VERSION"])
         _stage_maintainer_scripts(staging, arguments.min_upgrade_from)
-    taxonomy_fetched = ""
+    taxonomy_fetched, taxonomy_sha256 = "", ""
     if "backyardchirps-species-data" in wanted:
-        taxonomy_fetched = _stage_species_data(staging, arguments.taxonomy)
+        taxonomy_fetched, taxonomy_sha256 = _stage_species_data(staging, arguments.taxonomy)
 
     environment = {
         **versions,
         "STAGING_APP": str(staging / "app"),
         "STAGING_DEPS": str(staging / "deps"),
         "STAGING_DATA": str(staging / "species-data"),
+        "STAGING_KEYRING": str(staging / "keyring"),
         "SCRIPTS": str(staging / "scripts"),
         "TAXONOMY_FETCHED": taxonomy_fetched,
+        "TAXONOMY_SHA256": taxonomy_sha256,
         "RELEASED": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         "CHANGELOG_URL": f"{REPOSITORY_URL}/releases/tag/v{versions['APP_VERSION']}",
     }
@@ -170,7 +204,26 @@ def main() -> None:
     print(f"APP_VERSION={versions['APP_VERSION']}")
     print(f"DEPS_VERSION={versions['DEPS_VERSION']}")
     print(f"DATA_VERSION={versions['DATA_VERSION']}")
+    print(f"KEYRING_VERSION={versions['KEYRING_VERSION']}")
     print(f"PACKAGES_DIR={output_dir}")
+
+
+def taxonomy_bytes(taxa: Any) -> bytes:
+    """
+    The taxonomy as the package stores it.
+
+    Canonical rather than whatever bytes upstream served: sorted keys and fixed indentation,
+    so that two downloads of the same data give the same file. That is what lets the nightly
+    job ask "is this already published" by comparing a digest instead of rebuilding.
+    """
+    return json.dumps(taxa, ensure_ascii=False, indent=2, sort_keys=True).encode("utf-8")
+
+
+def taxonomy_digest(taxa: Any) -> str:
+    """
+    sha256 over the bytes above, which ships as a control field on the species-data package.
+    """
+    return hashlib.sha256(taxonomy_bytes(taxa)).hexdigest()
 
 
 def _app_version(version_suffix: str) -> str:
@@ -205,16 +258,7 @@ def _deps_version() -> str:
     the ordering is monotone without anybody maintaining it. Outside a git checkout it
     falls back to 1.0, which is only ever a local build.
     """
-    counted = subprocess.run(
-        ["git", "rev-list", "--count", "HEAD", "--", "uv.lock"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if counted.returncode != 0:
-        return "1.0"
-    return f"1.{counted.stdout.strip()}"
+    return f"1.{_commits_over('uv.lock')}"
 
 
 def _data_version() -> str:
@@ -223,6 +267,28 @@ def _data_version() -> str:
     package and the day it was built is the honest answer.
     """
     return datetime.now(timezone.utc).strftime("1.%Y%m%d")
+
+
+def _keyring_version() -> str:
+    """
+    Commit count over packaging/apt, which is where the source file lives.
+
+    The key itself is not in git, so rotating it moves nothing here. Pass --keyring-version
+    when that happens, or change the source file in the same commit, which is the usual
+    case since a rotation and a change of host tend to travel together.
+    """
+    return f"1.{_commits_over('packaging/apt')}"
+
+
+def _commits_over(path: str) -> str:
+    counted = subprocess.run(
+        ["git", "rev-list", "--count", "HEAD", "--", path],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return "0" if counted.returncode != 0 else counted.stdout.strip()
 
 
 def _stage_deps(staging: Path) -> None:
@@ -269,6 +335,35 @@ def _stage_deps(staging: Path) -> None:
         _run(["docker", "cp", f"{container_id}:/{VENV_PATH}", str(destination.parent)])
     finally:
         _run(["docker", "rm", "--force", container_id])
+
+
+def _stage_keyring(staging: Path, apt_key: Path | None, apt_base_url: str) -> None:
+    """
+    The archive key and the source file that names it.
+
+    Both are checked here rather than trusted, because a keyring package that ships an empty
+    key or a source pointing at nothing would install cleanly and then break every
+    apt-get update on every station at once.
+    """
+    if apt_key is None or not apt_base_url:
+        _fail(f"Building {KEYRING_PACKAGE} needs both --apt-key and --apt-base-url.")
+    if not apt_key.is_file() or apt_key.stat().st_size == 0:
+        _fail(f"--apt-key {apt_key} is missing or empty.")
+    if not apt_base_url.startswith("https://"):
+        _fail(
+            "--apt-base-url must be an https URL, so a station cannot be handed packages over "
+            f"plain HTTP. Got '{apt_base_url}'."
+        )
+
+    keyring = staging / "keyring"
+    _stage_licence(keyring, KEYRING_PACKAGE)
+    _copy_to(apt_key, keyring / "usr/share/keyrings/backyardchirps-archive-keyring.gpg")
+
+    _say(f"staging the apt source, pointing at {apt_base_url}")
+    template = (PACKAGING / "apt" / "backyardchirps.sources").read_text(encoding="utf-8")
+    source = keyring / "etc/apt/sources.list.d/backyardchirps.sources"
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text(Template(template).substitute(APT_BASE_URL=apt_base_url.rstrip("/")), encoding="utf-8")
 
 
 def _stage_licence(tree: Path, package: str) -> None:
@@ -345,10 +440,13 @@ def _stage_app(staging: Path, version: str) -> None:
     _collect_static(app / SHARE_PATH / "staticfiles")
 
 
-def _stage_species_data(staging: Path, taxonomy: Path | None) -> str:
+def _stage_species_data(staging: Path, taxonomy: Path | None) -> tuple[str, str]:
     """
-    The taxonomy and the photos, and the date the taxonomy was fetched, which ships as a
-    control field so a station can say which one it got.
+    The taxonomy and the photos, plus the date the taxonomy was fetched and a digest of it.
+
+    Both ship as control fields. The date is for a person asking a station which taxonomy it
+    is running; the digest is for the nightly job, which uses it to decide whether upstream
+    has actually changed.
     """
     _stage_licence(staging / "species-data", "backyardchirps-species-data")
 
@@ -379,11 +477,11 @@ def _stage_species_data(staging: Path, taxonomy: Path | None) -> str:
 
     taxonomy_file_path = species_data / "taxonomy" / "birdnet_taxonomy.json"
     taxonomy_file_path.parent.mkdir(parents=True, exist_ok=True)
-    with taxonomy_file_path.open("w", encoding="utf-8") as staged_file:
-        json.dump(taxa, staged_file, ensure_ascii=False, indent=2)
-    _say(f"staged {len(taxa)} species, fetched {fetched:%Y-%m-%d}")
+    taxonomy_file_path.write_bytes(taxonomy_bytes(taxa))
+    digest = taxonomy_digest(taxa)
+    _say(f"staged {len(taxa)} species, fetched {fetched:%Y-%m-%d}, sha256 {digest[:12]}")
 
-    return fetched.strftime("%Y-%m-%d")
+    return fetched.strftime("%Y-%m-%d"), digest
 
 
 def _stage_wheel(destination: Path, version: str) -> None:

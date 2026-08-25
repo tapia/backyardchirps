@@ -1,0 +1,15 @@
+# The apt source a station follows, owned by backyardchirps-archive-keyring.
+#
+# Deliberately not a conffile, for the reason the sudoers policy is not one: every upgrade
+# restores this verbatim, so the host, the suite and the key can all change through an
+# ordinary package update. A conffile dpkg refused to overwrite would leave a station
+# pointing at a dead host, and nobody would find out until a release did not arrive.
+#
+# Suites is stable, which is releases only. The deploy Pi follows main through a separate
+# file no package owns, so rewriting this one never moves it back to stable.
+Types: deb
+URIs: ${APT_BASE_URL}
+Suites: stable
+Components: main
+Architectures: arm64
+Signed-By: /usr/share/keyrings/backyardchirps-archive-keyring.gpg

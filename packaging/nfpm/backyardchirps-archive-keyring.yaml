@@ -1,0 +1,41 @@
+# The key a station trusts, and the source it reads. Two files, and both of them are how a
+# station finds every other package, which is why they travel together.
+#
+# It is not in the app package's Depends. install.sh names it alongside backyardchirps on a
+# fresh machine, so every station gets it, and keeping it out of the dependency graph means
+# the container suite can go on installing from an unsigned local repository. Once it is on
+# a station, apt upgrades it like anything else, and that is the path a key rotation or a
+# change of host travels down.
+name: backyardchirps-archive-keyring
+# Nothing in here is compiled, and this could be Architecture: all for that reason. It stays
+# arm64 for the same reason the other three do: "all" makes the repository carry a
+# binary-all tree, and a Pi is the only target.
+arch: arm64
+platform: linux
+version: ${KEYRING_VERSION}
+version_schema: none
+section: net
+priority: optional
+maintainer: tapia <tapia@users.noreply.github.com>
+vendor: Backyard Chirps
+homepage: https://github.com/tapia/backyardchirps
+license: AGPL-3.0-only
+description: |
+  Archive key and apt source for Backyard Chirps.
+  The key a station verifies packages against, and the source file that
+  says where to fetch them from.
+
+contents:
+  # Under /usr/share/keyrings and named by Signed-By in the source below. Never
+  # /etc/apt/trusted.gpg.d, which is global trust: a key there can sign anything from any
+  # repository the machine reads.
+  - src: ${STAGING_KEYRING}/usr/share/keyrings/backyardchirps-archive-keyring.gpg
+    dst: /usr/share/keyrings/backyardchirps-archive-keyring.gpg
+
+  # Deliberately not a conffile. See the comment at the top of packaging/apt/backyardchirps.sources.
+  - src: ${STAGING_KEYRING}/etc/apt/sources.list.d/backyardchirps.sources
+    dst: /etc/apt/sources.list.d/backyardchirps.sources
+
+  # The licence, at the path a Debian package keeps it.
+  - src: ${STAGING_KEYRING}/usr/share/doc/backyardchirps-archive-keyring/copyright
+    dst: /usr/share/doc/backyardchirps-archive-keyring/copyright

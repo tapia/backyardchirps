@@ -1,0 +1,272 @@
+# Build the packages and publish them to the apt repository stations install from.
+#
+# Two suites come out of one pool. A push to main publishes a build carrying a PEP 440 local
+# version, which only the `main` suite offers, so nothing an owner runs can see it. A release
+# is published by hand from here until phase 5 wires the tag up, and goes to both suites.
+#
+# The published site is a rendering of the pool, not the place the pool lives. The pool is the
+# assets of the `apt-pool` release: storage there is not capped, and unlike a branch it adds
+# nothing to git history. Every publish reads it, adds what it built, prunes, and regenerates
+# every index from scratch.
+#
+# Two settings have to exist before this can run. Both are described in
+# docs/devel/debian-packaging.md:
+#
+#   vars.APT_BASE_URL       the custom domain, for example https://apt.example.com
+#   secrets.APT_SIGNING_KEY the archive private key, ASCII-armored and with no passphrase
+name: Publish
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - packaging/**
+      - tools/build_packages.py
+      - tools/build_repository.py
+      - backyardchirps/**
+      - frontend/**
+      - pyproject.toml
+      - uv.lock
+      - .github/workflows/publish.yml
+  workflow_dispatch:
+    inputs:
+      version_suffix:
+        description: 'PEP 440 local version, or empty to publish a release to both suites'
+        required: false
+        default: ''
+  # The nightly taxonomy job calls this when the upstream file has changed.
+  workflow_call:
+    inputs:
+      version_suffix:
+        type: string
+        required: false
+        default: ''
+      only:
+        description: 'Build just this package, instead of all three'
+        type: string
+        required: false
+        default: ''
+
+# Not per ref. apt-ftparchive regenerates dists/ from the whole pool, so two publishes
+# running at once would each write a tree that does not know about the other's packages.
+concurrency:
+  group: apt-publish
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+env:
+  # The release whose assets are the pool. It holds no source and is never something a person
+  # downloads; it exists because it is the one place on GitHub that stores large files without
+  # a cap and without a history.
+  POOL_TAG: apt-pool
+
+jobs:
+  publish:
+    name: Build, index, sign and deploy
+    runs-on: ubuntu-24.04-arm
+    # The virtualenv is resolved from scratch on a cold cache and the pool is a few hundred MB
+    # to move in each direction.
+    timeout-minutes: 90
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Every ${{ }} below reaches the shell through the environment rather than by being
+      # pasted into the script, so a setting can never be read as shell syntax.
+      - name: Refuse to run half configured
+        env:
+          APT_BASE_URL: ${{ vars.APT_BASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$APT_BASE_URL" ]; then
+            echo "vars.APT_BASE_URL is not set. It is the custom domain stations read," >&2
+            echo "for example https://apt.example.com. See docs/devel/debian-packaging.md." >&2
+            exit 1
+          fi
+          case "$APT_BASE_URL" in
+            https://*) ;;
+            *) echo "vars.APT_BASE_URL must be an https URL." >&2; exit 1 ;;
+          esac
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      # gettext for the catalogs, apt-utils for apt-ftparchive, xz-utils for the index.
+      - name: Install the build and archive tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq gettext apt-utils xz-utils
+
+      # Same weekly key as the Packages workflow: a station refreshes its own copy nightly, so
+      # a few days old is fine here, and a bad afternoon at the BirdNET API cannot stop a
+      # publish. Deliberately no restore-keys, since an older cache would never refresh.
+      - name: Work out this week's taxonomy cache key
+        run: echo "TAXONOMY_WEEK=$(date -u +%Y-%V)" >> "$GITHUB_ENV"
+
+      # Skipped when the species-data package is the thing being built, which is the nightly
+      # job calling in. That job exists to publish what upstream is serving today, and a cache
+      # a few days old would quietly publish something else.
+      - name: Cache the taxonomy
+        if: inputs.only != 'backyardchirps-species-data'
+        uses: actions/cache@v4
+        with:
+          path: backyardchirps/species_data/generated/taxonomy
+          key: taxonomy-${{ env.TAXONOMY_WEEK }}
+
+      # A push to main publishes a local version, which only the main suite offers. A manual
+      # run with an empty suffix publishes a release, which both suites offer.
+      - name: Work out the version to build
+        env:
+          EVENT: ${{ github.event_name }}
+          SHA: ${{ github.sha }}
+          REQUESTED_SUFFIX: ${{ inputs.version_suffix }}
+        run: |
+          set -euo pipefail
+          suffix="$REQUESTED_SUFFIX"
+          if [ "$EVENT" = "push" ]; then
+            suffix="+main.$(printf '%s' "$SHA" | cut -c1-7)"
+          fi
+          echo "VERSION_SUFFIX=$suffix" >> "$GITHUB_ENV"
+          echo "Publishing with suffix '${suffix:-none, so this is a release}'"
+
+      - name: Build the station packages
+        env:
+          SECRET_KEY: build-only-secret-key
+          ONLY: ${{ inputs.only }}
+        run: |
+          set -euo pipefail
+          # if rather than [ … ] && …, because under set -e a test that comes out false is
+          # the whole statement's exit status and would end the step.
+          arguments=(--output-dir build/packages)
+          if [ -n "$VERSION_SUFFIX" ]; then arguments+=(--version-suffix "$VERSION_SUFFIX"); fi
+          if [ -n "$ONLY" ]; then arguments+=(--only "$ONLY"); fi
+          uv run --no-project python tools/build_packages.py "${arguments[@]}"
+
+      # Into a temporary GNUPGHOME that the last step wipes, so the key is never written to
+      # the runner's home directory and never reaches a cache or an artifact.
+      - name: Import the archive key
+        env:
+          APT_SIGNING_KEY: ${{ secrets.APT_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${APT_SIGNING_KEY}" ]; then
+            echo "secrets.APT_SIGNING_KEY is not set. See docs/devel/debian-packaging.md." >&2
+            exit 1
+          fi
+          GNUPGHOME="$(mktemp -d)"
+          chmod 700 "$GNUPGHOME"
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+          printf '%s' "${APT_SIGNING_KEY}" | GNUPGHOME="$GNUPGHOME" gpg --batch --quiet --import
+          key_id="$(GNUPGHOME="$GNUPGHOME" gpg --list-secret-keys --with-colons | awk -F: '/^fpr:/ {print $10; exit}')"
+          echo "APT_SIGN_KEY=$key_id" >> "$GITHUB_ENV"
+          echo "signing with $key_id"
+          GNUPGHOME="$GNUPGHOME" gpg --export "$key_id" > "$RUNNER_TEMP/archive-key.gpg"
+
+      # Built here rather than in the step above because it needs the key, and because its
+      # only variable content is the base URL. Nothing about it depends on the app version.
+      - name: Build the keyring package
+        env:
+          APT_BASE_URL: ${{ vars.APT_BASE_URL }}
+        run: |
+          uv run --no-project python tools/build_packages.py \
+            --output-dir build/packages \
+            --only backyardchirps-archive-keyring \
+            --apt-key "$RUNNER_TEMP/archive-key.gpg" \
+            --apt-base-url "$APT_BASE_URL"
+
+      - name: Fetch the pool
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p build/pool
+          if ! gh release view "$POOL_TAG" >/dev/null 2>&1; then
+            gh release create "$POOL_TAG" \
+              --title "apt pool" \
+              --notes "Every .deb the apt repository can offer. Not a release: see docs/devel/debian-packaging.md."
+          fi
+          gh release download "$POOL_TAG" --dir build/pool --pattern '*.deb' || true
+          echo "the pool holds $(find build/pool -name '*.deb' | wc -l) packages"
+
+      - name: Index, prune and sign
+        run: |
+          uv run --no-project python tools/build_repository.py \
+            --pool build/pool \
+            --add build/packages/*.deb \
+            --output build/repository \
+            --sign-key "$APT_SIGN_KEY" >> "$GITHUB_ENV"
+
+      # The pool release is brought in step with what the builder decided, so the next run
+      # starts from the same set this one published. Names are not trusted on the way back in:
+      # this store rewrites a + to a dot, and build_repository.py reads control data instead.
+      - name: Bring the pool release in step
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          IFS=',' read -ra pruned <<< "${PRUNED:-}"
+          for asset in "${pruned[@]}"; do
+            [ -n "$asset" ] || continue
+            gh release delete-asset "$POOL_TAG" "$asset" --yes || true
+          done
+          IFS=',' read -ra added <<< "${ADDED:-}"
+          for asset in "${added[@]}"; do
+            [ -n "$asset" ] || continue
+            gh release upload "$POOL_TAG" "build/pool/$asset" --clobber
+          done
+
+      - uses: actions/configure-pages@v5
+
+      # The whole tree, every publish. It is close to the 1 GB Pages limit by design, and this
+      # upload plus the deploy below is what the 10 minute deployment timeout applies to. If
+      # this starts timing out, the answer is a smaller KEEP_PER_SUITE in build_repository.py
+      # or the move to object storage that docs/devel/debian-packaging.md describes.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/repository
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
+
+      # apt verifies the hashes recorded in Release, so a host or a CDN that transforms a file
+      # breaks every station at once. A container test reading a file: source cannot see that,
+      # because the transport is the part being skipped. This is the same check against the
+      # real domain, and it is the last thing standing between a bad publish and a station.
+      - name: Check a station can read what was published
+        env:
+          APT_BASE_URL: ${{ vars.APT_BASE_URL }}
+        run: |
+          set -euo pipefail
+          docker run --rm -e BASE="$APT_BASE_URL" debian:trixie bash -eu -c '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -qq && apt-get install -y -qq ca-certificates curl >/dev/null
+            curl -fsSL "$BASE/KEY.gpg" -o /usr/share/keyrings/backyardchirps-archive-keyring.gpg
+            cat > /etc/apt/sources.list.d/backyardchirps.sources <<EOF
+          Types: deb
+          URIs: $BASE
+          Suites: main
+          Components: main
+          Architectures: arm64
+          Signed-By: /usr/share/keyrings/backyardchirps-archive-keyring.gpg
+          EOF
+            apt-get update \
+              -o Dir::Etc::sourcelist=/etc/apt/sources.list.d/backyardchirps.sources \
+              -o Dir::Etc::sourceparts=/dev/null \
+              -o APT::Get::List-Cleanup=0
+            apt-cache policy backyardchirps
+          '
+
+      - name: Wipe the key
+        if: always()
+        run: rm -rf "${GNUPGHOME:-}" "$RUNNER_TEMP/archive-key.gpg"

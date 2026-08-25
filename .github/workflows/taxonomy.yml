@@ -1,0 +1,91 @@
+# Watch the BirdNET taxonomy, and publish a new species-data package when it changes.
+#
+# The taxonomy is not in git any more, so nothing in a commit can trigger a rebuild of the
+# package that carries it. This job is what does: it downloads the file every night, runs the
+# whole suite against it, and publishes only when the result differs from what the repository
+# already offers.
+#
+# The comparison matters more than the download. DATA_VERSION is the fetch date, so a nightly
+# publish that ran unconditionally would tell every station an update was waiting, every night,
+# forever. Comparing the download against the published package is what keeps a quiet night
+# quiet.
+#
+# Running the suite here is the other half. A PR reads the tracked sample, so an upstream
+# rename that breaks a real station is invisible on a PR and shows up here instead.
+name: Taxonomy
+
+on:
+  schedule:
+    # Early UTC, when nothing else is running and a failure has all day to be noticed.
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Fetch the taxonomy and decide whether it changed
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 45
+    outputs:
+      changed: ${{ steps.compare.outputs.changed }}
+    env:
+      SECRET_KEY: ci-secret-key
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # Deliberately uncached, unlike every other job. The whole point here is to look at what
+      # upstream is serving today. It writes the file to the path the package build reads, so
+      # the publish job below ships exactly what was tested here.
+      - name: Download the taxonomy
+        run: |
+          set -euo pipefail
+          digest="$(uv run --no-project python tools/taxonomy_digest.py)"
+          echo "DOWNLOADED_SHA256=$digest" >> "$GITHUB_ENV"
+
+      # check_taxonomy already refused an entry count below a floor and any entry missing a
+      # field, inside the download. This is the wider question: does the code still work
+      # against the real file, rather than against the sample a PR reads. An upstream rename
+      # breaks a nightly here instead of a station later.
+      - name: Run the suite against what upstream is serving
+        run: uv run pytest
+
+      # Against the published package rather than against yesterday's download, so a night
+      # that failed to publish is retried tonight instead of being treated as done.
+      - id: compare
+        name: Compare it with what the repository already offers
+        env:
+          APT_BASE_URL: ${{ vars.APT_BASE_URL }}
+        run: |
+          set -euo pipefail
+          published="$(
+            curl -fsSL "$APT_BASE_URL/dists/stable/main/binary-arm64/Packages" \
+              | awk '/^Package: backyardchirps-species-data$/,/^$/' \
+              | awk -F': ' '/^Fetched-Taxonomy-Sha256:/ {print $2}'
+          )" || published=""
+          echo "published:  ${published:-nothing yet}"
+          echo "downloaded: $DOWNLOADED_SHA256"
+          if [ "$published" = "$DOWNLOADED_SHA256" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Unchanged, so nothing is published and no station is told an update is waiting."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  publish:
+    name: Publish the species data package
+    needs: check
+    if: needs.check.outputs.changed == 'true'
+    uses: ./.github/workflows/publish.yml
+    with:
+      only: backyardchirps-species-data
+    secrets: inherit
+    permissions:
+      contents: write
+      pages: write
+      id-token: write

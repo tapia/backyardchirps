@@ -22,7 +22,7 @@ NFPM_DIR = PACKAGING / "nfpm"
 
 # Every staging root tools/build_packages.py hands to nfpm. A src outside these is a file
 # taken from somewhere the builder does not control.
-STAGING_VARIABLES = ("${STAGING_APP}", "${STAGING_DEPS}", "${STAGING_DATA}")
+STAGING_VARIABLES = ("${STAGING_APP}", "${STAGING_DEPS}", "${STAGING_DATA}", "${STAGING_KEYRING}")
 
 # The only two files a station's owner may edit and keep across an upgrade. The sudoers
 # policy is deliberately not among them: a privilege grant dpkg refuses to overwrite is a
@@ -48,7 +48,12 @@ def packages() -> dict[str, dict[str, Any]]:
 
 
 def test_there_is_one_configuration_for_each_package(packages: dict[str, dict[str, Any]]) -> None:
-    assert set(packages) == {"backyardchirps", "backyardchirps-deps", "backyardchirps-species-data"}
+    assert set(packages) == {
+        "backyardchirps",
+        "backyardchirps-deps",
+        "backyardchirps-species-data",
+        "backyardchirps-archive-keyring",
+    }
 
 
 def test_the_file_name_is_the_package_name(packages: dict[str, dict[str, Any]]) -> None:
@@ -162,3 +167,55 @@ def test_the_virtualenv_names_the_interpreter_it_was_built_against(packages: dic
     Debian loud instead of silent.
     """
     assert "python3.13" in packages["backyardchirps-deps"]["depends"]
+
+
+def test_the_keyring_package_ships_the_key_and_the_source(packages: dict[str, dict[str, Any]]) -> None:
+    """
+    Two files, and they only work as a pair: the source names the keyring by absolute path
+    in Signed-By, so shipping one without the other leaves apt reading a source it cannot
+    verify.
+    """
+    destinations = {entry["dst"] for entry in packages["backyardchirps-archive-keyring"]["contents"]}
+    assert "/usr/share/keyrings/backyardchirps-archive-keyring.gpg" in destinations
+    assert "/etc/apt/sources.list.d/backyardchirps.sources" in destinations
+
+
+def test_the_source_names_the_keyring_this_package_ships() -> None:
+    """
+    The path in Signed-By and the path the keyring installs to are written in two files, so
+    a rename of one has to be a rename of both.
+    """
+    source = (PACKAGING / "apt" / "backyardchirps.sources").read_text(encoding="utf-8")
+    keyring = load(NFPM_DIR / "backyardchirps-archive-keyring.yaml")
+    shipped = [entry["dst"] for entry in keyring["contents"] if entry["dst"].startswith("/usr/share/keyrings/")]
+    assert len(shipped) == 1
+    assert f"Signed-By: {shipped[0]}" in source
+
+
+def test_the_source_is_not_globally_trusted() -> None:
+    """
+    Signed-By scopes a key to one repository. A key in /etc/apt/trusted.gpg.d, or a source
+    marked Trusted, would let it vouch for anything the machine reads.
+    """
+    source = (PACKAGING / "apt" / "backyardchirps.sources").read_text(encoding="utf-8")
+    assert "trusted.gpg.d" not in source
+    assert "Trusted:" not in source
+
+
+def test_the_source_ships_pointing_at_stable() -> None:
+    """
+    stable is releases only. The deploy Pi follows main through a file no package owns, so
+    that this one can be rewritten without moving it back.
+    """
+    source = (PACKAGING / "apt" / "backyardchirps.sources").read_text(encoding="utf-8")
+    assert "Suites: stable" in source
+
+
+def test_the_base_url_is_the_only_thing_the_build_fills_in() -> None:
+    """
+    Moving the repository to another host is meant to cost a DNS change, and this is what
+    keeps that true: nothing else in the source file varies per build, so one variable in
+    the publish job is the whole publish target.
+    """
+    source = (PACKAGING / "apt" / "backyardchirps.sources").read_text(encoding="utf-8")
+    assert set(re.findall(r"\$\{([A-Z_]+)\}", source)) == {"APT_BASE_URL"}

@@ -25,7 +25,13 @@ description: |
 
 deb:
   fields:
+    # For a person asking a station which taxonomy it is running.
     Fetched-Taxonomy: ${TAXONOMY_FETCHED}
+    # For the nightly job, which downloads the taxonomy and compares this against it. The
+    # version of this package is the fetch date, so publishing every night regardless would
+    # tell every station an update was waiting, every night. This is what keeps a night on
+    # which upstream did not change a night on which nothing happens.
+    Fetched-Taxonomy-Sha256: ${TAXONOMY_SHA256}
 
 contents:
   - src: ${STAGING_DATA}/usr/share/backyardchirps/species-data
