@@ -32,5 +32,5 @@ export function createPolledResource(fetchResource, intervalMs) {
     }
   }
 
-  return { data, start, stop }
+  return { data, refresh, start, stop }
 }

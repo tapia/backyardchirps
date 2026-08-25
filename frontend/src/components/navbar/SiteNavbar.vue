@@ -7,34 +7,38 @@
 import { watch, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../../composables/useAuth.js'
+import { useDubiousCount } from '../../composables/useDubiousCount.js'
 import { useServerStatus } from '../../composables/useServerStatus.js'
 import DesktopNavbar from './DesktopNavbar.vue'
 import MobileNavbar from './MobileNavbar.vue'
 
 const router = useRouter()
 const { currentUser, logout } = useAuth()
-const { start: startServerStatus, stop: stopServerStatus } = useServerStatus()
 
-// Server status is only shown to staff (alert badges, server status page),
-// so only poll it while a staff user is logged in.
-let serverStatusPolling = false
+// Both of these read an admin-only endpoint: the server status behind the alert badge and
+// the status page, and the count behind the review queue's badge. For anyone else every
+// tick would come back 403, so they are polled only while a staff user is logged in.
+const staffResources = [useServerStatus(), useDubiousCount()]
+let staffPolling = false
+
+function setStaffPolling(active) {
+  if (active === staffPolling) return
+  staffPolling = active
+  for (const resource of staffResources) {
+    if (active) resource.start()
+    else resource.stop()
+  }
+}
+
 watch(
   () => currentUser.value?.is_staff,
-  (isStaff) => {
-    if (isStaff && !serverStatusPolling) {
-      serverStatusPolling = true
-      startServerStatus()
-    } else if (!isStaff && serverStatusPolling) {
-      serverStatusPolling = false
-      stopServerStatus()
-    }
+  (isStaff) => setStaffPolling(Boolean(isStaff)),
+  {
+    immediate: true,
   },
-  { immediate: true },
 )
 
-onUnmounted(() => {
-  if (serverStatusPolling) stopServerStatus()
-})
+onUnmounted(() => setStaffPolling(false))
 
 async function onLogout() {
   await logout()

@@ -9,7 +9,7 @@
           class="navbar-nav flex-row gap-2 nav-collapsible"
           :class="{ collapsed: searchExpanded }"
         >
-          <li v-for="page in NAV_PAGES" :key="page.routeName" class="nav-item">
+          <li v-for="page in visiblePages" :key="page.routeName" class="nav-item">
             <RouterLink
               class="nav-link px-2 d-flex align-items-center gap-1"
               :class="{ active: route.name === page.routeName }"
@@ -43,7 +43,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useDubiousCount } from '../../composables/useDubiousCount.js'
@@ -51,7 +51,7 @@ import { useAuth } from '../../composables/useAuth.js'
 import WeatherWidget from '../common/WeatherWidget.vue'
 import NavbarSettingsDropdown from './NavbarSettingsDropdown.vue'
 import NavbarSearch from './NavbarSearch.vue'
-import { NAV_PAGES } from './navPages.js'
+import { visibleNavPages } from './navPages.js'
 
 const emit = defineEmits(['logout'])
 
@@ -59,6 +59,10 @@ const route = useRoute()
 const { t } = useI18n()
 const { pendingCount } = useDubiousCount()
 const { currentUser } = useAuth()
+
+// The review queue is admin-only, so it is left out of the navbar rather than shown
+// and then refused.
+const visiblePages = computed(() => visibleNavPages(currentUser.value?.is_staff))
 
 const searchExpanded = ref(false)
 </script>

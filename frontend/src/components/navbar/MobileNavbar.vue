@@ -28,7 +28,7 @@
 
       <div class="list-group mobile-nav-cards">
         <RouterLink
-          v-for="page in NAV_PAGES"
+          v-for="page in visiblePages"
           :key="page.routeName"
           class="list-group-item list-group-item-action mobile-nav-card"
           :to="page.to"
@@ -146,7 +146,7 @@
 </template>
 
 <script setup>
-import { ref, watch, nextTick } from 'vue'
+import { computed, ref, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useDubiousCount } from '../../composables/useDubiousCount.js'
@@ -157,7 +157,7 @@ import { LANGUAGE_OPTIONS } from '../../locales/languageOptions.js'
 import { speciesRoute } from '../../links.js'
 import WeatherWidget from '../common/WeatherWidget.vue'
 import SpeciesSearchPicker from '../species/SpeciesSearchPicker.vue'
-import { NAV_PAGES } from './navPages.js'
+import { visibleNavPages } from './navPages.js'
 
 const emit = defineEmits(['logout'])
 
@@ -166,6 +166,10 @@ const router = useRouter()
 const { t, locale } = useI18n()
 const { pendingCount } = useDubiousCount()
 const { currentUser } = useAuth()
+
+// The review queue is admin-only, so it is left out of the navbar rather than shown
+// and then refused.
+const visiblePages = computed(() => visibleNavPages(currentUser.value?.is_staff))
 const { status: serverStatus } = useServerStatus()
 const { confidenceLevel, confidenceOptions } = useConfidenceFilter()
 

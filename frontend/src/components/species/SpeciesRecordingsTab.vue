@@ -33,7 +33,7 @@
         <DetectionRecordingList
           ref="player"
           :recordings="recordings"
-          :validate="true"
+          :validate="isStaff"
           :group-by-day="groupByDay"
           @validate="onValidateRecording"
         />
@@ -51,6 +51,7 @@
 import { computed, ref, watch, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as api from '../../api/index.js'
+import { useAuth } from '../../composables/useAuth.js'
 import DetectionRecordingList from '../recordings/DetectionRecordingList.vue'
 import ValidationModal from '../review/ValidationModal.vue'
 
@@ -60,6 +61,12 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['validated'])
+
+const { currentUser } = useAuth()
+
+// Reviewing and editing a recording is staff only. Everyone else keeps the play button and
+// the share button on every row.
+const isStaff = computed(() => Boolean(currentUser.value?.is_staff))
 
 // Sort choice lives in the parent so it survives switching tabs.
 const sort = defineModel('sort', { type: String, default: 'newest' })

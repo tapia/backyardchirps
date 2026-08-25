@@ -60,19 +60,19 @@ def test_species_recordings(api_client: APIClient, create_detection: Callable[..
     assert response.data["recordings"][0]["recorded_at"] == recorded_at
 
 
-def test_dubious_detections(api_client: APIClient, create_detection: Callable[..., Any]) -> None:
+def test_dubious_detections(admin_client: APIClient, create_detection: Callable[..., Any]) -> None:
     create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.PENDING)
     create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.AUTO_CONFIRMED)
 
-    response = api_client.get("/api/detections/dubious/")
+    response = admin_client.get("/api/detections/dubious/")
 
     assert response.status_code == 200
     assert response.data["count"] == 1
-    assert api_client.get("/api/detections/dubious/count/").data["count"] == 1
+    assert admin_client.get("/api/detections/dubious/count/").data["count"] == 1
 
 
 def test_dubious_detections_leaves_the_rest_of_the_recording_to_the_detail_endpoint(
-    api_client: APIClient, create_detection: Callable[..., Any]
+    admin_client: APIClient, create_detection: Callable[..., Any]
 ) -> None:
     """
     The queue does not carry the other species of a recording. Only the review dialog
@@ -83,11 +83,11 @@ def test_dubious_detections_leaves_the_rest_of_the_recording_to_the_detail_endpo
     create_detection(scientific_name=ROBIN, recorded_at=recorded_at)
     create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at, validation_status=ValidationStatus.PENDING)
 
-    queued = api_client.get("/api/detections/dubious/").data["detections"][0]
+    queued = admin_client.get("/api/detections/dubious/").data["detections"][0]
 
     assert "also_identified" not in queued
 
-    detail = api_client.get(f"/api/detections/{queued['id']}/").data
+    detail = admin_client.get(f"/api/detections/{queued['id']}/").data
 
     assert [entry["scientific_name"] for entry in detail["also_identified"]] == [ROBIN]
 

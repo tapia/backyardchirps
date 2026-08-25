@@ -76,6 +76,12 @@ CORS_ALLOWED_ORIGINS = [
 if DEBUG:
     CSRF_TRUSTED_ORIGINS.append("http://localhost:5173")
 
+# Deny by default. A view with no permission class of its own is admin-only
+REST_FRAMEWORK = {
+    "DEFAULT_PERMISSION_CLASSES": ["rest_framework.permissions.IsAdminUser"],
+    "DEFAULT_AUTHENTICATION_CLASSES": ["rest_framework.authentication.SessionAuthentication"],
+}
+
 ROOT_URLCONF = "backyardchirps.urls"
 
 TEMPLATES = [

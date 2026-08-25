@@ -15,8 +15,13 @@ async function login(username, password) {
 }
 
 async function logout() {
-  await api.logout()
-  currentUser.value = { is_authenticated: false }
+  // The endpoint refuses an anonymous caller, so a session that expired while the page was
+  // open throws here. Either way the user is logged out as far as this app is concerned.
+  try {
+    await api.logout()
+  } finally {
+    currentUser.value = { is_authenticated: false }
+  }
 }
 
 function ready() {

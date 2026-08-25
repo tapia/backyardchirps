@@ -4,6 +4,8 @@ from pathlib import Path
 from django.http import FileResponse
 from django.http import Http404
 from rest_framework.decorators import api_view
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -31,6 +33,7 @@ class SpeciesListOrder(Enum):
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def species_list(request: Request) -> Response:
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
@@ -64,6 +67,7 @@ def species_list(request: Request) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def taxonomy_search(request: Request) -> Response:
     query = request.GET.get("q", "").strip()
     language = request.GET.get("lang", settings.LANGUAGE_CODE)
@@ -75,6 +79,7 @@ def taxonomy_search(request: Request) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def species_detail(request: Request, slug: str) -> Response:
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
@@ -115,6 +120,7 @@ def species_detail(request: Request, slug: str) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def species_recordings(request: Request, slug: str) -> Response:
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     sort = request.GET.get("sort", "date")
@@ -135,6 +141,7 @@ def species_recordings(request: Request, slug: str) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def species_seasonality(request: Request, slug: str) -> Response:
     # Seasonality depends only on the species and the location, not on what we have
     # heard, so this answers for any species with eBird data even if it has never been
@@ -164,6 +171,7 @@ def _asset_category_dirs() -> dict[str, Path]:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def serve_species_asset(request: Request, category: str, filename: str) -> FileResponse:
     """
     Serve a bird image or a range map. The directory layout is in

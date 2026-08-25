@@ -5,6 +5,7 @@ from django.middleware.csrf import get_token
 from rest_framework.decorators import api_view
 from rest_framework.decorators import permission_classes
 from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -56,9 +57,13 @@ def login_view(request: Request) -> Response:
 
 
 @api_view(["POST"])
+@permission_classes([IsAuthenticated])
 def logout_view(request: Request) -> Response:
     """
     End the current session.
+
+    Every endpoint is admin-only unless it says otherwise, and ending your own session
+    must not be: an account without staff rights still has a session to end.
     """
     logout(request)
     return Response(status=204)

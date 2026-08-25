@@ -2,6 +2,8 @@ from datetime import timedelta
 
 from django.utils import timezone
 from rest_framework.decorators import api_view
+from rest_framework.decorators import permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -16,6 +18,7 @@ from backyardchirps.shared.http import resolve_confidence_level
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def count_detections_by_species_hourly(request: Request) -> Response:
     min_confidence = resolve_confidence_level(request)
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
@@ -35,6 +38,7 @@ def count_detections_by_species_hourly(request: Request) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def detections_by_hour_of_day(request: Request) -> Response:
     min_confidence = resolve_confidence_level(request)
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
@@ -46,6 +50,7 @@ def detections_by_hour_of_day(request: Request) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def species_hourly(request: Request, slug: str) -> Response:
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     min_confidence = resolve_confidence_level(request)
@@ -56,6 +61,7 @@ def species_hourly(request: Request, slug: str) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def species_heatmap(request: Request, slug: str) -> Response:
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     min_confidence = resolve_confidence_level(request)
@@ -69,6 +75,7 @@ def species_heatmap(request: Request, slug: str) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def species_yearly(request: Request, slug: str) -> Response:
     min_confidence = resolve_confidence_level(request)
     species = get_detected_species_or_404(slug)
@@ -77,6 +84,7 @@ def species_yearly(request: Request, slug: str) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def multi_species_timeline(request: Request) -> Response:
     slugs = request.GET.getlist("species")
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)

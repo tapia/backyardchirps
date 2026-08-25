@@ -6,8 +6,11 @@ from django.http import FileResponse
 from django.http import HttpResponse
 from django.http import HttpResponseBase
 from rest_framework.decorators import api_view
+from rest_framework.decorators import permission_classes
 from rest_framework.exceptions import NotFound
 from rest_framework.exceptions import ValidationError
+from rest_framework.permissions import AllowAny
+from rest_framework.permissions import IsAdminUser
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -31,7 +34,14 @@ from backyardchirps.shared.http import request_body
 
 
 @api_view(["POST", "DELETE"])
+@permission_classes([IsAdminUser])
 def validate_detection(request: Request, pk: int) -> Response:
+    """
+    Confirm one detection, optionally reassigning it to another species, or discard it.
+
+    Reviewing belongs to whoever runs the station, so this is staff only. DELETE also
+    removes the clip from disk, which nothing can undo.
+    """
     try:
         if request.method == "POST":
             confirm_detection(pk, _reassigned_species(request))
@@ -45,6 +55,7 @@ def validate_detection(request: Request, pk: int) -> Response:
 
 
 @api_view(["POST"])
+@permission_classes([IsAdminUser])
 def validate_detections(request: Request) -> Response:
     """
     Apply one review action to many detections at once. The body carries an "action",
@@ -68,6 +79,7 @@ def validate_detections(request: Request) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def detections_list(request: Request) -> Response:
     """
     The diagnostics page feed: every detection, newest first, with its time, processing
@@ -100,7 +112,11 @@ def detections_list(request: Request) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([IsAdminUser])
 def dubious_detections(request: Request) -> Response:
+    """
+    The review queue. Only staff can act on it, so only staff can see it.
+    """
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     clips_base = Path(settings.CLIPS["save_dir"])
 
@@ -109,11 +125,13 @@ def dubious_detections(request: Request) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([IsAdminUser])
 def dubious_detections_count(request: Request) -> Response:
     return Response({"count": count_dubious_detections()})
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def detection_detail(request: Request, pk: int) -> Response:
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     clips_base = Path(settings.CLIPS["save_dir"])
@@ -138,6 +156,7 @@ def detection_detail(request: Request, pk: int) -> Response:
 
 
 @api_view(["GET"])
+@permission_classes([AllowAny])
 def serve_clip(request: Request, filepath: str) -> HttpResponseBase:
     """
     Stream a saved audio clip. It answers HTTP range requests, without which the browser

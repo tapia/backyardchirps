@@ -18,8 +18,15 @@ const routes = [
   { path: '/species', name: 'species', component: SpeciesListPage },
   { path: '/species/:slug', name: 'species-detail', component: SpeciesProfilePage },
   { path: '/recordings/:id', name: 'recording-detail', component: RecordingDetailPage },
-  { path: '/pending-review', name: 'pending', component: PendingReviewPage },
   { path: '/login', name: 'login', component: LoginPage },
+  // Reviewing is the station owner's job, so the queue is not something a visitor is
+  // refused: it is not offered at all, here or in the navbar.
+  {
+    path: '/pending-review',
+    name: 'pending',
+    component: PendingReviewPage,
+    meta: { requiresAdmin: true },
+  },
   // The tab is part of the URL so a tab can be linked to. An unknown or missing one
   // falls back to the first tab inside the page.
   {

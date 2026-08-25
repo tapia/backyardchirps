@@ -9,6 +9,7 @@ from backyardchirps import settings
 from backyardchirps.features.overrides import logic
 from backyardchirps.features.overrides import queries
 from backyardchirps.features.overrides.entity import SpeciesOverride
+from backyardchirps.features.overrides.permissions import IsAdminUserOrReadOnly
 from backyardchirps.features.species import queries as species_queries
 from backyardchirps.shared.http import get_species_or_404
 from backyardchirps.shared.http import request_body
@@ -38,6 +39,7 @@ def detection_settings_list(request: Request) -> Response:
 
 
 @api_view(["GET", "PUT", "DELETE"])
+@permission_classes([IsAdminUserOrReadOnly])
 def species_detection_settings(request: Request, slug: str) -> Response:
     """
     A species' blacklisted state and auto-confirm threshold. Anyone can read them, only
@@ -52,9 +54,6 @@ def species_detection_settings(request: Request, slug: str) -> Response:
 
     if request.method == "GET":
         return Response(detection_settings_state(queries.get(species)))
-
-    if not request.user.is_staff:
-        return Response({"error": "Staff only"}, status=403)
 
     if request.method == "DELETE":
         logic.clear_override(species)

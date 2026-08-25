@@ -72,14 +72,24 @@ def test_validate_detection_missing_pk_returns_404(admin_client: APIClient) -> N
     assert admin_client.delete("/api/detections/999999/validate/").status_code == 404
 
 
-def test_anonymous_can_delete_detection(api_client: APIClient, create_detection: Callable[..., Any]) -> None:
-    # TODO(security): validate_detection has no permission class, so an anonymous
-    # user can delete a detection and its clip file. This should require
-    # IsAdminUser (see BACKEND-ANALYSIS.md). This test documents current behavior;
-    # tighten the assertion to expect 403 once the endpoint is locked down.
+def test_anonymous_cannot_delete_detection(api_client: APIClient, create_detection: Callable[..., Any]) -> None:
+    """
+    Discarding also erases the clip from disk, so it is the one action here that nothing
+    can undo. The row has to survive an anonymous attempt at it.
+    """
     detection = create_detection(scientific_name=BLACKBIRD)
 
     response = api_client.delete(f"/api/detections/{detection.id}/validate/")
 
-    assert response.status_code == 204
-    assert not StoredDetection.objects.filter(pk=detection.id).exists()
+    assert response.status_code == 403
+    assert StoredDetection.objects.filter(pk=detection.id).exists()
+
+
+def test_ordinary_user_cannot_delete_detection(auth_client: APIClient, create_detection: Callable[..., Any]) -> None:
+    """
+    Being logged in is not enough. Reviewing belongs to whoever runs the station.
+    """
+    detection = create_detection(scientific_name=BLACKBIRD)
+
+    assert auth_client.delete(f"/api/detections/{detection.id}/validate/").status_code == 403
+    assert StoredDetection.objects.filter(pk=detection.id).exists()

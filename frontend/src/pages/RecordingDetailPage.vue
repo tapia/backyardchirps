@@ -42,6 +42,7 @@
           </div>
         </div>
         <button
+          v-if="isStaff"
           type="button"
           class="edit-btn ms-auto flex-shrink-0"
           v-bs-tooltip="t('modal.edit')"
@@ -111,6 +112,7 @@ import { ref, computed, inject, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { fetchDetection } from '../api/index.js'
+import { useAuth } from '../composables/useAuth.js'
 import SpectrogramPlayer from '../components/audio/SpectrogramPlayer.vue'
 import ConfidenceBadge from '../components/common/ConfidenceBadge.vue'
 import ValidationModal from '../components/review/ValidationModal.vue'
@@ -121,6 +123,12 @@ const { t } = useI18n()
 const lang = inject('lang')
 const route = useRoute()
 const router = useRouter()
+
+const { currentUser } = useAuth()
+
+// Only staff can review, so the pencil that opens the review dialog is theirs. The clip
+// and everything about it stays readable to anyone.
+const isStaff = computed(() => Boolean(currentUser.value?.is_staff))
 
 const detection = ref(null)
 const loading = ref(false)
