@@ -18,7 +18,9 @@ from pathlib import Path
 from typing import Any
 
 from station import DATA_DIR
+from station import INSTALL_DIR
 from station import SERVICE_USER
+from station import Release
 from station import Station
 
 CONTAINER_DIR = Path(__file__).resolve().parent
@@ -27,6 +29,10 @@ REPO_ROOT = CONTAINER_DIR.parent.parent
 # A second machine, beside the one the tarball chain owns, so neither run can pass because
 # of state the other left behind.
 APT_CONTAINER_NAME = "backyardchirps-test-apt-station"
+
+# A third machine, for the one thing that happens once per station and can never be
+# retried: installing the packages over a station the tarball installer set up.
+TAKEOVER_CONTAINER_NAME = "backyardchirps-test-takeover-station"
 
 # Where a packaged station keeps its parts. These are the paths the packages install to,
 # repeated here rather than imported: a test that reads them from the code under test would
@@ -91,6 +97,18 @@ class Installed:
 
     station: Station
     version: str
+    output: str
+
+
+@dataclasses.dataclass(frozen=True)
+class TakenOver:
+    """
+    A machine that had a tarball station on it and now has a packaged one.
+    """
+
+    station: Station
+    version: str
+    database_inode: str
     output: str
 
 
@@ -342,3 +360,123 @@ def available_update(station: Station) -> dict[str, Any]:
         ]
     ).splitlines()[-1]
     return dict(json.loads(printed) or {})
+
+
+# What the tarball installer left on a machine, and where. The takeover has to find and
+# clear every one of these, so they are named here rather than inferred: a test that asked
+# the code under test where it put things would agree with it whatever it said.
+TARBALL_INSTALL_ROOT = "/opt/backyardchirps"
+TARBALL_UNITS_DIR = "/etc/systemd/system"
+TARBALL_LEFTOVERS = (
+    "/etc/nginx/sites-available/backyardchirps",
+    "/etc/default/backyardchirps",
+    "/etc/sudoers.d/backyardchirps",
+)
+# Two files from before the project was renamed, which no installer has ever removed. A
+# station old enough to have them is exactly the kind being taken over.
+RENAME_LEFTOVERS = (
+    "/etc/nginx/sites-enabled/birds-recorder",
+    "/etc/sudoers.d/birds-recorder",
+)
+
+
+def stage_a_tarball_station(station: Station, release: Release) -> None:
+    """
+    Put a machine into the state the tarball installer used to leave one in.
+
+    Every file comes from the release itself or from `deploy/` inside it, rendered the way
+    `apply.sh` rendered them, so the units carry the real paths rather than a test's idea of
+    them. That is what makes the takeover's job real: systemd searches /etc before /usr, so
+    a unit left here shadows the packaged one for good.
+
+    Two things are deliberately not done. The virtualenv is not built and the services are
+    not started, because a `uv sync` inside a container costs minutes and nothing in the
+    takeover reads either: it works on files, and the one thing it waits for is the *new*
+    web unit coming up.
+    """
+    version_dir = f"{TARBALL_INSTALL_ROOT}/releases/{release.version}"
+    station.run(["mkdir", "-p", version_dir, f"{DATA_DIR}/clips", INSTALL_DIR])
+    station.copy_in(release.tarball_path, f"{INSTALL_DIR}/{release.tarball_name}")
+    unpacked = station.run(
+        ["tar", "--zstd", "-xf", f"{INSTALL_DIR}/{release.tarball_name}", "-C", version_dir, "--strip-components=1"]
+    )
+    if unpacked.returncode != 0:
+        raise RuntimeError(f"Could not unpack the release:\n{unpacked.stderr}")
+    station.run(["ln", "-sfn", version_dir, f"{TARBALL_INSTALL_ROOT}/current"])
+
+    # The units, rendered as apply.sh rendered them: the placeholders are the whole reason
+    # the old ones point at a path the packages do not use.
+    rendering = (
+        f"s|SERVICE_USER|{SERVICE_USER}|g; s|APP_DIR|{TARBALL_INSTALL_ROOT}/current|g; s|__DATA_DIR__|{DATA_DIR}|g"
+    )
+    staged = station.run(
+        [
+            "bash",
+            "-c",
+            f"for unit in {version_dir}/deploy/backyardchirps-*.service "
+            f"{version_dir}/deploy/backyardchirps-*.timer; do "
+            f'  sed -e "{rendering}" "$unit" > {TARBALL_UNITS_DIR}/$(basename "$unit"); '
+            "done",
+        ]
+    )
+    if staged.returncode != 0:
+        raise RuntimeError(f"Could not stage the old units:\n{staged.stderr}")
+    # Enabled, so the .wants symlinks exist. Those are the part a plain `rm` of the unit
+    # files leaves dangling, and the takeover has to sweep them separately.
+    station.run(["systemctl", "daemon-reload"])
+    station.run(["systemctl", "enable", "backyardchirps-web.service", "backyardchirps-recorder.service"])
+
+    # The config files the old installer wrote and no package owns.
+    station.run(["mkdir", "-p", "/etc/nginx/sites-available", "/etc/nginx/sites-enabled", "/etc/sudoers.d"])
+    station.run(
+        [
+            "bash",
+            "-c",
+            f'sed -e "{rendering}" {version_dir}/deploy/nginx.conf > /etc/nginx/sites-available/backyardchirps && '
+            "ln -sfn /etc/nginx/sites-available/backyardchirps /etc/nginx/sites-enabled/backyardchirps && "
+            f'printf "BACKYARDCHIRPS_DATA_DIR={DATA_DIR}\\n" > /etc/default/backyardchirps && '
+            f'printf "{SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart backyardchirps-web\\n" '
+            "> /etc/sudoers.d/backyardchirps && chmod 440 /etc/sudoers.d/backyardchirps",
+        ]
+    )
+
+    # collectstatic used to write here, and nothing has ever removed it.
+    station.run(["mkdir", "-p", f"{DATA_DIR}/staticfiles"])
+
+    # An override an owner wrote. A drop-in directory is the supported way to change a
+    # packaged unit, it shadows nothing, and the takeover has to leave it where it is.
+    station.run(["mkdir", "-p", f"{TARBALL_UNITS_DIR}/backyardchirps-web.service.d"])
+    station.run(
+        [
+            "bash",
+            "-c",
+            "printf '[Service]\\nEnvironment=SOMETHING_AN_OWNER_SET=yes\\n' "
+            f"> {TARBALL_UNITS_DIR}/backyardchirps-web.service.d/local.conf",
+        ]
+    )
+
+    # And the two files from before the rename, which is what a station old enough to be
+    # taken over actually looks like.
+    station.run(
+        [
+            "bash",
+            "-c",
+            "printf 'server { server_name old; }\\n' > /etc/nginx/sites-enabled/birds-recorder && "
+            "printf 'nobody ALL=(ALL) NOPASSWD: /bin/systemctl restart birds-web\\n' "
+            "> /etc/sudoers.d/birds-recorder && chmod 440 /etc/sudoers.d/birds-recorder",
+        ]
+    )
+
+
+def old_units_in_etc(station: Station) -> list[str]:
+    """
+    Anything of ours still under /etc/systemd/system, dangling symlinks included.
+
+    The one thing the takeover cannot be allowed to miss. systemd searches /etc first, so a
+    unit left here shadows the packaged one silently and for ever, and goes on pointing at a
+    directory the packages never write to.
+    """
+    listed = station.output_of(
+        ["bash", "-c", f"find {TARBALL_UNITS_DIR} -name 'backyardchirps-*' 2> /dev/null || true"]
+    )
+    return [line for line in listed.splitlines() if line.strip()]

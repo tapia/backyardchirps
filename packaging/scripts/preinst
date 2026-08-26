@@ -16,6 +16,67 @@ MANAGED_DAEMONS="backyardchirps-web.service backyardchirps-recorder.service"
 # tools/build_packages.py writes it in with --min-upgrade-from.
 MIN_UPGRADE_FROM=""
 
+# Where files a tarball station owned are put rather than deleted. They are unowned by any
+# package and a person may want to read one, most likely /etc/default/backyardchirps on a
+# station that was installed with --data-dir pointing somewhere else.
+KEPT_ASIDE=/var/backups
+
+say() { printf '[backyardchirps] %s\n' "$*"; }
+
+# Take a station the tarball installer set up and leave the machine ready for the packaged
+# one. The order here is not optional, and the first step is why.
+take_over_a_tarball_station() {
+    say "Taking over the station installed under /opt/backyardchirps."
+
+    # 1. The units, and this has to happen before the packaged ones land in /usr/lib.
+    #
+    # systemd searches /etc/systemd/system first, so a unit left there shadows the packaged
+    # one forever and silently, and goes on pointing at /opt/backyardchirps/current. That is
+    # the single thing that makes taking a station over dangerous rather than tedious: the
+    # machine would look installed, run old code, and nothing anywhere would say so.
+    if [ -d /run/systemd/system ]; then
+        for unit in /etc/systemd/system/backyardchirps-*; do
+            [ -e "$unit" ] || continue
+            systemctl stop "$(basename "$unit")" > /dev/null 2>&1 || true
+            systemctl disable "$(basename "$unit")" > /dev/null 2>&1 || true
+        done
+    fi
+    # Files only, and only at this level. A directory called backyardchirps-web.service.d is
+    # an owner's drop-in, which is the supported way to override a packaged unit and the one
+    # thing here that must survive. It also does not shadow anything, so there is no reason
+    # to touch it.
+    find /etc/systemd/system -maxdepth 1 -type f -name 'backyardchirps-*' -delete 2> /dev/null || true
+    # The dangling .wants symlinks the disable above does not always take with it: a unit
+    # whose file is already gone cannot be disabled by name.
+    find /etc/systemd/system -xtype l -name 'backyardchirps-*' -delete 2> /dev/null || true
+    if [ -d /run/systemd/system ]; then
+        systemctl --system daemon-reload > /dev/null 2>&1 || true
+    fi
+
+    # 2. The config files the old installer wrote, which no package owns. Moved aside rather
+    # than deleted so dpkg never has to decide what to do about a file it does not know,
+    # and so a person can still read what was there.
+    mkdir -p "$KEPT_ASIDE"
+    for leftover in /etc/nginx/sites-available/backyardchirps /etc/default/backyardchirps; do
+        if [ -f "$leftover" ]; then
+            mv "$leftover" "$KEPT_ASIDE/$(basename "$leftover").tarball-station"
+            say "kept $leftover aside in $KEPT_ASIDE"
+        fi
+    done
+    rm -f /etc/nginx/sites-enabled/backyardchirps
+
+    # 3. The sudoers policy, for the same reason and one of its own: an entry that no longer
+    # parses stops sudo reading the whole of /etc/sudoers.d, so it must not be left half
+    # replaced. postinst validates the packaged one with visudo.
+    if [ -f /etc/sudoers.d/backyardchirps ]; then
+        mv /etc/sudoers.d/backyardchirps "$KEPT_ASIDE/sudoers-backyardchirps.tarball-station"
+    fi
+
+    # 4. /opt/backyardchirps stays for now. postinst removes the old releases once the new
+    # station is answering, so a takeover that fails leaves the old tree for a person to
+    # fall back to.
+}
+
 case "$1" in
     upgrade)
         if [ -n "$MIN_UPGRADE_FROM" ] && [ -n "$2" ]; then
@@ -41,19 +102,15 @@ case "$1" in
         ;;
 
     install)
-        # A machine the tarball installer set up. Taking one of those over means removing
-        # the units it left in /etc/systemd/system, which shadow the packaged ones under
-        # /usr/lib forever and silently, and moving its unowned config files aside. systemd
-        # searches /etc first, so a leftover there wins for good. That is written
-        # and tested as its own step; until then, refusing is the honest answer, because
-        # installing over it would leave a station running its old code from a directory
-        # nothing manages any more.
+        # A machine the tarball installer set up, being taken over. The guard costs nothing
+        # on a clean Pi and can be deleted two releases after the first packaged one.
+        #
+        # Every recording survives this. Nothing below touches /var/lib/backyardchirps,
+        # which is the whole point: the station keeps its database, its clips, its models
+        # and its .env, and the package's own postinst migrates that database as it would
+        # on any upgrade.
         if [ -e /opt/backyardchirps/current ]; then
-            echo "This machine has a station installed from a release tarball." >&2
-            echo "Installing the package over it is not supported yet: it would leave the" >&2
-            echo "old units in /etc/systemd/system shadowing the packaged ones." >&2
-            echo "Remove it first with uninstall.sh, which keeps your recordings." >&2
-            exit 1
+            take_over_a_tarball_station
         fi
         ;;
 esac

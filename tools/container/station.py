@@ -1,12 +1,12 @@
 """
-A throwaway station in a container, and everything needed to put a release on it.
+A throwaway station in a container, and everything needed to bring one up.
 
-Everything here drives the machine. The assertions live in test_container_install.py, and the
+Everything here drives the machine. The assertions live in test_container_apt.py and the
 wiring between the two in conftest.py.
 
-Nothing in here is specific to one test. `install` is called three times over a run: once on a
-clean machine, once again on the same version to prove a re-install keeps a configured station,
-and once with a newer version to prove an update.
+What is left in here is what both machines need: the container itself, the model cache, and
+a release tarball. The tarball is only still built for one reason: the takeover has to meet
+the files a real tarball station had, and building one is the only honest way to get them.
 """
 
 import dataclasses
@@ -72,66 +72,6 @@ class Release:
     version: str
     tarball_name: str
     tarball_path: Path
-
-
-@dataclasses.dataclass(frozen=True)
-class Snapshot:
-    """
-    What a station looked like before it was updated, for the tests that compare across it.
-    """
-
-    release: str
-    secret_key: str
-    database_inode: str
-
-
-@dataclasses.dataclass(frozen=True)
-class Reinstalled:
-    """
-    A station that already had an owner when the installer ran again, and what that run printed.
-    The output matters as much as the state: an installer that offers a token for a station with
-    an owner is telling its owner to undo their own setup.
-    """
-
-    station: "Station"
-    output: str
-
-
-@dataclasses.dataclass(frozen=True)
-class SelfUpdated:
-    """
-    A station that updated itself, through deploy/update.sh rather than through somebody
-    running the installer, and what it said while doing it.
-    """
-
-    station: "Station"
-    version: str
-    before: Snapshot
-    output: str
-
-
-@dataclasses.dataclass(frozen=True)
-class RolledBack:
-    """
-    A station taken back to the release it was on before the update, and what it looked like
-    on the way in.
-    """
-
-    station: "Station"
-    from_version: str
-    to_release: str
-    output: str
-
-
-@dataclasses.dataclass(frozen=True)
-class Updated:
-    """
-    A station moved to a newer release, with what it looked like before.
-    """
-
-    station: "Station"
-    version: str
-    before: Snapshot
 
 
 @dataclasses.dataclass(frozen=True)
@@ -290,7 +230,7 @@ def require_docker() -> None:
     inside a fixture otherwise.
     """
     if shutil.which("docker") is None:
-        raise RuntimeError("docker is not installed. See the header of test_container_install.py.")
+        raise RuntimeError("docker is not installed. See the header of test_container_apt.py.")
 
 
 def build_release(output_dir: Path, version_suffix: str = "") -> Release:
@@ -418,53 +358,6 @@ def remove(station: Station) -> None:
     )
 
 
-def copy_release_in(station: Station, release: Release) -> None:
-    """
-    install.sh is not in the tarball: it is the file a user downloads on its own, before there is
-    a release on the machine. So it comes from the checkout, which is what the one-line curl
-    would fetch from the default branch.
-    """
-    station.run(["mkdir", "-p", INSTALL_DIR])
-    station.copy_in(REPO_ROOT / "install.sh", f"{INSTALL_DIR}/install.sh")
-    station.copy_in(REPO_ROOT / "uninstall.sh", f"{INSTALL_DIR}/uninstall.sh")
-    station.copy_in(release.tarball_path, f"{INSTALL_DIR}/{release.tarball_name}")
-
-
-def install(station: Station, release: Release) -> subprocess.CompletedProcess[str]:
-    """
-    --ignore-preflight because a container is not a Pi: there is no /proc/device-tree/model and
-    no sound card. Everything after the hardware checks is the same code a real install runs, and
-    the checks themselves are covered by tests/unit/test_preflight.py.
-    """
-    return station.run(
-        [
-            "bash",
-            f"{INSTALL_DIR}/install.sh",
-            "--tarball",
-            f"{INSTALL_DIR}/{release.tarball_name}",
-            "--data-dir",
-            DATA_DIR,
-            "--ignore-preflight",
-        ]
-    )
-
-
-def snapshot(station: Station) -> Snapshot:
-    return Snapshot(
-        release=station.real_path(APP_DIR),
-        secret_key=station.output_of(["grep", "^SECRET_KEY=", f"{DATA_DIR}/.env"]),
-        database_inode=station.inode_of(f"{DATA_DIR}/detections.db"),
-    )
-
-
-def uninstall(station: Station) -> subprocess.CompletedProcess[str]:
-    """
-    Without --all, so it has to remove the software and keep every recording. A station being
-    taken apart must not take the data with it by accident.
-    """
-    return station.run(["bash", f"{INSTALL_DIR}/uninstall.sh", "--data-dir", DATA_DIR])
-
-
 def _wait_for_systemd(station: Station) -> None:
     """
     `systemctl is-system-running` exits non-zero for every state except `running`, and `degraded`
@@ -487,58 +380,4 @@ def _wait_for_systemd(station: Station) -> None:
         f"at 'systemctl status'.\n"
         f"--- container output ---\n{station.container_logs()}\n"
         f"--- failed units ---\n{', '.join(station.failed_units()) or 'none'}"
-    )
-
-
-def serve_release_locally(station: Station, release: Release) -> str:
-    """
-    Put a release where the station can install it from, and write the manifest that offers
-    it. Returns the manifest URL.
-
-    A file:// URL, not a web server. curl reads those, and both install.sh and update.sh
-    reach the manifest and the tarball through curl and take the URL from a variable, so
-    nothing is stubbed and no code path is skipped: the download, the checksum and the
-    unpack are the ones a real update runs.
-    """
-    station.copy_in(release.tarball_path, f"{INSTALL_DIR}/{release.tarball_name}")
-    checksum = station.output_of(["sha256sum", f"{INSTALL_DIR}/{release.tarball_name}"]).split()[0]
-    manifest = json.dumps(
-        {
-            "version": release.version,
-            "released": "2026-08-23",
-            "sha256": checksum,
-            "url": f"file://{INSTALL_DIR}/{release.tarball_name}",
-            "min_upgrade_from": "0.1.0",
-            "changelog_url": "https://example.com/releases",
-        }
-    )
-    station.run(["bash", "-c", f"cat > {INSTALL_DIR}/manifest.json <<'EOF'\n{manifest}\nEOF"])
-    return f"file://{INSTALL_DIR}/manifest.json"
-
-
-def request_and_run_update(station: Station, release: Release) -> subprocess.CompletedProcess[str]:
-    """
-    Ask for a version the way the web process does, by writing the request row, then run the
-    privileged half the way systemd does.
-
-    The unit is not started through systemctl here, because the point is to see what the
-    script does and to read its output when it does not.
-    """
-    manifest_url = serve_release_locally(station, release)
-    requested = station.run_as_service_user(
-        f"BACKYARDCHIRPS_DATA_DIR={DATA_DIR} {APP_DIR}/.venv/bin/python {APP_DIR}/manage.py shell -c "
-        f"'from backyardchirps.features.updates import queries; queries.request_version(\"{release.version}\")'"
-    )
-    if requested.returncode != 0:
-        raise RuntimeError(f"Could not record the update request:\n{requested.stderr}")
-
-    return station.run(
-        [
-            "env",
-            f"BACKYARDCHIRPS_DATA_DIR={DATA_DIR}",
-            f"BACKYARDCHIRPS_LINK_DIR={APP_DIR}",
-            f"BACKYARDCHIRPS_MANIFEST_URL={manifest_url}",
-            "bash",
-            f"{APP_DIR}/deploy/update.sh",
-        ]
     )

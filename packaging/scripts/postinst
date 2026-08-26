@@ -135,9 +135,15 @@ fi
 # ---------------------------------------------------------------------------
 # 6. Back up the database, because the migrations below cannot be undone
 # ---------------------------------------------------------------------------
-# On an upgrade only, and on any upgrade: an owner running `apt upgrade` by hand gets the
-# same backup the update button does, which was never true of the tarball path.
-if [ -n "$2" ] && [ -f "$DATABASE" ]; then
+# Whenever there is a database to copy, which is every upgrade and every takeover of a
+# station that was already here. An owner running `apt upgrade` by hand gets the same backup
+# the update button does, which was never true of the tarball path.
+#
+# The takeover is the case this must not miss. A station being taken over can be many
+# versions behind, so it meets more migrations at once than any ordinary upgrade, and it is
+# somebody's real database rather than a fresh one. Keying this on "is this an upgrade"
+# rather than "is there a database" would have skipped exactly that.
+if [ -f "$DATABASE" ]; then
     mkdir -p "$BACKUP_DIR"
     chown "$SERVICE_USER:$SERVICE_USER" "$BACKUP_DIR"
     backup="$BACKUP_DIR/detections-before-$(date -u +%Y%m%dT%H%M%SZ).db"
@@ -283,6 +289,53 @@ if nginx -t > /dev/null 2>&1; then
 else
     say "nginx will not accept its configuration, so the site was left as it was."
     nginx -t || true
+fi
+
+# ---------------------------------------------------------------------------
+# 12. A station that came from a tarball install
+# ---------------------------------------------------------------------------
+# Everything above ran and the station is configured, so this is the tidying up. It is last
+# on purpose: a takeover that failed earlier leaves the old tree where it is, for a person
+# to fall back to.
+#
+# The same guard preinst used. A fresh Pi never enters here, and after the first successful
+# takeover the symlink is gone, so neither does a station that has already been taken over.
+if [ -z "$2" ] && [ -e /opt/backyardchirps/current ]; then
+    # The two files the rename left behind, which no installer has ever removed because
+    # both predate the name this project has now. See docs/devel/deployment.md.
+    for renamed in /etc/nginx/sites-enabled/birds-recorder /etc/sudoers.d/birds-recorder; do
+        if [ -e "$renamed" ]; then
+            rm -f "$renamed"
+            say "removed $renamed, left over from before the rename"
+        fi
+    done
+
+    # Anything else under the old name is named and not touched. Deleting a file nobody has
+    # read, in a maintainer script, on somebody's station, is not a call this can make.
+    others="$(grep -rl 'birds-recorder\|birds-web\|birds-update' /etc 2> /dev/null || true)"
+    if [ -n "$others" ]; then
+        say "These files still name the old project. Read them before deleting anything:"
+        echo "$others" | while read -r other; do
+            printf '  %s\n' "$other"
+        done
+    fi
+
+    # collectstatic used to write here. The packages ship the collected files instead, and
+    # /etc/default/backyardchirps points Django at them, so this directory is now read by
+    # nothing at all.
+    rm -rf "$DATA_DIR/staticfiles"
+
+    # The old releases, and only once the packaged station is actually answering. Gating on
+    # a live web unit is what keeps a failed takeover recoverable: the old code is still
+    # there, and pointing the symlink back at it is a person's way out.
+    if systemctl is-active --quiet backyardchirps-web 2> /dev/null; then
+        freed="$(du -sh /opt/backyardchirps/releases 2> /dev/null | cut -f1)"
+        rm -rf /opt/backyardchirps/releases /opt/backyardchirps/current
+        say "The station is up. Removed the old releases and freed ${freed:-some space}."
+    else
+        say "The new station is not answering yet, so the old releases were left in place."
+        say "They are at /opt/backyardchirps/releases. Remove them once this is working."
+    fi
 fi
 
 exit 0

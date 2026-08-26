@@ -20,14 +20,16 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV container=docker
 
 # Deliberately minimal: systemd so units can be tested, and sqlite3 so the test can
-# look inside the database afterwards. Everything the station itself needs, uv
-# included, is install.sh's job, so leaving it out here is what proves the
-# installer installs it.
-# apt-utils is apt-ftparchive, which indexes the local package repository the deb
-# chain installs from. It is a test fixture, not something a station has.
+# look inside the database afterwards. Everything the station itself needs arrives in
+# a package, so leaving it out here is what proves the packages carry it.
+#
+# The last two are test fixtures rather than anything a station has. apt-utils is
+# apt-ftparchive, which indexes the local package repository these tests install from.
+# zstd unpacks a release tarball, which happens in one place only: building an old
+# station for the takeover to take over. Both leave when the tarball path does.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         systemd systemd-sysv dbus \
-        ca-certificates sudo procps sqlite3 apt-utils \
+        ca-certificates sudo procps sqlite3 apt-utils zstd \
     && rm -rf /var/lib/apt/lists/*
 
 # The debian image ships a policy-rc.d that answers "no" to every request to start a
