@@ -2,8 +2,7 @@
 Install a station from packages on a clean machine and check what came out.
 
 What is under test is dpkg plus four maintainer scripts, which is what replaced a thousand
-lines of installer. Two machines, from the same image: one walked from a clean install to a
-purge, and one that had a tarball station on it before the packages arrived.
+lines of installer. One machine, walked from a clean install through to a purge.
 
 Order matters here. The fixtures are chained and session-scoped, so a machine is installed
 once and walked forward: install, owner, upgrade, self-update, rollback, remove, purge. The
@@ -20,24 +19,18 @@ Needs docker, and an arm64 machine for the packages to be installable at all.
 from apt import CODE_DIR
 from apt import MANAGE
 from apt import PACKAGE_DIR
-from apt import RENAME_LEFTOVERS
 from apt import SCOPED_UPDATE
 from apt import SHARE_DIR
-from apt import TAKEOVER_MARKER_TABLE
-from apt import TAKEOVER_SECRET_KEY
-from apt import TARBALL_LEFTOVERS
 from apt import VENV_PYTHON
 from apt import Installed
 from apt import RolledBack
 from apt import SelfUpdated
-from apt import TakenOver
 from apt import Upgraded
 from apt import available_update
 from apt import control_field
 from apt import http_status
 from apt import installed_version
 from apt import run_check
-from apt import units_that_would_shadow_the_packaged_ones
 from apt import update_status
 from station import DATA_DIR
 from station import KEPT_CLIP
@@ -520,141 +513,3 @@ def test_purge_leaves_nothing_of_the_station_behind(apt_purged: Station) -> None
         SHARE_DIR,
     ):
         assert not apt_purged.path_exists(path), f"{path} survived the purge"
-
-
-# ---------------------------------------------------------------------------
-# Taking over a station that was already there
-# ---------------------------------------------------------------------------
-# Its own machine, and the only place this is exercised. It happens once per station in the
-# field, it cannot be tried a second time, and it is the one path that could cost somebody
-# every recording they have.
-
-
-def test_the_takeover_kept_the_database_and_the_recordings(taken_over: TakenOver) -> None:
-    """
-    The whole promise, twice over. The same inode means the same file: not a copy, not a
-    restore from a backup, not a new database beside the old one. The table says the contents
-    came through it, which an inode on its own would not prove.
-    """
-    station = taken_over.station
-
-    assert station.inode_of(f"{DATA_DIR}/detections.db") == taken_over.database_inode
-    assert TAKEOVER_MARKER_TABLE in station.sql(
-        f"select name from sqlite_master where name = '{TAKEOVER_MARKER_TABLE}'"
-    )
-    assert station.path_exists(KEPT_CLIP)
-
-
-def test_the_takeover_kept_the_secret_key_the_old_station_was_using(taken_over: TakenOver) -> None:
-    """
-    A new key would log every session out and invalidate every signed value the station has
-    handed out. .env is written once and never again, and a takeover is the case where "once"
-    happened under the installer that came before.
-    """
-    assert TAKEOVER_SECRET_KEY in taken_over.station.read(f"{DATA_DIR}/.env")
-
-
-def test_the_takeover_removed_the_units_that_would_shadow_the_packaged_ones(taken_over: TakenOver) -> None:
-    """
-    The one mistake that cannot be recovered from without a person and a shell. systemd
-    searches /etc/systemd/system before /usr/lib, so a unit left there wins for ever and goes
-    on pointing at a directory the packages never write to. The machine would look installed,
-    run the old code, and nothing anywhere would say so.
-
-    Dangling symlinks count. Disabling a unit whose file is already gone does not remove the
-    .wants link that refers to it.
-    """
-    assert units_that_would_shadow_the_packaged_ones(taken_over.station) == []
-
-
-def test_the_packaged_units_are_the_ones_that_run(taken_over: TakenOver) -> None:
-    station = taken_over.station
-
-    assert station.unit_property("backyardchirps-web", "FragmentPath") == (
-        "/usr/lib/systemd/system/backyardchirps-web.service"
-    )
-    assert station.unit_is_active("backyardchirps-web")
-    assert http_status(station, "http://localhost/") == "200"
-
-
-def test_the_takeover_moved_the_old_config_files_aside_rather_than_deleting_them(taken_over: TakenOver) -> None:
-    """
-    Moved, not deleted. One of them records where a station kept its data, and an owner who
-    installed with a data directory of their own needs to be able to read it afterwards.
-    """
-    station = taken_over.station
-
-    for leftover in TARBALL_LEFTOVERS:
-        kept = f"/var/backups/{leftover.rsplit('/', 1)[1]}.tarball-station"
-        if leftover.endswith("sudoers.d/backyardchirps"):
-            kept = "/var/backups/sudoers-backyardchirps.tarball-station"
-        assert station.path_exists(kept), f"{leftover} was not kept aside"
-
-
-def test_the_takeover_removed_the_files_left_by_the_rename(taken_over: TakenOver) -> None:
-    """
-    Two files from before the project changed its name, which no installer has ever removed
-    because both predate the name it has now. The nginx one takes every request on the
-    machine; the sudoers one grants rights over units that no longer exist.
-    """
-    for leftover in RENAME_LEFTOVERS:
-        assert not taken_over.station.path_exists(leftover), f"{leftover} is still there"
-
-
-def test_the_takeover_removed_the_old_releases_once_the_station_answered(taken_over: TakenOver) -> None:
-    """
-    Gated on the new station being up, so a takeover that failed leaves the old tree for a
-    person to fall back to. It is up, so this is the branch that clears it.
-    """
-    station = taken_over.station
-
-    assert not station.path_exists("/opt/backyardchirps/releases")
-    assert not station.path_exists("/opt/backyardchirps/current")
-    # The virtualenv the packages own lives under the same directory and is not the old
-    # station's to remove.
-    assert station.path_exists("/opt/backyardchirps/venv/bin/python")
-
-
-def test_the_takeover_removed_the_static_files_nothing_reads_any_more(taken_over: TakenOver) -> None:
-    """
-    collectstatic used to write into the data directory. The packages ship those files
-    instead, so what is left there is read by nothing.
-    """
-    assert not taken_over.station.path_exists(f"{DATA_DIR}/staticfiles")
-
-
-def test_the_sudoers_policy_after_a_takeover_is_the_packaged_one(taken_over: TakenOver) -> None:
-    """
-    The old policy was moved aside and the packaged one installed in its place. A policy that
-    does not parse would stop sudo reading the whole of /etc/sudoers.d, so this being valid
-    matters more here than anywhere else.
-    """
-    station = taken_over.station
-
-    assert station.succeeds(["visudo", "-cf", "/etc/sudoers.d/backyardchirps"])
-    assert station.sudo_permits("/bin/systemctl restart backyardchirps-recorder")
-
-
-def test_the_takeover_left_an_owners_drop_in_alone(taken_over: TakenOver) -> None:
-    """
-    The one thing under /etc/systemd/system that must survive. A drop-in is how an owner is
-    told to change a packaged unit, it augments rather than shadows, and a sweep that took
-    directories with the files would throw away the only local change the design allows.
-    """
-    station = taken_over.station
-    drop_in = "/etc/systemd/system/backyardchirps-web.service.d/local.conf"
-
-    assert station.path_exists(drop_in)
-    assert "SOMETHING_AN_OWNER_SET" in station.unit_property("backyardchirps-web", "Environment")
-
-
-def test_the_takeover_backed_the_database_up_before_migrating_it(taken_over: TakenOver) -> None:
-    """
-    The case that is easiest to miss, because a takeover is a first install as far as dpkg is
-    concerned and the backup used to be keyed on being an upgrade. A station being taken over
-    is many versions behind, so it meets more migrations at once than any ordinary upgrade,
-    and it is somebody's real database rather than a fresh one.
-    """
-    backups = taken_over.station.files_matching(f"{DATA_DIR}/backups", "detections-before-*.db")
-
-    assert backups, "the takeover migrated an existing database without copying it first"

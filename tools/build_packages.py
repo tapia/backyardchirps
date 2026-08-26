@@ -3,10 +3,9 @@ Build the Debian packages a station installs.
 
   uv run --no-project python tools/build_packages.py [--output-dir DIR] [--version-suffix +main.a1b2c3d]
 
-This is the one place that decides what a station gets, the way build_tarball.py was for a
-release tarball. It stages a tree per package and then runs nfpm over the YAML files in
-packaging/nfpm/, which name what goes in. Nothing is published here: it writes .deb files
-and prints where they went.
+This is the one place that decides what a station gets. It stages a tree per package and then
+runs nfpm over the YAML files in packaging/nfpm/, which name what goes in. Nothing is published
+here: it writes .deb files and prints where they went.
 
   backyardchirps               the code, the site, the units, the nginx site, the sudoers
                                policy. Rebuilt every release.
@@ -28,8 +27,7 @@ catches that.
 collectstatic runs inside that same container, so the assets are collected by exactly the
 Django the station will run rather than by whatever the build machine has.
 
-Output is key=value lines on stdout and progress on stderr, the same shape build_tarball.py
-uses, so a caller can do:
+Output is key=value lines on stdout and progress on stderr, so a caller can do:
 
   uv run --no-project python tools/build_packages.py --output-dir . >> "$GITHUB_ENV"
 
@@ -86,8 +84,8 @@ VENV_IMAGE = "backyardchirps-venv"
 # is not on PATH. Pinned, because the packages it writes are what a station installs.
 NFPM_IMAGE = "ghcr.io/goreleaser/nfpm:v2.43.0"
 
-# Where update_species_data leaves the full taxonomy in a checkout. build_tarball.py stages
-# from the same file, for the same reason: the repository tracks only a sample of it.
+# Where update_species_data leaves the full taxonomy in a checkout. The repository tracks only
+# a sample of it, so this is where a build finds the real one without downloading it again.
 TAXONOMY_IN_CHECKOUT = REPO_ROOT / "backyardchirps/species_data/generated/taxonomy/birdnet_taxonomy.json"
 
 REPOSITORY_URL = "https://github.com/tapia/backyardchirps"

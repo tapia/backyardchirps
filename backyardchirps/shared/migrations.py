@@ -11,7 +11,7 @@ def migrations_ahead_of_this_release() -> list[str]:
     is the state this exists to name: old code against a newer schema, which Django will
     not complain about on its own until something reads a column that is no longer there.
 
-    Read by deploy/rollback.sh through the show_migrations_ahead command, with the *older*
+    Read by the rollback script through the show_migrations_ahead command, with the *older*
     release's interpreter, since what matters is what that release knows about.
     """
     loader = MigrationLoader(connections["default"])

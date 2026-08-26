@@ -23,13 +23,11 @@ ENV container=docker
 # look inside the database afterwards. Everything the station itself needs arrives in
 # a package, so leaving it out here is what proves the packages carry it.
 #
-# The last two are test fixtures rather than anything a station has. apt-utils is
-# apt-ftparchive, which indexes the local package repository these tests install from.
-# zstd unpacks a release tarball, which happens in one place only: building an old
-# station for the takeover to take over. Both leave when the tarball path does.
+# apt-utils is a test fixture rather than anything a station has: it carries apt-ftparchive,
+# which indexes the local package repository these tests install from.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         systemd systemd-sysv dbus \
-        ca-certificates sudo procps sqlite3 apt-utils zstd \
+        ca-certificates sudo procps sqlite3 apt-utils \
     && rm -rf /var/lib/apt/lists/*
 
 # The debian image ships a policy-rc.d that answers "no" to every request to start a

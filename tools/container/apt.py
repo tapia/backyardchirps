@@ -18,9 +18,8 @@ from pathlib import Path
 from typing import Any
 
 from station import DATA_DIR
-from station import INSTALL_DIR
 from station import SERVICE_USER
-from station import Release
+from station import VENV_PYTHON
 from station import Station
 
 CONTAINER_DIR = Path(__file__).resolve().parent
@@ -37,7 +36,6 @@ TAKEOVER_CONTAINER_NAME = "backyardchirps-test-takeover-station"
 # Where a packaged station keeps its parts. These are the paths the packages install to,
 # repeated here rather than imported: a test that reads them from the code under test would
 # agree with it whatever either one said.
-VENV_PYTHON = "/opt/backyardchirps/venv/bin/python"
 CODE_DIR = "/usr/lib/backyardchirps"
 SHARE_DIR = "/usr/share/backyardchirps"
 MANAGE = f"{CODE_DIR}/bin/manage"
@@ -97,18 +95,6 @@ class Installed:
 
     station: Station
     version: str
-    output: str
-
-
-@dataclasses.dataclass(frozen=True)
-class TakenOver:
-    """
-    A machine that had a tarball station on it and now has a packaged one.
-    """
-
-    station: Station
-    version: str
-    database_inode: str
     output: str
 
 
@@ -360,204 +346,3 @@ def available_update(station: Station) -> dict[str, Any]:
         ]
     ).splitlines()[-1]
     return dict(json.loads(printed) or {})
-
-
-# What the tarball installer left on a machine, and where. The takeover has to find and
-# clear every one of these, so they are named here rather than inferred: a test that asked
-# the code under test where it put things would agree with it whatever it said.
-TARBALL_INSTALL_ROOT = "/opt/backyardchirps"
-TARBALL_UNITS_DIR = "/etc/systemd/system"
-TARBALL_LEFTOVERS = (
-    "/etc/nginx/sites-available/backyardchirps",
-    "/etc/default/backyardchirps",
-    "/etc/sudoers.d/backyardchirps",
-)
-# Two files from before the project was renamed, which no installer has ever removed. A
-# station old enough to have them is exactly the kind being taken over.
-RENAME_LEFTOVERS = (
-    "/etc/nginx/sites-enabled/birds-recorder",
-    "/etc/sudoers.d/birds-recorder",
-)
-
-# Put in the old station's database and its .env before the takeover, and looked for
-# afterwards. An inode says the file was not replaced; these say the contents came through it.
-TAKEOVER_MARKER_TABLE = "written_before_the_takeover"
-TAKEOVER_SECRET_KEY = "the-key-the-old-station-was-using"
-
-
-def _must(station: Station, command: list[str], what: str) -> None:
-    """
-    Run a command that has to work, and say so loudly when it does not.
-
-    Every step of staging is like this. A machine built out of half-applied steps is not the
-    machine the test believes it is testing, and the failure surfaces somewhere else entirely.
-    """
-    result = station.run(command)
-    if result.returncode != 0:
-        raise RuntimeError(f"Could not {what} (exit {result.returncode}):\n{result.stdout}\n{result.stderr}")
-
-
-def stage_a_tarball_station(station: Station, release: Release) -> None:
-    """
-    Put a machine into the state the tarball installer used to leave one in.
-
-    Every file comes from the release itself or from `deploy/` inside it, rendered the way
-    `apply.sh` rendered them, so the units carry the real paths rather than a test's idea of
-    them. That is what makes the takeover's job real: systemd searches /etc before /usr, so
-    a unit left here shadows the packaged one for good.
-
-    Two things are deliberately not done. The virtualenv is not built and the services are
-    not started, because a `uv sync` inside a container costs minutes and nothing in the
-    takeover reads either: it works on files, and the one thing it waits for is the *new*
-    web unit coming up.
-    """
-    version_dir = f"{TARBALL_INSTALL_ROOT}/releases/{release.version}"
-    station.run(["mkdir", "-p", version_dir, f"{DATA_DIR}/clips", INSTALL_DIR])
-    station.copy_in(release.tarball_path, f"{INSTALL_DIR}/{release.tarball_name}")
-    unpacked = station.run(
-        ["tar", "--zstd", "-xf", f"{INSTALL_DIR}/{release.tarball_name}", "-C", version_dir, "--strip-components=1"]
-    )
-    if unpacked.returncode != 0:
-        raise RuntimeError(f"Could not unpack the release:\n{unpacked.stderr}")
-    station.run(["ln", "-sfn", version_dir, f"{TARBALL_INSTALL_ROOT}/current"])
-
-    # The units, rendered as apply.sh rendered them: the placeholders are the whole reason
-    # the old ones point at a path the packages do not use.
-    rendering = (
-        f"s|SERVICE_USER|{SERVICE_USER}|g; s|APP_DIR|{TARBALL_INSTALL_ROOT}/current|g; s|__DATA_DIR__|{DATA_DIR}|g"
-    )
-    staged = station.run(
-        [
-            "bash",
-            "-c",
-            f"for unit in {version_dir}/deploy/backyardchirps-*.service "
-            f"{version_dir}/deploy/backyardchirps-*.timer; do "
-            f'  sed -e "{rendering}" "$unit" > {TARBALL_UNITS_DIR}/$(basename "$unit"); '
-            "done",
-        ]
-    )
-    if staged.returncode != 0:
-        raise RuntimeError(f"Could not stage the old units:\n{staged.stderr}")
-    # Enabled, so the .wants symlinks exist. Those are the part a plain `rm` of the unit
-    # files leaves dangling, and the takeover has to sweep them separately.
-    station.run(["systemctl", "daemon-reload"])
-    station.run(["systemctl", "enable", "backyardchirps-web.service", "backyardchirps-recorder.service"])
-
-    # The config files the old installer wrote and no package owns.
-    station.run(["mkdir", "-p", "/etc/nginx/sites-available", "/etc/nginx/sites-enabled", "/etc/sudoers.d"])
-    station.run(
-        [
-            "bash",
-            "-c",
-            f'sed -e "{rendering}" {version_dir}/deploy/nginx.conf > /etc/nginx/sites-available/backyardchirps && '
-            "ln -sfn /etc/nginx/sites-available/backyardchirps /etc/nginx/sites-enabled/backyardchirps && "
-            f'printf "BACKYARDCHIRPS_DATA_DIR={DATA_DIR}\\n" > /etc/default/backyardchirps && '
-            f'printf "{SERVICE_USER} ALL=(ALL) NOPASSWD: /bin/systemctl restart backyardchirps-web\\n" '
-            "> /etc/sudoers.d/backyardchirps && chmod 440 /etc/sudoers.d/backyardchirps",
-        ]
-    )
-
-    # The service account, the data directory and everything in it. On a real station all of
-    # this already exists, and the ownership is what matters most: the maintainer scripts drop
-    # to this account for everything that touches the data directory, so a root-owned database
-    # would fail the migration with "readonly database" two steps after the mistake was made.
-    #
-    # groupadd and useradd rather than adduser, which is not in the base image. The packages
-    # depend on adduser and apt installs it, but that happens after this runs.
-    _must(station, ["groupadd", "--system", SERVICE_USER], "create the service group")
-    _must(
-        station,
-        [
-            "useradd",
-            "--system",
-            "--gid",
-            SERVICE_USER,
-            "--home-dir",
-            DATA_DIR,
-            "--no-create-home",
-            "--shell",
-            "/usr/sbin/nologin",
-            SERVICE_USER,
-        ],
-        "create the service account",
-    )
-    _must(station, ["mkdir", "-p", DATA_DIR, f"{DATA_DIR}/clips", f"{DATA_DIR}/staticfiles"], "make the data directory")
-
-    # A database with a table of its own in it, so that surviving the takeover can be shown
-    # by something other than an inode. sqlite3 rather than Python: nothing has installed an
-    # interpreter yet, and the packages that carry one arrive after this.
-    _must(
-        station,
-        ["sqlite3", f"{DATA_DIR}/detections.db", f"create table {TAKEOVER_MARKER_TABLE} (id integer);"],
-        "create a database to take over",
-    )
-
-    # .env is written once and never again, and the secret key inside it is what every signed
-    # value a station has handed out depends on.
-    _must(
-        station,
-        [
-            "bash",
-            "-c",
-            f"printf 'SECRET_KEY={TAKEOVER_SECRET_KEY}\\nDEBUG=false\\nALLOWED_HOSTS=.local,localhost\\n' "
-            f"> {DATA_DIR}/.env",
-        ],
-        "write .env",
-    )
-    _must(station, ["chown", "-R", f"{SERVICE_USER}:{SERVICE_USER}", DATA_DIR], "give the data to the service user")
-    _must(station, ["chmod", "640", f"{DATA_DIR}/.env"], "make .env private")
-
-    # Checked rather than assumed, because this is the one that went wrong: the account was
-    # never created, the chown above failed quietly, and the mistake only surfaced two steps
-    # later inside a Django traceback about a readonly database.
-    owner = station.owner_of(f"{DATA_DIR}/detections.db")
-    if owner != SERVICE_USER:
-        raise RuntimeError(f"The staged database belongs to '{owner}' rather than {SERVICE_USER}.")
-
-    # An override an owner wrote. A drop-in directory is the supported way to change a
-    # packaged unit, it shadows nothing, and the takeover has to leave it where it is.
-    station.run(["mkdir", "-p", f"{TARBALL_UNITS_DIR}/backyardchirps-web.service.d"])
-    station.run(
-        [
-            "bash",
-            "-c",
-            "printf '[Service]\\nEnvironment=SOMETHING_AN_OWNER_SET=yes\\n' "
-            f"> {TARBALL_UNITS_DIR}/backyardchirps-web.service.d/local.conf",
-        ]
-    )
-
-    # And the two files from before the rename, which is what a station old enough to be
-    # taken over actually looks like.
-    station.run(
-        [
-            "bash",
-            "-c",
-            "printf 'server { server_name old; }\\n' > /etc/nginx/sites-enabled/birds-recorder && "
-            "printf 'nobody ALL=(ALL) NOPASSWD: /bin/systemctl restart birds-web\\n' "
-            "> /etc/sudoers.d/birds-recorder && chmod 440 /etc/sudoers.d/birds-recorder",
-        ]
-    )
-
-
-def units_that_would_shadow_the_packaged_ones(station: Station) -> list[str]:
-    """
-    Unit files sitting directly in /etc/systemd/system, and symlinks pointing at nothing.
-
-    Not everything of ours under /etc is wrong, which is the distinction that matters here.
-    Enabling a packaged unit puts a symlink in a .wants directory there pointing at /usr/lib,
-    and that is how systemd records that it is enabled. A drop-in directory is how an owner
-    overrides one. Neither shadows anything.
-
-    What must not be left is a unit *file*, because systemd finds that before the packaged one
-    and goes on pointing at a directory no package writes to, silently and for ever. Or a
-    symlink whose target is gone, which is what a plain `rm` of the unit files leaves behind.
-    """
-    listed = station.output_of(
-        [
-            "bash",
-            "-c",
-            f"find {TARBALL_UNITS_DIR} -maxdepth 1 -type f -name 'backyardchirps-*' 2> /dev/null; "
-            f"find {TARBALL_UNITS_DIR} -xtype l -name 'backyardchirps-*' 2> /dev/null",
-        ]
-    )
-    return [line for line in listed.splitlines() if line.strip()]

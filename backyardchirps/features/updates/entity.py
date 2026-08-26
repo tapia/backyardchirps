@@ -52,11 +52,6 @@ class UpdateState(StrEnum):
 class UpdateStep(StrEnum):
     NONE = ""
     CHECKING = "checking"
-    # No longer written by anything here: the backup moved into the package's postinst,
-    # which does not report progress. It stays because a station still on the tarball path
-    # writes it, and an unknown step makes the reader log a warning on every poll. It goes
-    # when deploy/ does.
-    BACKING_UP = "backing-up"
     INSTALLING = "installing"
     VERIFYING = "verifying"
     ROLLING_BACK = "rolling-back"

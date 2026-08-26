@@ -113,7 +113,6 @@ export default {
       updateInstalling: 'Instalando {version}',
       updateStep: {
         checking: 'Comprobando la versión',
-        'backing-up': 'Copiando la base de datos',
         installing: 'Instalando',
         verifying: 'Comprobando que la estación ha arrancado',
         'rolling-back': 'Volviendo a la versión anterior',

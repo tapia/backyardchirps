@@ -134,14 +134,8 @@ jobs:
           set -euo pipefail
           if [ ! -e /usr/share/keyrings/backyardchirps-archive-keyring.gpg ]; then
             echo "This Pi does not trust the archive yet, so nothing can be installed." >&2
-            echo "Take it over by hand once: see 'Moving the deploy Pi onto apt' in" >&2
+            echo "Trust the archive by hand once: see 'Trusting the archive' in" >&2
             echo "docs/devel/deployment.md." >&2
-            exit 1
-          fi
-          if [ -e /opt/backyardchirps/current ]; then
-            echo "This Pi still has a station installed from a release tarball." >&2
-            echo "The packages refuse to install over one until the takeover exists." >&2
-            echo "See 'Moving the deploy Pi onto apt' in docs/devel/deployment.md." >&2
             exit 1
           fi
 

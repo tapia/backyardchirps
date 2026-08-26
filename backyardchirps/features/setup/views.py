@@ -149,7 +149,7 @@ def audio_level(request: HttpRequest) -> HttpResponseBase:
     response = StreamingHttpResponse(_audio_level_events(device), content_type="text/event-stream")
     response["Cache-Control"] = "no-cache"
     # Tell nginx not to collect the readings into a buffer, which would deliver them in
-    # bursts and make the bar jump. deploy/nginx.conf says the same thing, but a response
+    # bursts and make the bar jump. The packaged nginx site says the same thing, but a response
     # that asks for itself also works behind a proxy this project did not write.
     response["X-Accel-Buffering"] = "no"
     return response

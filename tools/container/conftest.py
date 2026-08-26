@@ -1,7 +1,7 @@
 """
 The options and the phase fixtures for the container install tests.
 
-Two machines, and each fixture is one state of one of them. They are chained, so asking for a
+Each fixture is one state of one machine. They are chained, so asking for a
 later one brings up every earlier one in order.
 
 A station installed from packages, which is every station from now on:
@@ -14,11 +14,6 @@ A station installed from packages, which is every station from now on:
   apt_removed             the software gone, the recordings kept
   apt_purged              everything gone, data included
 
-And one machine for the one thing that only happens once:
-
-  taken_over              a machine that had a tarball station on it, with the packages
-                          installed over the top
-
 The assertions are in test_container_apt.py and the drivers in station.py and apt.py.
 """
 
@@ -29,13 +24,11 @@ from pathlib import Path
 import pytest
 from apt import APT_CONTAINER_NAME
 from apt import MANAGE
-from apt import TAKEOVER_CONTAINER_NAME
 from apt import VENV_PYTHON
 from apt import Installed
 from apt import Packages
 from apt import RolledBack as AptRolledBack
 from apt import SelfUpdated as AptSelfUpdated
-from apt import TakenOver
 from apt import Upgraded
 from apt import add_source
 from apt import build_packages
@@ -47,17 +40,14 @@ from apt import remove as apt_remove
 from apt import request_update
 from apt import run_rollback
 from apt import run_updater
-from apt import stage_a_tarball_station
 from apt import upgrade as apt_upgrade
 from station import CREATE_ADMIN
 from station import DATA_DIR
 from station import KEPT_CLIP
 from station import SERVICE_USER
-from station import Release
 from station import Station
 from station import boot
 from station import build_image
-from station import build_release
 from station import remove
 from station import require_docker
 from station import seed_models
@@ -312,78 +302,3 @@ def apt_purged(apt_removed: Station) -> Station:
     _say("purging every package")
     _refuse_a_failed_run(apt_removed, apt_purge(apt_removed), "apt-get purge failed")
     return apt_removed
-
-
-# ---------------------------------------------------------------------------
-# A machine that already had a station on it
-# ---------------------------------------------------------------------------
-# Its own machine, and the only place the takeover is exercised. It happens once per station
-# in the field, it can never be tried again, and it is the one path that could lose somebody
-# their recordings, so it is worth a container of its own.
-
-
-@pytest.fixture(scope="session")
-def tarball_release(tmp_path_factory: pytest.TempPathFactory) -> Release:
-    """
-    A real release tarball, built the way the old workflow built them. The takeover has to
-    meet the files a real station had, not a test's idea of them.
-    """
-    _say("staging a release tarball to take over")
-    return build_release(tmp_path_factory.mktemp("tarball-release"))
-
-
-@pytest.fixture(scope="session")
-def booted_old_station(request: pytest.FixtureRequest) -> Iterator[Station]:
-    require_docker()
-    keep_station = bool(request.config.getoption("--keep-station"))
-    build_image()
-    _say("booting a machine to put an old station on")
-    booted = boot(name=TAKEOVER_CONTAINER_NAME, python=VENV_PYTHON)
-    try:
-        yield booted
-    finally:
-        if keep_station:
-            _say(f"still running. Look around with: docker exec -it {TAKEOVER_CONTAINER_NAME} bash")
-        else:
-            remove(booted)
-
-
-@pytest.fixture(scope="session")
-def taken_over(booted_old_station: Station, tarball_release: Release, packages: Packages) -> TakenOver:
-    """
-    A machine with a tarball station on it, with the packages installed over the top.
-
-    The database is created before the takeover and its inode recorded, because that single
-    number is the whole promise: the same file, not a copy, not a restore, not a new one.
-
-    One thing this cannot reproduce: the staged station has no admin account. Creating one
-    needs Django, and the only interpreter on the machine arrives with the packages, which is
-    after the moment being tested. So this is a station somebody installed and never set up,
-    and `postinst` correctly writes it a setup token. A station with an owner keeps its
-    account and gets none, which is the branch `test_the_upgrade_did_not_hand_the_station_to
-    _somebody_else` covers on the other machine.
-    """
-    station = booted_old_station
-    _say("putting an old station on the machine")
-    stage_a_tarball_station(station, tarball_release)
-
-    # A recording, standing in for everything a station has collected.
-    station.run(["touch", KEPT_CLIP])
-    station.run(["chown", f"{SERVICE_USER}:{SERVICE_USER}", KEPT_CLIP])
-
-    database_inode = station.inode_of(f"{DATA_DIR}/detections.db")
-    if not database_inode:
-        raise RuntimeError("The staged station has no database, so there is nothing to take over.")
-
-    seed_models(station)
-    publish(station, packages)
-    add_source(station)
-    _say(f"installing {packages.app_version} over the old station")
-    result = apt_install(station)
-    _refuse_a_failed_run(station, result, "installing the packages over a tarball station failed")
-    return TakenOver(
-        station=station,
-        version=packages.app_version,
-        database_inode=database_inode,
-        output=result.stdout + result.stderr,
-    )

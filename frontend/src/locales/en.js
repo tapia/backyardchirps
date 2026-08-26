@@ -112,7 +112,6 @@ export default {
       updateInstalling: 'Installing {version}',
       updateStep: {
         checking: 'Checking the release',
-        'backing-up': 'Backing up the database',
         installing: 'Installing',
         verifying: 'Checking the station came up',
         'rolling-back': 'Going back to the previous release',

@@ -3,10 +3,6 @@ A throwaway station in a container, and everything needed to bring one up.
 
 Everything here drives the machine. The assertions live in test_container_apt.py and the
 wiring between the two in conftest.py.
-
-What is left in here is what both machines need: the container itself, the model cache, and
-a release tarball. The tarball is only still built for one reason: the takeover has to meet
-the files a real tarball station had, and building one is the only honest way to get them.
 """
 
 import dataclasses
@@ -25,16 +21,12 @@ REPO_ROOT = CONTAINER_DIR.parent.parent
 IMAGE = "backyardchirps-test"
 CONTAINER_NAME = "backyardchirps-test-station"
 
-INSTALL_ROOT = "/opt/backyardchirps"
-APP_DIR = f"{INSTALL_ROOT}/current"
+# The virtualenv the deps package owns. Every station has this one interpreter and no other:
+# nothing is built on the machine, so there is nothing else it could be.
+VENV_PYTHON = "/opt/backyardchirps/venv/bin/python"
 DATA_DIR = "/var/lib/backyardchirps"
 SERVICE_USER = "backyardchirps"
 INSTALL_LOG = "/var/log/backyardchirps-install.log"
-
-# Where a release tarball is put inside the machine, for the one fixture that still needs one.
-# Copied in rather than mounted, so nothing on the host is reachable from the machine under
-# test.
-INSTALL_DIR = "/tmp/install"
 
 DAEMONS = ("backyardchirps-web", "backyardchirps-recorder")
 TIMED_JOBS = ("backyardchirps-update-species", "backyardchirps-clip-disk-quota", "backyardchirps-check-update")
@@ -64,26 +56,13 @@ BOOT_TIMEOUT_SECONDS = 30
 
 
 @dataclasses.dataclass(frozen=True)
-class Release:
-    """
-    A tarball staged on the host, built from this checkout and never published.
-    """
-
-    version: str
-    tarball_name: str
-    tarball_path: Path
-
-
-@dataclasses.dataclass(frozen=True)
 class Station:
     """
     A container running systemd, driven from outside through `docker exec`.
     """
 
     name: str
-    # Where this machine's Python is. A tarball station builds a virtualenv inside the
-    # release; a packaged one gets it from backyardchirps-deps, at a path no release owns.
-    python: str = f"{APP_DIR}/.venv/bin/python"
+    python: str = VENV_PYTHON
 
     def run(self, command: list[str]) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
@@ -233,48 +212,6 @@ def require_docker() -> None:
         raise RuntimeError("docker is not installed. See the header of test_container_apt.py.")
 
 
-def build_release(output_dir: Path, version_suffix: str = "") -> Release:
-    """
-    The station installs a release, not a checkout, so that is what it gets. Nothing is tagged or
-    published: tools/build_tarball.py writes the same artifact CI would, into a temporary
-    directory that is thrown away at the end.
-
-    This is also what lets the image stay free of Node. The tarball carries a prebuilt frontend,
-    so apply.sh has nothing to build.
-    """
-    command = [
-        "uv",
-        "run",
-        "--no-project",
-        "python",
-        str(REPO_ROOT / "tools" / "build_tarball.py"),
-        "--output-dir",
-        str(output_dir),
-    ]
-    if version_suffix:
-        command += ["--version-suffix", version_suffix]
-
-    result = subprocess.run(command, capture_output=True, text=True, check=False)
-    if result.returncode != 0:
-        raise RuntimeError(f"Building the release tarball failed:\n{result.stderr}")
-
-    # key=value lines on stdout, progress on stderr. Parsed rather than eval'd, which is what the
-    # shell version had to do: a failing build inside `eval "$(...)"` sets no variables and stops
-    # nothing, so the error surfaced several steps later under a different name.
-    built = dict(line.split("=", 1) for line in result.stdout.splitlines() if "=" in line)
-    return Release(
-        version=built["VERSION"],
-        tarball_name=built["TARBALL_NAME"],
-        tarball_path=Path(built["TARBALL_PATH"]),
-    )
-
-
-# Where the acoustic model and GeoModel are kept between runs, so a suite that installs a
-# station four times downloads them once ever rather than once per install.
-#
-# The cache fills itself from the first run that downloads them, which is why nothing here
-# repeats a URL or a published size: those live in the code under test and would rot here.
-# A cold cache still needs the network; every run after it does not.
 MODEL_CACHE_DIR = Path(
     os.environ.get("BACKYARDCHIRPS_MODEL_CACHE", Path.home() / ".cache" / "backyardchirps-container-models")
 )
