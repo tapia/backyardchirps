@@ -64,11 +64,14 @@
       </span>
     </div>
 
-    <div v-else-if="progress?.state === 'succeeded'" class="alert alert-success py-2 mb-4">
+    <div
+      v-else-if="watched && progress?.state === 'succeeded'"
+      class="alert alert-success py-2 mb-4"
+    >
       {{ t('page.serverStatus.updateSucceeded', { version: progress.version }) }}
     </div>
 
-    <div v-else-if="progress?.state === 'failed'" class="alert alert-danger py-2 mb-4">
+    <div v-else-if="watched && progress?.state === 'failed'" class="alert alert-danger py-2 mb-4">
       {{ t('page.serverStatus.updateFailed', { message: progress.message }) }}
     </div>
 
@@ -171,6 +174,13 @@ const checking = ref(false)
 const refusal = ref('')
 let polling = null
 
+// Whether this page has actually watched an update run, rather than found one that finished
+// at some point in the past.
+const watched = ref(false)
+
+// What the status file said before this page asked for anything.
+let outcomeOfTheRunBefore = null
+
 const running = computed(() => progress.value?.state === 'running')
 
 const stepLabel = computed(() => {
@@ -201,7 +211,17 @@ async function install() {
   starting.value = true
   refusal.value = ''
   try {
-    progress.value = await startUpdate(update.value.version)
+    await startUpdate(update.value.version)
+    // Said here rather than taken from the answer, for the reason above the poll: the
+    // station replies before the updater has written anything.
+    outcomeOfTheRunBefore = JSON.stringify(progress.value)
+    watched.value = true
+    progress.value = {
+      state: 'running',
+      step: 'checking',
+      message: '',
+      version: update.value.version,
+    }
     startPolling()
   } catch (error) {
     const code = error?.response?.data?.error
@@ -213,9 +233,7 @@ async function install() {
   }
 }
 
-// Offered once an update has finished, which is when going back is a thing somebody might
-// want and when there is certainly an earlier release on disk. Whether there really is one
-// is rollback.sh's to answer; it refuses rather than half-doing it.
+// Offered once an update has finished, and it stays offered after a reload
 const canRollBack = computed(() => progress.value?.state === 'succeeded' && !running.value)
 
 async function rollBack() {
@@ -223,7 +241,15 @@ async function rollBack() {
   starting.value = true
   refusal.value = ''
   try {
-    progress.value = await rollbackUpdate()
+    await rollbackUpdate()
+    outcomeOfTheRunBefore = JSON.stringify(progress.value)
+    watched.value = true
+    progress.value = {
+      state: 'running',
+      step: 'rolling-back',
+      message: '',
+      version: '',
+    }
     startPolling()
   } catch (error) {
     const code = error?.response?.data?.error
@@ -248,14 +274,20 @@ function stopPolling() {
 }
 
 async function poll() {
+  let polled
   try {
-    progress.value = await fetchUpdateProgress()
+    polled = await fetchUpdateProgress()
   } catch {
     // One failed poll says nothing. The web service restarts partway through an update,
     // so a refused request is the expected middle of a run rather than a failure.
     return
   }
-  if (progress.value?.state && progress.value.state !== 'running') stopPolling()
+  // Unchanged since before the button was pressed, so the updater has not reached its first
+  // write yet and this is the run before it.
+  if (JSON.stringify(polled) === outcomeOfTheRunBefore) return
+
+  progress.value = polled
+  if (polled?.state && polled.state !== 'running') stopPolling()
 }
 
 const updateTooltip = computed(() => {
@@ -295,8 +327,12 @@ onMounted(async () => {
   }
   try {
     progress.value = await fetchUpdateProgress()
-    // Picks up an update started before this page was opened, or in another tab.
-    if (progress.value?.state === 'running') startPolling()
+    // Picks up an update started before this page was opened, or in another tab. That one
+    // does count as watched: whoever is looking at the page sees it finish.
+    if (progress.value?.state === 'running') {
+      watched.value = true
+      startPolling()
+    }
   } catch {
     progress.value = null
   }

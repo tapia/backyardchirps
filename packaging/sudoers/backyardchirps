@@ -10,6 +10,12 @@
 # The updater, the rollback and the update check are start and nothing else. All three run
 # as root, so the web process may ask for one to run and may not stop it half way.
 #
+# The first two carry --no-block, and that is part of the command rather than decoration:
+# sudo matches the whole argument list, so the plain form is not granted and cannot be
+# run. Without the flag the call waits for a unit that takes minutes and restarts the web
+# process half way through, which kills the request that is waiting. The check has no flag
+# because it finishes in seconds and the page wants its answer.
+#
 # Deliberately not a dpkg conffile. A conffile dpkg refuses to overwrite is a stale
 # privilege grant, so every upgrade restores this file verbatim and postinst runs
 # `visudo -cf` over it.
@@ -29,6 +35,6 @@ backyardchirps ALL=(ALL) NOPASSWD: \
   /bin/systemctl start backyardchirps-clip-disk-quota, \
   /bin/systemctl stop backyardchirps-clip-disk-quota, \
   /bin/systemctl restart backyardchirps-clip-disk-quota, \
-  /bin/systemctl start backyardchirps-update, \
-  /bin/systemctl start backyardchirps-rollback, \
+  /bin/systemctl start --no-block backyardchirps-update, \
+  /bin/systemctl start --no-block backyardchirps-rollback, \
   /bin/systemctl start backyardchirps-check-update

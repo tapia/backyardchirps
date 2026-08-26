@@ -203,6 +203,13 @@ def test_the_sudoers_policy_is_valid_and_narrow(apt_station: Installed) -> None:
     assert station.sudo_permits("/bin/systemctl restart backyardchirps-recorder")
     assert not station.sudo_permits("/bin/systemctl restart nginx")
 
+    # The updater, asked of sudo exactly as the web process runs it. sudo matches a whole
+    # argument list, so --no-block is part of the command rather than decoration: the plain
+    # form is not granted, and neither is anything that could stop an update half way.
+    assert station.sudo_permits("/bin/systemctl start --no-block backyardchirps-update")
+    assert not station.sudo_permits("/bin/systemctl start backyardchirps-update")
+    assert not station.sudo_permits("/bin/systemctl stop backyardchirps-update")
+
 
 def test_the_site_answers(apt_station: Installed) -> None:
     station = apt_station.station

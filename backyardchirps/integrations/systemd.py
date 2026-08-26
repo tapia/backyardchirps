@@ -16,6 +16,16 @@ MANAGED_UNITS = {
     "backyardchirps-check-update": ("start",),
 }
 
+# Units this station starts without waiting for them to finish.
+#
+# Both are oneshots that run for minutes, and `systemctl start` on a oneshot does not return
+# until the unit is done. Waiting is impossible here for a second reason as well: the update
+# stops the web process half way through, so the request doing the waiting is killed by the
+# very thing it started, and the browser is told the update failed while it is in fact
+# working. Neither is worth waiting for anyway, because the status file is what reports
+# progress and both scripts write it from the moment they start.
+STARTED_WITHOUT_WAITING = ("backyardchirps-update", "backyardchirps-rollback")
+
 # Long enough for the recorder to release the microphone and come back, short enough
 # that a wedged unit does not hold an HTTP request open.
 _TIMEOUT_SECONDS = 30
@@ -35,6 +45,19 @@ def start_unit(unit: str) -> bool:
     return _run_systemctl("start", unit)
 
 
+def systemctl_arguments(unit: str, verb: str) -> list[str]:
+    """
+    The exact command this station runs for one unit and verb.
+
+    sudo matches a command by its whole argument list rather than by its name, so the policy
+    has to spell out every argument, `--no-block` included. Both the call below and the
+    shipped policy are read from here, which is what stops the two drifting apart.
+    """
+    if verb == "start" and unit in STARTED_WITHOUT_WAITING:
+        return ["systemctl", "start", "--no-block", unit]
+    return ["systemctl", verb, unit]
+
+
 def _run_systemctl(verb: str, unit: str) -> bool:
     if verb not in MANAGED_UNITS.get(unit, ()):
         logger.error("Refusing to %s %s: not a pair this station's policy allows", verb, unit)
@@ -42,7 +65,7 @@ def _run_systemctl(verb: str, unit: str) -> bool:
 
     try:
         result = subprocess.run(
-            ["sudo", "systemctl", verb, unit],
+            ["sudo", *systemctl_arguments(unit, verb)],
             capture_output=True,
             text=True,
             timeout=_TIMEOUT_SECONDS,

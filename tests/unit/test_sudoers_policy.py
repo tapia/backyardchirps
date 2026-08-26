@@ -15,14 +15,18 @@ import pytest
 
 from backyardchirps.features.setup import logic as setup_logic
 from backyardchirps.integrations.systemd import MANAGED_UNITS
+from backyardchirps.integrations.systemd import STARTED_WITHOUT_WAITING
 from backyardchirps.integrations.systemd import restart_unit
 from backyardchirps.integrations.systemd import start_unit
+from backyardchirps.integrations.systemd import systemctl_arguments
 
 POLICY_FILE = Path(__file__).resolve().parents[2] / "packaging" / "sudoers" / "backyardchirps"
 
 # What every line of the command list has to look like. The path is absolute, since a
-# relative one would let PATH decide what runs, and the unit name is one word.
-ENTRY_PATTERN = re.compile(r"^/bin/systemctl (start|stop|restart) (\S+)$")
+# relative one would let PATH decide what runs, and the unit name is one word. The optional
+# flag is --no-block on the two units that take minutes, and sudo treats it as part of the
+# command: the plain form of those two is not granted and cannot be run.
+ENTRY_PATTERN = re.compile(r"^/bin/systemctl (start|stop|restart) (?:(--no-block) )?(\S+)$")
 
 ALLOWED_VERBS = {"start", "stop", "restart"}
 
@@ -85,19 +89,17 @@ def test_the_policy_carries_no_wildcard(policy: str) -> None:
             assert character not in entry, f"the policy contains {character!r}: {entry}"
 
 
-def test_the_policy_grants_exactly_the_pairs_the_code_knows_about(policy: str) -> None:
+def test_the_policy_grants_exactly_the_commands_the_code_runs(policy: str) -> None:
     """
-    Pairs, not just unit names. The updater runs as root and replaces the release, so it
-    is granted `start` alone: a policy that quietly gave it `stop` as well would let the
-    web process kill an update half way through, and a unit-only check would not notice.
+    Whole commands, not just unit names, because that is what sudo matches on. The updater
+    runs as root and replaces the code, so it is granted `start` alone: a policy that
+    quietly gave it `stop` as well would let the web process kill an update half way
+    through, and a unit-only check would not notice. The same exactness is what makes
+    `--no-block` a thing the policy has to say rather than a detail of the call.
     """
-    granted = set()
-    for entry in parse_entries(policy):
-        match = ENTRY_PATTERN.match(entry)
-        assert match, f"unexpected entry: {entry}"
-        granted.add((match.group(2), match.group(1)))
+    granted = {entry.removeprefix("/bin/") for entry in parse_entries(policy)}
 
-    expected = {(unit, verb) for unit, verbs in MANAGED_UNITS.items() for verb in verbs}
+    expected = {" ".join(systemctl_arguments(unit, verb)) for unit, verbs in MANAGED_UNITS.items() for verb in verbs}
     assert granted == expected
 
 
@@ -109,7 +111,7 @@ def test_the_policy_grants_no_verb_beyond_start_stop_and_restart(policy: str) ->
 def test_the_updater_may_be_started_and_nothing_more(policy: str) -> None:
     entries = parse_entries(policy)
 
-    assert "/bin/systemctl start backyardchirps-update" in entries
+    assert "/bin/systemctl start --no-block backyardchirps-update" in entries
     assert "/bin/systemctl stop backyardchirps-update" not in entries
     assert "/bin/systemctl restart backyardchirps-update" not in entries
 
@@ -135,7 +137,13 @@ def test_a_unit_outside_the_list_is_refused_without_calling_sudo(
     assert restart_unit("backyardchirps-update") is False
 
 
-def test_the_updater_can_be_started_through_the_verb_it_was_granted(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_the_updater_is_started_without_waiting_for_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    The bug this exists for. The updater is a oneshot that runs for minutes, and a plain
+    `systemctl start` on a oneshot does not return until it is done, so the request sat
+    there until the update stopped the web process underneath it. The browser was then told
+    the update had failed, on a station where it had in fact worked.
+    """
     called: list[list[str]] = []
 
     def record(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
@@ -145,4 +153,22 @@ def test_the_updater_can_be_started_through_the_verb_it_was_granted(monkeypatch:
     monkeypatch.setattr(subprocess, "run", record)
 
     assert start_unit("backyardchirps-update") is True
-    assert called == [["sudo", "systemctl", "start", "backyardchirps-update"]]
+    assert called == [["sudo", "systemctl", "start", "--no-block", "backyardchirps-update"]]
+
+
+def test_the_check_is_waited_for_because_the_page_wants_its_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    The other half of the same decision. The check finishes in seconds and the button that
+    starts it answers with what it found, so this one is not given --no-block.
+    """
+    called: list[list[str]] = []
+
+    def record(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
+        called.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(subprocess, "run", record)
+
+    assert start_unit("backyardchirps-check-update") is True
+    assert called == [["sudo", "systemctl", "start", "backyardchirps-check-update"]]
+    assert "backyardchirps-check-update" not in STARTED_WITHOUT_WAITING
