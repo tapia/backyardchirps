@@ -294,8 +294,8 @@ def apt_rolled_back(apt_self_updated: AptSelfUpdated) -> AptRolledBack:
 @pytest.fixture(scope="session")
 def apt_removed(apt_rolled_back: AptRolledBack) -> Station:
     """
-    The software taken away, the recordings left alone. This is `uninstall.sh` without the
-    --all, and the promise an owner is given in the docs.
+    The software taken away, the recordings left alone. This is the promise an owner is given
+    in the docs, and the half of it that `apt purge` does not keep.
     """
     _say("removing the package")
     station = apt_rolled_back.station

@@ -31,8 +31,8 @@ DATA_DIR = "/var/lib/backyardchirps"
 SERVICE_USER = "backyardchirps"
 INSTALL_LOG = "/var/log/backyardchirps-install.log"
 
-# Where the installer, the uninstaller and the tarballs are put inside the station. They are
-# copied in rather than mounted, so nothing on the host is reachable from the machine under
+# Where a release tarball is put inside the machine, for the one fixture that still needs one.
+# Copied in rather than mounted, so nothing on the host is reachable from the machine under
 # test.
 INSTALL_DIR = "/tmp/install"
 
