@@ -379,6 +379,11 @@ RENAME_LEFTOVERS = (
     "/etc/sudoers.d/birds-recorder",
 )
 
+# Put in the old station's database and its .env before the takeover, and looked for
+# afterwards. An inode says the file was not replaced; these say the contents came through it.
+TAKEOVER_MARKER_TABLE = "written_before_the_takeover"
+TAKEOVER_SECRET_KEY = "the-key-the-old-station-was-using"
+
 
 def stage_a_tarball_station(station: Station, release: Release) -> None:
     """
@@ -440,8 +445,43 @@ def stage_a_tarball_station(station: Station, release: Release) -> None:
         ]
     )
 
-    # collectstatic used to write here, and nothing has ever removed it.
-    station.run(["mkdir", "-p", f"{DATA_DIR}/staticfiles"])
+    # The service account, the data directory and everything in it. On a real station all of
+    # this already exists, and the ownership is the part that matters: postinst drops to this
+    # account to copy the database, so a root-owned one would fail the backup and take the
+    # whole install down with it.
+    station.run(
+        [
+            "adduser",
+            "--system",
+            "--group",
+            "--home",
+            DATA_DIR,
+            "--no-create-home",
+            "--shell",
+            "/usr/sbin/nologin",
+            "--quiet",
+            SERVICE_USER,
+        ]
+    )
+    station.run(["mkdir", "-p", DATA_DIR, f"{DATA_DIR}/clips", f"{DATA_DIR}/staticfiles"])
+
+    # A database with a table of its own in it, so that surviving the takeover can be shown
+    # by something other than an inode. sqlite3 rather than Python: nothing has installed an
+    # interpreter yet, and the packages that carry one arrive after this.
+    station.run(["sqlite3", f"{DATA_DIR}/detections.db", f"create table {TAKEOVER_MARKER_TABLE} (id integer);"])
+
+    # .env is written once and never again, and the secret key inside it is what every signed
+    # value a station has handed out depends on.
+    station.run(
+        [
+            "bash",
+            "-c",
+            f"printf 'SECRET_KEY={TAKEOVER_SECRET_KEY}\\nDEBUG=false\\nALLOWED_HOSTS=.local,localhost\\n' "
+            f"> {DATA_DIR}/.env",
+        ]
+    )
+    station.run(["chown", "-R", f"{SERVICE_USER}:{SERVICE_USER}", DATA_DIR])
+    station.run(["chmod", "640", f"{DATA_DIR}/.env"])
 
     # An override an owner wrote. A drop-in directory is the supported way to change a
     # packaged unit, it shadows nothing, and the takeover has to leave it where it is.

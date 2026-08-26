@@ -355,24 +355,25 @@ def taken_over(booted_old_station: Station, tarball_release: Release, packages: 
 
     The database is created before the takeover and its inode recorded, because that single
     number is the whole promise: the same file, not a copy, not a restore, not a new one.
+
+    One thing this cannot reproduce: the staged station has no admin account. Creating one
+    needs Django, and the only interpreter on the machine arrives with the packages, which is
+    after the moment being tested. So this is a station somebody installed and never set up,
+    and `postinst` correctly writes it a setup token. A station with an owner keeps its
+    account and gets none, which is the branch `test_the_upgrade_did_not_hand_the_station_to
+    _somebody_else` covers on the other machine.
     """
     station = booted_old_station
     _say("putting an old station on the machine")
     stage_a_tarball_station(station, tarball_release)
 
-    # A database and a recording, so there is something to lose.
-    station.run(["mkdir", "-p", f"{DATA_DIR}/clips"])
+    # A recording, standing in for everything a station has collected.
     station.run(["touch", KEPT_CLIP])
-    created = station.run(
-        [
-            VENV_PYTHON if station.path_exists(VENV_PYTHON) else "python3",
-            "-c",
-            f"import sqlite3; sqlite3.connect('{DATA_DIR}/detections.db').close()",
-        ]
-    )
-    if created.returncode != 0:
-        raise RuntimeError(f"Could not create a database to take over:\n{created.stderr}")
+    station.run(["chown", f"{SERVICE_USER}:{SERVICE_USER}", KEPT_CLIP])
+
     database_inode = station.inode_of(f"{DATA_DIR}/detections.db")
+    if not database_inode:
+        raise RuntimeError("The staged station has no database, so there is nothing to take over.")
 
     seed_models(station)
     publish(station, packages)

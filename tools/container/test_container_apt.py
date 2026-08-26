@@ -23,6 +23,8 @@ from apt import PACKAGE_DIR
 from apt import RENAME_LEFTOVERS
 from apt import SCOPED_UPDATE
 from apt import SHARE_DIR
+from apt import TAKEOVER_MARKER_TABLE
+from apt import TAKEOVER_SECRET_KEY
 from apt import TARBALL_LEFTOVERS
 from apt import VENV_PYTHON
 from apt import Installed
@@ -530,13 +532,26 @@ def test_purge_leaves_nothing_of_the_station_behind(apt_purged: Station) -> None
 
 def test_the_takeover_kept_the_database_and_the_recordings(taken_over: TakenOver) -> None:
     """
-    The whole promise, in one number. The same inode means the same file: not a copy, not a
-    restore from a backup, not a new database beside the old one.
+    The whole promise, twice over. The same inode means the same file: not a copy, not a
+    restore from a backup, not a new database beside the old one. The table says the contents
+    came through it, which an inode on its own would not prove.
     """
     station = taken_over.station
 
     assert station.inode_of(f"{DATA_DIR}/detections.db") == taken_over.database_inode
+    assert TAKEOVER_MARKER_TABLE in station.sql(
+        f"select name from sqlite_master where name = '{TAKEOVER_MARKER_TABLE}'"
+    )
     assert station.path_exists(KEPT_CLIP)
+
+
+def test_the_takeover_kept_the_secret_key_the_old_station_was_using(taken_over: TakenOver) -> None:
+    """
+    A new key would log every session out and invalidate every signed value the station has
+    handed out. .env is written once and never again, and a takeover is the case where "once"
+    happened under the installer that came before.
+    """
+    assert TAKEOVER_SECRET_KEY in taken_over.station.read(f"{DATA_DIR}/.env")
 
 
 def test_the_takeover_removed_the_units_that_would_shadow_the_packaged_ones(taken_over: TakenOver) -> None:
