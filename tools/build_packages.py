@@ -236,7 +236,7 @@ def taxonomy_digest(taxa: Any) -> str:
     return hashlib.sha256(taxonomy_bytes(taxa)).hexdigest()
 
 
-def main_build_version() -> str:
+def main_build_version(commit_count: str | None = None, short_sha: str | None = None) -> str:
     """
     The version a push to main publishes, composed here so that only one file knows the rule.
 
@@ -247,8 +247,12 @@ def main_build_version() -> str:
 
     The commit count is what orders two builds of one release. The short sha is what a person
     can look up. Both, in that order, because a sha on its own does not sort by anything.
+
+    Both are read from the checkout when they are not given. They are arguments at all so
+    that the rule can be checked without one: the fast suite runs on a shallow clone, where
+    counting commits is refused rather than answered wrongly.
     """
-    return _app_version(f"+main.{_commits_over()}.{_head_sha()}")
+    return _app_version(f"+main.{commit_count or _commits_over()}.{short_sha or _head_sha()}")
 
 
 def _app_version(version_suffix: str) -> str:
