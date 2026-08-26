@@ -52,9 +52,13 @@ jobs:
 
     steps:
       # The exact commit Publish built, not whatever main points at now.
+      #
+      # fetch-depth 0, because the version below counts commits and a shallow clone answers 1.
+      # The version composer refuses one rather than handing back a number that means nothing.
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
 
       # Publish does not depend on CI, so without this a commit that fails the suite would
       # reach the station anyway. Publish takes several minutes and CI about one, so this
@@ -93,21 +97,22 @@ jobs:
           echo "CI never reported for $SHA within ten minutes." >&2
           exit 1
 
-      # The same string build_packages.py composed: the version in pyproject.toml, plus the
-      # local part publish.yml derives from the commit. Worked out here rather than on the
-      # Pi because it needs the tree, and the Pi never has one.
+      # Nothing is synced. The step below reads pyproject.toml and the git history and
+      # nothing else, and uv is here so that it runs under the same interpreter Publish uses.
+      - uses: astral-sh/setup-uv@v5
+
+      # Asked of the same code Publish asked, rather than composed again here. This job used
+      # to build the string itself from pyproject.toml and the commit sha, which is the same
+      # rule written twice: the moment Publish's copy changed, this one asked the Pi for a
+      # version that had never existed and the install failed with "not found".
+      #
+      # Worked out here rather than on the Pi because it needs the tree, and the Pi never has
+      # one.
       - id: version
         name: Work out the version Publish built
-        env:
-          SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          base="$(sed -n 's/^version = "\(.*\)"$/\1/p' pyproject.toml | head -n 1)"
-          if [ -z "$base" ]; then
-            echo "Could not read the version out of pyproject.toml." >&2
-            exit 1
-          fi
-          version="$base+$SUITE.$(printf '%s' "$SHA" | cut -c1-7)"
+          version="$(uv run --no-project python tools/build_packages.py --print-main-version)"
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "deploying $version"
 

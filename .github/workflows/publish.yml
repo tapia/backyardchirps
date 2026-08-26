@@ -132,22 +132,20 @@ jobs:
       # A push to main publishes a local version, which only the main suite offers. A manual
       # run with an empty suffix publishes a release, which both suites offer.
       #
-      # The commit count comes first and the short sha after it. The count is what orders two
-      # builds of the same release: a sha does not, being sixteen possible first characters in
-      # no particular order, so a build made today could sort below one made last week. Both
-      # ends of that hurt. The pool prunes by version and would throw away the build it had
-      # just made, and a station following main would be offered an older commit as an update.
-      # The sha stays because it is the half a person can look up.
+      # The rule for what that local version looks like lives in build_packages.py and
+      # nowhere else. Deploy needs the same string to install the exact version this job
+      # built, and when the two composed it themselves the copies drifted the first time one
+      # of them changed: Publish built one version and Deploy waited for another.
       - name: Work out the version to build
         env:
           EVENT: ${{ github.event_name }}
-          SHA: ${{ github.sha }}
           REQUESTED_SUFFIX: ${{ inputs.version_suffix }}
         run: |
           set -euo pipefail
           suffix="$REQUESTED_SUFFIX"
           if [ "$EVENT" = "push" ]; then
-            suffix="+main.$(git rev-list --count HEAD).$(printf '%s' "$SHA" | cut -c1-7)"
+            version="$(uv run --no-project python tools/build_packages.py --print-main-version)"
+            suffix="+${version#*+}"
           fi
           echo "VERSION_SUFFIX=$suffix" >> "$GITHUB_ENV"
           echo "Publishing with suffix '${suffix:-none, so this is a release}'"

@@ -150,11 +150,21 @@ def main() -> None:
         help=f"the repository a station reads, required to build {KEYRING_PACKAGE}",
     )
     parser.add_argument(
+        "--print-main-version",
+        action="store_true",
+        help="print the version a push to main publishes and exit, building nothing",
+    )
+    parser.add_argument(
         "--keyring-version",
         default="",
         help="version for the keyring package (default: commit count over packaging/apt)",
     )
     arguments = parser.parse_args()
+
+    if arguments.print_main_version:
+        # Printed alone, so a workflow can read it with a plain command substitution.
+        print(main_build_version())
+        return
 
     wanted = tuple(arguments.only) if arguments.only else STATION_PACKAGES
     output_dir = arguments.output_dir.resolve()
@@ -226,6 +236,21 @@ def taxonomy_digest(taxa: Any) -> str:
     return hashlib.sha256(taxonomy_bytes(taxa)).hexdigest()
 
 
+def main_build_version() -> str:
+    """
+    The version a push to main publishes, composed here so that only one file knows the rule.
+
+    Two workflows need this string and neither can ask the other for it: the publish job to
+    build the package, and the deploy job to install that exact version on the Pi. They each
+    had their own copy of the rule, the copies drifted the moment one of them changed, and
+    the deploy then spent ten minutes waiting for a version nothing had ever published.
+
+    The commit count is what orders two builds of one release. The short sha is what a person
+    can look up. Both, in that order, because a sha on its own does not sort by anything.
+    """
+    return _app_version(f"+main.{_commits_over()}.{_head_sha()}")
+
+
 def _app_version(version_suffix: str) -> str:
     """
     The version the station reports about itself, from pyproject.toml, which is also what
@@ -280,10 +305,10 @@ def _keyring_version() -> str:
     return f"1.{_commits_over('packaging/apt')}"
 
 
-def _commits_over(path: str) -> str:
+def _commits_over(path: str | None = None) -> str:
     """
-    How many commits have touched a path, which is what orders the two packages nothing else
-    can order.
+    How many commits have touched a path, or the whole history when no path is given, which
+    is what orders the packages nothing else can order.
 
     A shallow clone is refused rather than counted. It answers 1 for every path, because the
     single commit it holds looks like the one that created everything, and the version would
@@ -301,17 +326,34 @@ def _commits_over(path: str) -> str:
     )
     if shallow.returncode == 0 and shallow.stdout.strip() == "true":
         _fail(
-            f"Refusing to build: this is a shallow clone, so the commit count over {path} is "
-            "meaningless and the version would never move. Check out with fetch-depth: 0."
+            f"Refusing to build: this is a shallow clone, so the commit count over "
+            f"{path or 'the whole history'} is meaningless and the version would never move. "
+            "Check out with fetch-depth: 0."
         )
     counted = subprocess.run(
-        ["git", "rev-list", "--count", "HEAD", "--", path],
+        ["git", "rev-list", "--count", "HEAD", *(["--", path] if path else [])],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,
         check=False,
     )
     return "0" if counted.returncode != 0 else counted.stdout.strip()
+
+
+def _head_sha() -> str:
+    """
+    The short sha of the commit being built.
+    """
+    result = subprocess.run(
+        ["git", "rev-parse", "--short=7", "HEAD"],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0 or not result.stdout.strip():
+        _fail("Refusing to build: could not read the commit being built.")
+    return result.stdout.strip()
 
 
 def _stage_deps(staging: Path) -> None:
