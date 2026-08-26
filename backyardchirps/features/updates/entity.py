@@ -68,12 +68,19 @@ class UpdateStep(StrEnum):
 class UpdateProgress:
     """
     What the updater is doing, as the status file reports it.
+
+    `updated_at` is what tells one run from another. The station keeps the outcome of its
+    last run until something replaces it, and two runs can end with the same words: a station
+    updated to a version, put back, and updated to it again writes the same four other fields
+    both times. Without the stamp a page watching the second run would take the first one's
+    outcome for it.
     """
 
     state: UpdateState
     version: str
     step: UpdateStep
     message: str
+    updated_at: str
 
     @property
     def is_running(self) -> bool:

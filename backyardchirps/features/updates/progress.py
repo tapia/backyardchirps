@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 STATUS_FILE_NAME = "status.json"
 
-IDLE = UpdateProgress(state=UpdateState.IDLE, version="", step=UpdateStep.NONE, message="")
+IDLE = UpdateProgress(state=UpdateState.IDLE, version="", step=UpdateStep.NONE, message="", updated_at="")
 
 
 def status_path() -> Path:
@@ -37,6 +37,9 @@ def read_progress() -> UpdateProgress:
         version=str(raw.get("version", "")),
         step=_parse_step(raw.get("step")),
         message=str(raw.get("message", "")),
+        # Empty on a station whose updater is older than this field. The page falls back to
+        # what it can see rather than waiting for a stamp that will never come.
+        updated_at=str(raw.get("updated_at", "")),
     )
 
 

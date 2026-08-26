@@ -178,8 +178,15 @@ let polling = null
 // at some point in the past.
 const watched = ref(false)
 
-// What the status file said before this page asked for anything.
-let outcomeOfTheRunBefore = null
+// When the status file was last written before this page asked for anything, and how many
+// polls have come back no newer than that.
+let stampBeforeStarting = ''
+let pollsWithNothingNewer = 0
+
+// Roughly a minute at the polling interval below. If the updater never writes anything, it
+// never started, and a spinner that turns for ever is worse than reporting what the station
+// actually says.
+const POLLS_TO_WAIT_FOR_THE_UPDATER = 20
 
 const running = computed(() => progress.value?.state === 'running')
 
@@ -212,16 +219,9 @@ async function install() {
   refusal.value = ''
   try {
     await startUpdate(update.value.version)
-    // Said here rather than taken from the answer, for the reason above the poll: the
-    // station replies before the updater has written anything.
-    outcomeOfTheRunBefore = JSON.stringify(progress.value)
-    watched.value = true
-    progress.value = {
-      state: 'running',
-      step: 'checking',
-      message: '',
-      version: update.value.version,
-    }
+    // Said here rather than taken from the answer: the station replies before the updater
+    // has written anything, so the answer still describes the run before this one.
+    startWatching('checking', update.value.version)
     startPolling()
   } catch (error) {
     const code = error?.response?.data?.error
@@ -242,14 +242,7 @@ async function rollBack() {
   refusal.value = ''
   try {
     await rollbackUpdate()
-    outcomeOfTheRunBefore = JSON.stringify(progress.value)
-    watched.value = true
-    progress.value = {
-      state: 'running',
-      step: 'rolling-back',
-      message: '',
-      version: '',
-    }
+    startWatching('rolling-back', '')
     startPolling()
   } catch (error) {
     const code = error?.response?.data?.error
@@ -273,6 +266,23 @@ function stopPolling() {
   }
 }
 
+// Remember what was on disk before this run, then say what the page knows: the station has
+// been asked, and the updater writes its first line a moment later.
+function startWatching(step, version) {
+  stampBeforeStarting = progress.value?.updated_at ?? ''
+  pollsWithNothingNewer = 0
+  watched.value = true
+  progress.value = { state: 'running', step, message: '', version }
+}
+
+// Whether a poll is still describing the run before this one rather than the one just asked
+// for. A station whose updater does not stamp the file at all reports nothing here, and then
+// this cannot tell and says no, which is what the page did before the stamp existed.
+function stillTheRunBefore(polled) {
+  if (!polled?.updated_at) return false
+  return polled.updated_at <= stampBeforeStarting
+}
+
 async function poll() {
   let polled
   try {
@@ -282,9 +292,7 @@ async function poll() {
     // so a refused request is the expected middle of a run rather than a failure.
     return
   }
-  // Unchanged since before the button was pressed, so the updater has not reached its first
-  // write yet and this is the run before it.
-  if (JSON.stringify(polled) === outcomeOfTheRunBefore) return
+  if (stillTheRunBefore(polled) && pollsWithNothingNewer++ < POLLS_TO_WAIT_FOR_THE_UPDATER) return
 
   progress.value = polled
   if (polled?.state && polled.state !== 'running') stopPolling()

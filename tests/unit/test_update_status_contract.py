@@ -67,3 +67,18 @@ def test_the_updater_reports_both_ways_an_update_can_end() -> None:
 
     assert UpdateState.SUCCEEDED.value in written
     assert FAIL.search(source), "Nothing calls fail, so no failure would ever be reported."
+
+
+def test_both_writers_stamp_the_file_with_the_time() -> None:
+    """
+    The field that tells one run from another, and the reason it had to exist.
+
+    Everything else in the file can repeat: a station updated to a version, put back, and
+    updated to it again writes the same state, the same version, the same step and the same
+    message both times. A page watching the second run would take the first one's outcome for
+    it and wait for a change that never comes, which is exactly what it did.
+    """
+    for writer in WRITERS:
+        source = writer.read_text()
+        assert "updated_at" in source, f"{writer.name} writes no stamp"
+        assert "date -u" in source, f"{writer.name} does not take the stamp from the clock"

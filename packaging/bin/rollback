@@ -34,16 +34,29 @@ VERSION=""
 
 say() { printf '[rollback] %s\n' "$*"; }
 
+# The stamp is what tells one run from another. Two runs can end with the same words, so
+# there is nothing else in here that a reader could use: a station updated to a version, put
+# back, and updated to it again writes exactly the same four fields both times, and the page
+# would take the old outcome for the new one and wait for ever.
 write_status() {
     local state="$1" step="$2" message="$3" temporary
     temporary="$(mktemp "$STATUS_DIR/.status.XXXXXX")"
-    "$PYTHON" - "$temporary" "$state" "$VERSION" "$step" "$message" <<'PY'
+    "$PYTHON" - "$temporary" "$state" "$VERSION" "$step" "$message" "$(date -u +%Y%m%dT%H%M%SZ)" <<'PY'
 import json
 import sys
 
-path, state, version, step, message = sys.argv[1:6]
+path, state, version, step, message, updated_at = sys.argv[1:7]
 with open(path, "w") as handle:
-    json.dump({"state": state, "version": version, "step": step, "message": message}, handle)
+    json.dump(
+        {
+            "state": state,
+            "version": version,
+            "step": step,
+            "message": message,
+            "updated_at": updated_at,
+        },
+        handle,
+    )
 PY
     chmod 644 "$temporary"
     mv "$temporary" "$STATUS_FILE"

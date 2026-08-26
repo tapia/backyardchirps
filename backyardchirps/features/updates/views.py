@@ -98,6 +98,7 @@ def _progress_body() -> dict[str, str]:
         "version": progress.version,
         "step": progress.step,
         "message": progress.message,
+        "updated_at": progress.updated_at,
     }
 
 
