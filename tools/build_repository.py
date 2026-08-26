@@ -110,7 +110,7 @@ def main() -> None:
 
     added = _add_to_pool(pool, arguments.add)
     pooled = _pooled(pool)
-    kept, pruned = plan_pool(pooled)
+    kept, pruned = plan_pool(pooled, just_built=added)
     for name in pruned:
         (pool / name).unlink()
         _say(f"pruned {name} ({pooled[name][0]} {pooled[name][1]})")
@@ -159,7 +159,10 @@ def keyring_files_that_changed(built: dict[str, str], published: dict[str, str])
     return sorted(name for name in set(built) | set(published) if built.get(name) != published.get(name))
 
 
-def plan_pool(pooled: dict[str, tuple[str, str]]) -> tuple[list[str], list[str]]:
+def plan_pool(
+    pooled: dict[str, tuple[str, str]],
+    just_built: list[str] | None = None,
+) -> tuple[list[str], list[str]]:
     """
     Decide which pooled files survive, given every file name mapped to its package and
     version.
@@ -177,6 +180,7 @@ def plan_pool(pooled: dict[str, tuple[str, str]]) -> tuple[list[str], list[str]]
     for (_, package), names in per_suite.items():
         newest_first = sorted(names, key=lambda name: DebianVersion(pooled[name][1]), reverse=True)
         kept.update(newest_first[: KEEP_PER_SUITE.get(package, KEEP_BY_DEFAULT)])
+    kept.update(name for name in just_built or [] if name in pooled)
 
     return sorted(kept), sorted(set(pooled) - kept)
 

@@ -229,3 +229,51 @@ def test_both_changing_together_reports_both() -> None:
     """
     changed = keyring_files_that_changed({KEY: "new", SOURCE: "new"}, {KEY: "old", SOURCE: "old"})
     assert changed == sorted([KEY, SOURCE])
+
+
+def test_what_a_run_just_built_survives_its_own_prune() -> None:
+    """
+    The failure this exists for, seen on a real publish.
+
+    A build off main is told apart from the ones before it by its local version, and that
+    used to be a bare commit sha, which does not order. So a package could be built, put in
+    the pool, and thrown straight back out for being the lowest version there, leaving the
+    publish trying to upload a file it had just deleted and the deploy waiting for a version
+    the repository would never offer.
+    """
+    just_built = "backyardchirps_0.2.0+main.4daccd0_arm64.deb"
+    everything = pooled(
+        ("backyardchirps", "0.2.0+main.4daccd0"),
+        *[("backyardchirps", f"0.2.0+main.f{digit}00000") for digit in range(6)],
+    )
+
+    kept, pruned = plan_pool(everything, just_built=[just_built])
+
+    assert just_built in kept
+    assert just_built not in pruned
+
+
+def test_the_extra_copy_is_pruned_by_the_run_after_it() -> None:
+    """
+    Keeping the new build is for the run that made it and no longer. Otherwise every publish
+    would add one to the count and the pool would grow for good, which is the thing the 1 GB
+    limit on the published site does not allow.
+    """
+    everything = pooled(
+        ("backyardchirps", "0.2.0+main.4daccd0"),
+        *[("backyardchirps", f"0.2.0+main.f{digit}00000") for digit in range(6)],
+    )
+
+    kept, pruned = plan_pool(everything)
+
+    assert "backyardchirps_0.2.0+main.4daccd0_arm64.deb" in pruned
+    assert len(kept) == 5
+
+
+def test_a_commit_count_orders_two_builds_of_one_release_and_a_sha_does_not() -> None:
+    """
+    Why the version a push publishes carries both. The count is the half that means "and then
+    this one"; the sha is the half a person can look up.
+    """
+    assert DebianVersion("0.2.0+main.1200.f25d563") < DebianVersion("0.2.0+main.1201.4daccd0")
+    assert not DebianVersion("0.2.0+main.f25d563") < DebianVersion("0.2.0+main.4daccd0")
