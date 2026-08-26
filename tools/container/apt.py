@@ -385,6 +385,18 @@ TAKEOVER_MARKER_TABLE = "written_before_the_takeover"
 TAKEOVER_SECRET_KEY = "the-key-the-old-station-was-using"
 
 
+def _must(station: Station, command: list[str], what: str) -> None:
+    """
+    Run a command that has to work, and say so loudly when it does not.
+
+    Every step of staging is like this. A machine built out of half-applied steps is not the
+    machine the test believes it is testing, and the failure surfaces somewhere else entirely.
+    """
+    result = station.run(command)
+    if result.returncode != 0:
+        raise RuntimeError(f"Could not {what} (exit {result.returncode}):\n{result.stdout}\n{result.stderr}")
+
+
 def stage_a_tarball_station(station: Station, release: Release) -> None:
     """
     Put a machine into the state the tarball installer used to leave one in.
@@ -446,42 +458,61 @@ def stage_a_tarball_station(station: Station, release: Release) -> None:
     )
 
     # The service account, the data directory and everything in it. On a real station all of
-    # this already exists, and the ownership is the part that matters: postinst drops to this
-    # account to copy the database, so a root-owned one would fail the backup and take the
-    # whole install down with it.
-    station.run(
+    # this already exists, and the ownership is what matters most: the maintainer scripts drop
+    # to this account for everything that touches the data directory, so a root-owned database
+    # would fail the migration with "readonly database" two steps after the mistake was made.
+    #
+    # groupadd and useradd rather than adduser, which is not in the base image. The packages
+    # depend on adduser and apt installs it, but that happens after this runs.
+    _must(station, ["groupadd", "--system", SERVICE_USER], "create the service group")
+    _must(
+        station,
         [
-            "adduser",
+            "useradd",
             "--system",
-            "--group",
-            "--home",
+            "--gid",
+            SERVICE_USER,
+            "--home-dir",
             DATA_DIR,
             "--no-create-home",
             "--shell",
             "/usr/sbin/nologin",
-            "--quiet",
             SERVICE_USER,
-        ]
+        ],
+        "create the service account",
     )
-    station.run(["mkdir", "-p", DATA_DIR, f"{DATA_DIR}/clips", f"{DATA_DIR}/staticfiles"])
+    _must(station, ["mkdir", "-p", DATA_DIR, f"{DATA_DIR}/clips", f"{DATA_DIR}/staticfiles"], "make the data directory")
 
     # A database with a table of its own in it, so that surviving the takeover can be shown
     # by something other than an inode. sqlite3 rather than Python: nothing has installed an
     # interpreter yet, and the packages that carry one arrive after this.
-    station.run(["sqlite3", f"{DATA_DIR}/detections.db", f"create table {TAKEOVER_MARKER_TABLE} (id integer);"])
+    _must(
+        station,
+        ["sqlite3", f"{DATA_DIR}/detections.db", f"create table {TAKEOVER_MARKER_TABLE} (id integer);"],
+        "create a database to take over",
+    )
 
     # .env is written once and never again, and the secret key inside it is what every signed
     # value a station has handed out depends on.
-    station.run(
+    _must(
+        station,
         [
             "bash",
             "-c",
             f"printf 'SECRET_KEY={TAKEOVER_SECRET_KEY}\\nDEBUG=false\\nALLOWED_HOSTS=.local,localhost\\n' "
             f"> {DATA_DIR}/.env",
-        ]
+        ],
+        "write .env",
     )
-    station.run(["chown", "-R", f"{SERVICE_USER}:{SERVICE_USER}", DATA_DIR])
-    station.run(["chmod", "640", f"{DATA_DIR}/.env"])
+    _must(station, ["chown", "-R", f"{SERVICE_USER}:{SERVICE_USER}", DATA_DIR], "give the data to the service user")
+    _must(station, ["chmod", "640", f"{DATA_DIR}/.env"], "make .env private")
+
+    # Checked rather than assumed, because this is the one that went wrong: the account was
+    # never created, the chown above failed quietly, and the mistake only surfaced two steps
+    # later inside a Django traceback about a readonly database.
+    owner = station.owner_of(f"{DATA_DIR}/detections.db")
+    if owner != SERVICE_USER:
+        raise RuntimeError(f"The staged database belongs to '{owner}' rather than {SERVICE_USER}.")
 
     # An override an owner wrote. A drop-in directory is the supported way to change a
     # packaged unit, it shadows nothing, and the takeover has to leave it where it is.
@@ -508,15 +539,25 @@ def stage_a_tarball_station(station: Station, release: Release) -> None:
     )
 
 
-def old_units_in_etc(station: Station) -> list[str]:
+def units_that_would_shadow_the_packaged_ones(station: Station) -> list[str]:
     """
-    Anything of ours still under /etc/systemd/system, dangling symlinks included.
+    Unit files sitting directly in /etc/systemd/system, and symlinks pointing at nothing.
 
-    The one thing the takeover cannot be allowed to miss. systemd searches /etc first, so a
-    unit left here shadows the packaged one silently and for ever, and goes on pointing at a
-    directory the packages never write to.
+    Not everything of ours under /etc is wrong, which is the distinction that matters here.
+    Enabling a packaged unit puts a symlink in a .wants directory there pointing at /usr/lib,
+    and that is how systemd records that it is enabled. A drop-in directory is how an owner
+    overrides one. Neither shadows anything.
+
+    What must not be left is a unit *file*, because systemd finds that before the packaged one
+    and goes on pointing at a directory no package writes to, silently and for ever. Or a
+    symlink whose target is gone, which is what a plain `rm` of the unit files leaves behind.
     """
     listed = station.output_of(
-        ["bash", "-c", f"find {TARBALL_UNITS_DIR} -name 'backyardchirps-*' 2> /dev/null || true"]
+        [
+            "bash",
+            "-c",
+            f"find {TARBALL_UNITS_DIR} -maxdepth 1 -type f -name 'backyardchirps-*' 2> /dev/null; "
+            f"find {TARBALL_UNITS_DIR} -xtype l -name 'backyardchirps-*' 2> /dev/null",
+        ]
     )
     return [line for line in listed.splitlines() if line.strip()]

@@ -36,8 +36,8 @@ from apt import available_update
 from apt import control_field
 from apt import http_status
 from apt import installed_version
-from apt import old_units_in_etc
 from apt import run_check
+from apt import units_that_would_shadow_the_packaged_ones
 from apt import update_status
 from station import DATA_DIR
 from station import KEPT_CLIP
@@ -564,7 +564,7 @@ def test_the_takeover_removed_the_units_that_would_shadow_the_packaged_ones(take
     Dangling symlinks count. Disabling a unit whose file is already gone does not remove the
     .wants link that refers to it.
     """
-    assert old_units_in_etc(taken_over.station) == []
+    assert units_that_would_shadow_the_packaged_ones(taken_over.station) == []
 
 
 def test_the_packaged_units_are_the_ones_that_run(taken_over: TakenOver) -> None:
