@@ -7,8 +7,8 @@
 # matches the pattern too. It would also pre-approve any unit added later that happens to
 # start with the prefix, which is the wrong default for a unit that runs as root.
 #
-# The updater is start and nothing else. It runs as root and replaces the release, so the
-# web process may ask for it to run and may not stop it half way.
+# The updater, the rollback and the update check are start and nothing else. All three run
+# as root, so the web process may ask for one to run and may not stop it half way.
 #
 # Deliberately not a dpkg conffile. A conffile dpkg refuses to overwrite is a stale
 # privilege grant, so every upgrade restores this file verbatim and postinst runs
@@ -30,4 +30,5 @@ backyardchirps ALL=(ALL) NOPASSWD: \
   /bin/systemctl stop backyardchirps-clip-disk-quota, \
   /bin/systemctl restart backyardchirps-clip-disk-quota, \
   /bin/systemctl start backyardchirps-update, \
-  /bin/systemctl start backyardchirps-rollback
+  /bin/systemctl start backyardchirps-rollback, \
+  /bin/systemctl start backyardchirps-check-update

@@ -27,6 +27,11 @@ ORDERED_PAIRS = [
     ("0.2.0", "0.2.0+main.abc1234"),
     ("0.2.0+main.abc1234", "0.2.1"),
     ("0.2.0+main.abc1234", "0.2.0+main.bcd2345"),
+    # Two builds of the same release told apart by a number, which is what the container
+    # suite uses to walk a station through three versions. A name would not work: both
+    # schemes compare a local version character by character, so an alphabetically earlier
+    # name sorts below one that came first in time.
+    ("0.2.0+test.1", "0.2.0+test.2"),
 ]
 
 

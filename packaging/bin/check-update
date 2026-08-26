@@ -1,0 +1,149 @@
+#!/bin/bash
+# Ask the repository whether a newer version is on offer, and store the answer.
+#
+# Run as root by backyardchirps-check-update.service, from a daily timer and from the
+# button on the server status page. Root because talking to apt is a root job.
+#
+# Nothing here decides which version is newer. apt has already decided, and dpkg's ordering
+# is the one the install will obey, so this only reads it out. That is what removes the old
+# class of bug where the station's own comparison disagreed with the package manager's.
+#
+# The answer is written to a file root owns and the service user only reads, then imported
+# into the database by a command running as the service user. Root never writes the
+# database, so a root-owned journal file can never be left where the web process needs to
+# write.
+
+set -euo pipefail
+
+DATA_DIR=/var/lib/backyardchirps
+SERVICE_USER=backyardchirps
+MANAGE=/usr/lib/backyardchirps/bin/manage
+PYTHON=/opt/backyardchirps/venv/bin/python
+
+PACKAGE=backyardchirps
+SOURCE_FILE=/etc/apt/sources.list.d/backyardchirps.sources
+RESULT_FILE="$DATA_DIR/update/available.json"
+
+# Our own source and nothing else. Two reasons, and both are load-bearing. A Debian mirror
+# that is down or a third-party source whose key expired would otherwise fail this run, and
+# the station would report "update check failed" about something that has nothing to do
+# with it. And a station polling every day must not refresh, or expire, the sources its
+# owner added for something else.
+#
+# List-Cleanup=0 is the other half: without it a scoped run deletes the index files of
+# every source it was told to ignore, and the owner's next apt-get install has to fetch
+# them all again.
+#
+# The lock timeout is for the overlap that is bound to happen sooner or later: this runs
+# from a daily timer, and an owner can start an update at any moment. Waiting a minute is
+# the honest answer where failing would report "could not read the repository" about a
+# repository that is fine.
+SCOPED_UPDATE=(
+    apt-get update
+    -o "Dir::Etc::sourcelist=$SOURCE_FILE"
+    -o "Dir::Etc::sourceparts=/dev/null"
+    -o "APT::Get::List-Cleanup=0"
+    -o "DPkg::Lock::Timeout=60"
+)
+
+say() { printf '[check-update] %s\n' "$*"; }
+
+# Written whole through a temporary file in the same directory, so a reader never sees half
+# of it. The mode is what lets the service user read it; the directory is what stops the
+# web process replacing it.
+write_result() {
+    local temporary
+    temporary="$(mktemp "$DATA_DIR/update/.available.XXXXXX")"
+    "$PYTHON" - "$temporary" "$@" <<'PY'
+import json
+import sys
+
+path, version, released, changelog_url, available, error = sys.argv[1:7]
+with open(path, "w") as handle:
+    json.dump(
+        {
+            "version": version,
+            "released": released,
+            "changelog_url": changelog_url,
+            "update_available": available == "yes",
+            "error": error,
+        },
+        handle,
+    )
+PY
+    chmod 644 "$temporary"
+    mv "$temporary" "$RESULT_FILE"
+}
+
+# Everything the station knows about a version comes from what the package says about
+# itself, which is where Released and Changelog-Url moved when manifest.json went away.
+#
+# Missing is not an error. These are two lines on a page, and a package built before either
+# field existed should still be installable rather than failing the check that offers it.
+control_field() {
+    apt-cache show "$PACKAGE=$1" 2> /dev/null \
+        | awk -v field="$2" '$1 == field ":" { $1 = ""; sub(/^ /, ""); print; exit }' \
+        || true
+}
+
+policy_field() {
+    apt-cache policy "$PACKAGE" 2> /dev/null \
+        | awk -v field="$1" '$1 == field ":" { print $2; exit }'
+}
+
+# The row in the database is replaced whatever happens below, including on failure. A
+# version found last week shown beside "the check is failing" invites reading the first and
+# ignoring the second.
+import_result() {
+    sudo -u "$SERVICE_USER" "$MANAGE" import_update_check
+}
+
+mkdir -p "$DATA_DIR/update"
+
+if [ ! -f "$SOURCE_FILE" ]; then
+    say "There is no apt source at $SOURCE_FILE, so there is nowhere to check."
+    write_result "" "" "" no no_source
+    import_result
+    exit 0
+fi
+
+if ! "${SCOPED_UPDATE[@]}" > /dev/null 2>&1; then
+    say "Could not read the repository."
+    write_result "" "" "" no unreachable_repository
+    import_result
+    exit 0
+fi
+
+# Both fall back to empty rather than ending the run, so a station whose apt is unhappy
+# stores a reason instead of leaving the last answer looking current.
+candidate="$(policy_field Candidate)" || candidate=""
+installed="$(policy_field Installed)" || installed=""
+
+if [ -z "$candidate" ] || [ "$candidate" = "(none)" ]; then
+    say "The repository offers no version of $PACKAGE."
+    write_result "" "" "" no nothing_offered
+    import_result
+    exit 0
+fi
+
+# dpkg's own comparison, which is the one apt will obey when the install runs. Anything
+# this station works out for itself could disagree with it, and the station would then
+# offer an update that apt refuses, or hide one it would accept.
+available=no
+if [ -n "$installed" ] && [ "$installed" != "(none)" ] && dpkg --compare-versions "$candidate" gt "$installed"; then
+    available=yes
+fi
+
+write_result \
+    "$candidate" \
+    "$(control_field "$candidate" Released)" \
+    "$(control_field "$candidate" Changelog-Url)" \
+    "$available" \
+    ""
+import_result
+
+if [ "$available" = yes ]; then
+    say "$candidate is available, this station runs $installed"
+else
+    say "This station is up to date on $installed"
+fi

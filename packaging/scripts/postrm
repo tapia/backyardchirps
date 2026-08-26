@@ -14,8 +14,10 @@ DATA_DIR=/var/lib/backyardchirps
 SERVICE_USER=backyardchirps
 UNITS="backyardchirps-web.service backyardchirps-recorder.service \
     backyardchirps-fetch-models.service backyardchirps-update-species.service \
-    backyardchirps-clip-disk-quota.service backyardchirps-update-species.timer \
-    backyardchirps-clip-disk-quota.timer"
+    backyardchirps-clip-disk-quota.service backyardchirps-check-update.service \
+    backyardchirps-update.service backyardchirps-rollback.service \
+    backyardchirps-update-species.timer backyardchirps-clip-disk-quota.timer \
+    backyardchirps-check-update.timer"
 
 case "$1" in
     remove)

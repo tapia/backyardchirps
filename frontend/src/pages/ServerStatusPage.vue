@@ -38,6 +38,18 @@
       >
         {{ t('page.serverStatus.updateRollback') }}
       </button>
+      <button
+        v-if="!running"
+        type="button"
+        class="btn btn-sm btn-link update-check"
+        :disabled="checking || starting"
+        v-bs-tooltip="t('page.serverStatus.updateCheckNow')"
+        :aria-label="t('page.serverStatus.updateCheckNow')"
+        @click="checkNow"
+      >
+        <span v-if="checking" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+        <i v-else class="bi bi-arrow-clockwise" aria-hidden="true"></i>
+      </button>
     </div>
 
     <div v-if="running" class="update-progress mb-4" role="status">
@@ -137,6 +149,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useServerStatus } from '../composables/useServerStatus.js'
 import {
+  checkForUpdate,
   fetchAvailableUpdate,
   fetchUpdateProgress,
   rollbackUpdate,
@@ -154,6 +167,7 @@ const update = ref(null)
 
 const progress = ref(null)
 const starting = ref(false)
+const checking = ref(false)
 const refusal = ref('')
 let polling = null
 
@@ -165,6 +179,23 @@ const stepLabel = computed(() => {
   const key = `page.serverStatus.updateStep.${step}`
   return te(key) ? t(key) : step
 })
+
+// The daily check is what normally fills this in. This is for the two moments waiting for
+// it is wrong: a station installed today, which has never checked, and one whose owner has
+// just read that a release is out.
+async function checkNow() {
+  checking.value = true
+  refusal.value = ''
+  try {
+    update.value = await checkForUpdate()
+  } catch (error) {
+    const code = error?.response?.data?.error
+    const key = `page.serverStatus.updateRefused.${code}`
+    refusal.value = code && te(key) ? t(key) : t('page.serverStatus.updateCheckFailed')
+  } finally {
+    checking.value = false
+  }
+}
 
 async function install() {
   starting.value = true
@@ -284,6 +315,12 @@ onUnmounted(() => {
   color: var(--slate);
   font-size: 0.7rem;
   font-variant-numeric: tabular-nums;
+}
+
+.update-check {
+  padding: 0 0.25rem;
+  color: var(--slate);
+  line-height: 1;
 }
 
 .update-badge {

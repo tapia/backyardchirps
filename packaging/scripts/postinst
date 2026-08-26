@@ -20,7 +20,8 @@ BACKUP_DIR="$DATA_DIR/backups"
 KEEP_BACKUPS=5
 
 DAEMONS="backyardchirps-web.service backyardchirps-recorder.service"
-TIMERS="backyardchirps-update-species.timer backyardchirps-clip-disk-quota.timer"
+TIMERS="backyardchirps-update-species.timer backyardchirps-clip-disk-quota.timer \
+    backyardchirps-check-update.timer"
 
 if [ "$1" != configure ]; then
     exit 0

@@ -103,6 +103,7 @@ export default {
       updateChangelog: 'What changed',
       updateCheckFailed: 'Could not check for updates',
       updateNeverChecked: 'Not checked yet',
+      updateCheckNow: 'Check for updates now',
       updateRollback: 'Go back',
       updateRollbackConfirm:
         'Going back reinstalls the previous release. If the update changed the database, everything recorded since it will be lost. Continue?',
@@ -126,6 +127,7 @@ export default {
         version_not_offered: 'That version is no longer the latest one.',
         not_newer_than_running: 'This station already runs that version.',
         could_not_start_updater: 'The updater could not be started.',
+        could_not_start_check: 'The check could not be started.',
       },
     },
     settings: {

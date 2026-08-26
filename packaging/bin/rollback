@@ -1,0 +1,129 @@
+#!/bin/bash
+# Go back to the version that was running before the last update. Run as root by
+# backyardchirps-rollback.service, which the web process may start and may not stop.
+#
+# What to go back to is read from a file the updater wrote before it started, not worked
+# out from what happens to be lying around. The packages themselves were saved at the same
+# moment, so this works with the network down, which is the one moment a station may well
+# not have it.
+
+set -euo pipefail
+
+DATA_DIR=/var/lib/backyardchirps
+SERVICE_USER=backyardchirps
+MANAGE=/usr/lib/backyardchirps/bin/manage
+PYTHON=/opt/backyardchirps/venv/bin/python
+CHECK_UPDATE=/usr/lib/backyardchirps/bin/check-update
+
+STATUS_DIR="$DATA_DIR/update"
+STATUS_FILE="$STATUS_DIR/status.json"
+ROLLBACK_DIR="$STATUS_DIR/rollback"
+BACKUP_DIR="$DATA_DIR/backups"
+DATABASE="$DATA_DIR/detections.db"
+
+# The same flags the updater passes, for the same reasons: an unattended install must not
+# stop at a conffile prompt, and it waits for apt's lock rather than failing on it.
+UNATTENDED=(
+    -y
+    -o "Dpkg::Options::=--force-confold"
+    -o "Dpkg::Options::=--force-confdef"
+    -o "DPkg::Lock::Timeout=60"
+)
+
+VERSION=""
+
+say() { printf '[rollback] %s\n' "$*"; }
+
+write_status() {
+    local state="$1" step="$2" message="$3" temporary
+    temporary="$(mktemp "$STATUS_DIR/.status.XXXXXX")"
+    "$PYTHON" - "$temporary" "$state" "$VERSION" "$step" "$message" <<'PY'
+import json
+import sys
+
+path, state, version, step, message = sys.argv[1:6]
+with open(path, "w") as handle:
+    json.dump({"state": state, "version": version, "step": step, "message": message}, handle)
+PY
+    chmod 644 "$temporary"
+    mv "$temporary" "$STATUS_FILE"
+}
+
+fail() {
+    say "FAILED: $2"
+    write_status failed "$1" "$2"
+    exit 1
+}
+
+site_answers() {
+    "$PYTHON" - <<'PY' > /dev/null 2>&1
+import urllib.request
+
+urllib.request.urlopen("http://127.0.0.1/api/setup/status/", timeout=5)
+PY
+}
+
+mkdir -p "$STATUS_DIR"
+write_status running rolling-back "Looking for the version to go back to"
+
+[ -f "$ROLLBACK_DIR/versions" ] \
+    || fail rolling-back "This station has not updated itself, so there is nothing to go back to."
+
+VERSION="$(awk -F= '$1 == "backyardchirps" { print $2; exit }' "$ROLLBACK_DIR/versions")"
+[ -n "$VERSION" ] || fail rolling-back "The saved version list does not say which version was running."
+
+mapfile -t saved < <(find "$ROLLBACK_DIR" -maxdepth 1 -name '*.deb' | sort)
+[ "${#saved[@]}" -gt 0 ] || fail rolling-back "The packages saved for going back to $VERSION are gone."
+
+say "Going back to $VERSION"
+
+# Before anything else. The recorder is the only thing that writes detections, and a
+# restore below would throw away whatever it wrote after this point.
+systemctl stop backyardchirps-recorder || true
+
+# --allow-downgrades is the whole point of this call: apt refuses to move a package
+# backwards without it. The files are local, so this needs no network at all.
+if ! env DEBIAN_FRONTEND=noninteractive apt-get install "${UNATTENDED[@]}" --allow-downgrades "${saved[@]}"; then
+    fail rolling-back "Could not install the packages saved for $VERSION."
+fi
+
+# Asked of the version being restored, not the one being left: what matters is which
+# migrations that code knows about. Anything the database has applied beyond them is schema
+# the restored code has never seen.
+ahead="$(sudo -u "$SERVICE_USER" "$MANAGE" show_migrations_ahead 2> /dev/null || true)"
+
+if [ -n "$ahead" ]; then
+    say "The database is ahead of $VERSION: $(echo "$ahead" | tr '\n' ' ')"
+    write_status running restoring "Restoring the database saved before the update"
+
+    backup="$(find "$BACKUP_DIR" -maxdepth 1 -name 'detections-before-*.db' -printf '%T@ %p\n' 2> /dev/null \
+        | sort -rn | head -1 | cut -d' ' -f2-)"
+    [ -n "$backup" ] || fail restoring "The database is ahead of $VERSION and there is no backup to restore."
+
+    # Kept rather than deleted. It holds every detection recorded since the update, which
+    # this is about to drop, and that is not something to throw away silently.
+    superseded="$BACKUP_DIR/detections-rolled-back-$(date -u +%Y%m%dT%H%M%SZ).db"
+    mv "$DATABASE" "$superseded"
+    cp "$backup" "$DATABASE"
+    chown --reference="$superseded" "$DATABASE"
+    say "Restored $backup. What it replaced is kept at $superseded."
+fi
+
+write_status running verifying "Restarting on $VERSION"
+systemctl restart backyardchirps-web
+systemctl start backyardchirps-recorder || true
+
+for _ in $(seq 1 30); do
+    if site_answers; then
+        # The version just left is newer than the one running, so it is on offer again.
+        # Saying so is the difference between a station an owner can move forward from and
+        # one that looks stuck.
+        "$CHECK_UPDATE" > /dev/null 2>&1 || say "The station is up, but re-checking the repository failed."
+        write_status succeeded finished "Back on $VERSION"
+        say "Done, running $VERSION"
+        exit 0
+    fi
+    sleep 2
+done
+
+fail verifying "The site did not answer after going back to $VERSION. Check journalctl -u backyardchirps-web."

@@ -22,10 +22,14 @@ SHIPPED_PREFIXES = ("/usr/lib/backyardchirps/bin/", "/opt/backyardchirps/venv/bi
 # purpose. fetch-models is pulled in by the recorder and started by postinst.
 UNMANAGED_UNITS = {"backyardchirps-fetch-models"}
 
-# Units the web process may control that the packages do not ship yet. They still run the
-# release the tarball installer put on disk, and they arrive as packaged units when the
-# update path moves onto apt. This set goes away with them.
-NOT_PACKAGED_YET = {"backyardchirps-update", "backyardchirps-rollback", "backyardchirps-check-update"}
+# The three that run as root. Everything else on a station runs as the service user; these
+# install packages, restart units and talk to apt, which are all root's work. The web
+# process is granted `start` on each and nothing more.
+PRIVILEGED_UNITS = {
+    "backyardchirps-update",
+    "backyardchirps-rollback",
+    "backyardchirps-check-update",
+}
 
 
 def units() -> list[Path]:
@@ -89,7 +93,13 @@ def test_the_data_directory_is_set_after_every_environment_file(unit: Path) -> N
     Load-bearing, and nothing enforced it before. .env lives inside the data directory, so
     it cannot be the file that decides where the data directory is: a stale value in there
     would point a station at an empty tree and it would come up as a fresh install.
+
+    The privileged units read no environment at all. They run a shell script that names
+    every path it uses, and anything of theirs that needs Django goes through the manage
+    wrapper, which reads the same two files these units would have.
     """
+    if unit.stem in PRIVILEGED_UNITS:
+        pytest.skip("runs a script that reads no environment")
     keys = [key for key, _ in directives(unit)]
     assert "EnvironmentFile" in keys, f"{unit.name} reads no environment file"
     assert keys.index("Environment") > max(position for position, key in enumerate(keys) if key == "EnvironmentFile"), (
@@ -98,12 +108,14 @@ def test_the_data_directory_is_set_after_every_environment_file(unit: Path) -> N
 
 
 @pytest.mark.parametrize("unit", units(), ids=lambda path: path.name)
-def test_every_unit_runs_as_the_service_user(unit: Path) -> None:
+def test_every_unit_runs_as_the_service_user_unless_it_is_one_of_the_three(unit: Path) -> None:
     """
-    Nothing packaged here needs root. The two units that do, the updater and the rollback,
-    are not packaged yet.
+    Root is the exception and has to stay a short list. Everything that records, serves or
+    reads the database runs as the service user, and a unit that quietly moved to root
+    would hand the web process more than the policy says it has.
     """
-    assert value_of(unit, "User") == "backyardchirps"
+    expected = "root" if unit.stem in PRIVILEGED_UNITS else "backyardchirps"
+    assert value_of(unit, "User") == expected
 
 
 def test_the_recorder_is_in_the_audio_group() -> None:
@@ -112,6 +124,16 @@ def test_the_recorder_is_in_the_audio_group() -> None:
     startup with a device error that reads like broken hardware.
     """
     assert value_of(UNITS_DIR / "backyardchirps-recorder.service", "Group") == "audio"
+
+
+@pytest.mark.parametrize("unit", sorted(PRIVILEGED_UNITS))
+def test_the_privileged_units_cannot_be_enabled(unit: str) -> None:
+    """
+    No [Install] section, so nothing can enable one and each runs only when something
+    starts it: the timer for the check, and the web process through sudo for the other two.
+    A privileged oneshot that could be enabled is one a boot could run.
+    """
+    assert "[Install]" not in sections(UNITS_DIR / f"{unit}.service")
 
 
 def test_the_model_download_is_static() -> None:
@@ -136,4 +158,4 @@ def test_the_units_and_the_sudoers_policy_name_the_same_set() -> None:
     and nowhere else is a grant over something that does not exist.
     """
     packaged = {unit.stem for unit in units()}
-    assert packaged - UNMANAGED_UNITS == set(MANAGED_UNITS) - NOT_PACKAGED_YET
+    assert packaged - UNMANAGED_UNITS == set(MANAGED_UNITS)

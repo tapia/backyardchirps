@@ -1,5 +1,3 @@
-import json
-
 from django.db import models
 
 from backyardchirps.features.updates.entity import AvailableUpdate
@@ -7,11 +5,18 @@ from backyardchirps.features.updates.entity import AvailableUpdate
 
 class StoredUpdateCheck(models.Model):
     """
-    The result of the last check for a new release. One row, replaced on every check.
+    The result of the last check for a newer version. One row, replaced on every check.
+
+    The fields are the answer itself rather than a copy of what a server said, which is
+    what the manifest column used to hold. apt decides whether a version is newer, so
+    `update_available` is stored rather than worked out again every time it is read.
     """
 
     checked_at = models.DateTimeField(auto_now=True)
-    manifest = models.TextField(blank=True)
+    version = models.CharField(max_length=100, blank=True)
+    released = models.CharField(max_length=100, blank=True)
+    changelog_url = models.URLField(max_length=500, blank=True)
+    update_available = models.BooleanField(default=False)
     error = models.TextField(blank=True)
 
     class Meta:
@@ -21,23 +26,11 @@ class StoredUpdateCheck(models.Model):
         return f"checked {self.checked_at:%Y-%m-%d %H:%M}"
 
     def to_entity(self) -> AvailableUpdate:
-        fields: dict[str, object] = {}
-        if self.manifest:
-            try:
-                parsed = json.loads(self.manifest)
-                if isinstance(parsed, dict):
-                    fields = parsed
-            except ValueError:
-                pass
-
-        error = self.error
-        if self.manifest and not fields:
-            error = error or "unreadable_manifest"
-
         return AvailableUpdate(
             checked_at=self.checked_at,
-            version=str(fields.get("version", "")),
-            released=str(fields.get("released", "")),
-            changelog_url=str(fields.get("changelog_url", "")),
-            error=error,
+            version=self.version,
+            released=self.released,
+            changelog_url=self.changelog_url,
+            update_available=self.update_available,
+            error=self.error,
         )

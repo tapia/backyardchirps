@@ -3,9 +3,9 @@ import subprocess
 
 logger = logging.getLogger(__name__)
 
-# Which units a station's sudoers policy allows, and which verbs on each. install.sh
-# writes that policy from the same pairs, and tests/unit/test_sudoers_policy.py fails if
-# the two drift apart.
+# Which units a station's sudoers policy allows, and which verbs on each. The policy the
+# package ships is the same list written out, and tests/unit/test_sudoers_policy.py fails
+# if the two drift apart.
 MANAGED_UNITS = {
     "backyardchirps-web": ("start", "stop", "restart"),
     "backyardchirps-recorder": ("start", "stop", "restart"),
@@ -13,6 +13,7 @@ MANAGED_UNITS = {
     "backyardchirps-clip-disk-quota": ("start", "stop", "restart"),
     "backyardchirps-update": ("start",),
     "backyardchirps-rollback": ("start",),
+    "backyardchirps-check-update": ("start",),
 }
 
 # Long enough for the recorder to release the microphone and come back, short enough

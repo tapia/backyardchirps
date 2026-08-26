@@ -4,15 +4,37 @@ from enum import StrEnum
 
 
 @dataclass(frozen=True)
+class UpdateCheckResult:
+    """
+    What the privileged check found, as it wrote it down.
+
+    `update_available` is apt's answer rather than one this station worked out. dpkg has
+    already ordered the two versions and the install will obey that ordering, so anything
+    computed here could only disagree with it.
+    """
+
+    version: str
+    released: str
+    changelog_url: str
+    update_available: bool
+    error: str
+
+    @property
+    def succeeded(self) -> bool:
+        return not self.error
+
+
+@dataclass(frozen=True)
 class AvailableUpdate:
     """
-    What the last check found, and when it ran.
+    The stored result of the last check, and when it was stored.
     """
 
     checked_at: datetime
     version: str
     released: str
     changelog_url: str
+    update_available: bool
     error: str
 
     @property
@@ -30,6 +52,10 @@ class UpdateState(StrEnum):
 class UpdateStep(StrEnum):
     NONE = ""
     CHECKING = "checking"
+    # No longer written by anything here: the backup moved into the package's postinst,
+    # which does not report progress. It stays because a station still on the tarball path
+    # writes it, and an unknown step makes the reader log a warning on every poll. It goes
+    # when deploy/ does.
     BACKING_UP = "backing-up"
     INSTALLING = "installing"
     VERIFYING = "verifying"

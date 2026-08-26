@@ -50,6 +50,7 @@ urlpatterns = [
     path("api/setup/audio-devices/", setup_views.audio_devices, name="api-setup-audio-devices"),
     path("api/server-status/", server_status_views.server_status, name="api-server-status"),
     path("api/updates/available/", updates_views.available_update, name="api-updates-available"),
+    path("api/updates/check/", updates_views.check_for_update, name="api-updates-check"),
     path("api/updates/apply/", updates_views.apply_update, name="api-updates-apply"),
     path("api/updates/progress/", updates_views.update_progress, name="api-updates-progress"),
     path("api/updates/rollback/", updates_views.rollback_update, name="api-updates-rollback"),

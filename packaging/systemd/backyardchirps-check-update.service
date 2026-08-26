@@ -1,0 +1,17 @@
+[Unit]
+Description=Backyard Chirps -> ask the repository whether a newer version is on offer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# No [Install] section, so it is static: the timer beside this file starts it, and the web
+# process may ask for it through the one sudoers entry that names it.
+#
+# Root, because reading the repository is apt's job and apt's job is root's. It writes its
+# answer to a file in a root-owned directory and then hands it to the service user to
+# store, so root never touches the database.
+User=root
+ExecStart=/usr/lib/backyardchirps/bin/check-update
+StandardOutput=journal
+StandardError=journal

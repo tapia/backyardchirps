@@ -3,12 +3,15 @@
 #
 #   $1  remove | upgrade | deconfigure | failed-upgrade
 #
-# backyardchirps-update is never touched here. On a station updating itself, that unit is
-# the transaction this script is part of, and stopping it would kill the update halfway.
+# backyardchirps-update is never touched here, and neither is the rollback unit. On a
+# station updating itself, one of those is the transaction this script is part of, and
+# stopping it would kill the update halfway. tests/unit/packaging/test_maintainer_scripts.py
+# is what holds this file to it.
 set -e
 
 DAEMONS="backyardchirps-web.service backyardchirps-recorder.service"
-TIMERS="backyardchirps-update-species.timer backyardchirps-clip-disk-quota.timer"
+TIMERS="backyardchirps-update-species.timer backyardchirps-clip-disk-quota.timer \
+    backyardchirps-check-update.timer"
 
 case "$1" in
     remove)

@@ -1,0 +1,12 @@
+[Unit]
+Description=Backyard Chirps -> go back to the version running before the last update
+After=network.target
+
+[Service]
+Type=oneshot
+# Root, and no [Install] section, so it is static: nothing can enable it and it runs only
+# when something starts it. The web process may start it and may not stop it.
+User=root
+ExecStart=/usr/lib/backyardchirps/bin/rollback
+StandardOutput=journal
+StandardError=journal

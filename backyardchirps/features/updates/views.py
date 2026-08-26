@@ -16,34 +16,51 @@ from backyardchirps.shared.http import request_body
 @permission_classes([IsAdminUser])
 def available_update(request: Request) -> Response:
     """
-    What the last check found. Reads the stored result and never fetches: the timer owns
-    the network call, so opening the page doesn't cost a request to GitHub.
+    What the last check found. Reads the stored result and never looks at the repository
+    itself: that needs root, so a unit does it and opening the page costs nothing.
     """
+    return Response(_available_body())
+
+
+@api_view(["POST"])
+@permission_classes([IsAdminUser])
+def check_for_update(request: Request) -> Response:
+    """
+    Look at the repository now, rather than waiting for the daily timer.
+
+    The unit is a oneshot, so starting it waits for it to finish, and by the time this
+    answers the stored result is the fresh one.
+    """
+    try:
+        updates_logic.start_check()
+    except UpdateRefused as refusal:
+        return Response({"error": str(refusal)}, status=409)
+
+    return Response(_available_body())
+
+
+def _available_body() -> dict[str, object]:
     result = updates_queries.last_check()
     if result is None:
-        return Response(
-            {
-                "running_version": settings.VERSION,
-                "checked_at": None,
-                "update_available": False,
-                "version": "",
-                "released": "",
-                "changelog_url": "",
-                "error": "",
-            }
-        )
-
-    return Response(
-        {
+        return {
             "running_version": settings.VERSION,
-            "checked_at": result.checked_at,
-            "update_available": updates_logic.is_newer_than_current_version(result.version),
-            "version": result.version,
-            "released": result.released,
-            "changelog_url": result.changelog_url,
-            "error": result.error,
+            "checked_at": None,
+            "update_available": False,
+            "version": "",
+            "released": "",
+            "changelog_url": "",
+            "error": "",
         }
-    )
+
+    return {
+        "running_version": settings.VERSION,
+        "checked_at": result.checked_at,
+        "update_available": result.update_available,
+        "version": result.version,
+        "released": result.released,
+        "changelog_url": result.changelog_url,
+        "error": result.error,
+    }
 
 
 @api_view(["POST"])
@@ -88,7 +105,8 @@ def _progress_body() -> dict[str, str]:
 @permission_classes([IsAdminUser])
 def rollback_update(request: Request) -> Response:
     """
-    Go back to the release before this one. Admin only, like everything else here.
+    Go back to the version running before the last update. Admin only, like everything
+    else here.
     """
     try:
         updates_logic.start_rollback()

@@ -1,7 +1,5 @@
-import json
-from typing import Any
-
 from backyardchirps.features.updates.entity import AvailableUpdate
+from backyardchirps.features.updates.entity import UpdateCheckResult
 from backyardchirps.models.update_check import StoredUpdateCheck
 from backyardchirps.models.update_request import StoredUpdateRequest
 
@@ -16,27 +14,18 @@ def last_check() -> AvailableUpdate | None:
     return row.to_entity()
 
 
-def record_result(manifest: dict[str, Any]) -> AvailableUpdate:
+def record_result(result: UpdateCheckResult) -> AvailableUpdate:
     """
-    Replace the stored result with a manifest that came back.
-    """
-    return _store(manifest=json.dumps(manifest), error="")
+    Replace the stored result with what the privileged check found.
 
-
-def record_failure(error: str) -> AvailableUpdate:
-    """
-    Replace the stored result with the reason the check could not run.
-    """
-    return _store(manifest="", error=error)
-
-
-def _store(manifest: str, error: str) -> AvailableUpdate:
-    """
     One row, always. `checked_at` is auto_now, so saving is what stamps it.
     """
     row = StoredUpdateCheck.objects.first() or StoredUpdateCheck()
-    row.manifest = manifest
-    row.error = error
+    row.version = result.version
+    row.released = result.released
+    row.changelog_url = result.changelog_url
+    row.update_available = result.update_available
+    row.error = result.error
     row.save()
     return row.to_entity()
 

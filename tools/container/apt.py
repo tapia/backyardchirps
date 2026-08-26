@@ -12,9 +12,13 @@ only thing being skipped is the transport, which is the part this project does n
 """
 
 import dataclasses
+import json
 import subprocess
 from pathlib import Path
+from typing import Any
 
+from station import DATA_DIR
+from station import SERVICE_USER
 from station import Station
 
 CONTAINER_DIR = Path(__file__).resolve().parent
@@ -87,6 +91,30 @@ class Installed:
 
     station: Station
     version: str
+    output: str
+
+
+@dataclasses.dataclass(frozen=True)
+class SelfUpdated:
+    """
+    A machine that installed a newer version itself, through the privileged updater.
+    """
+
+    station: Station
+    version: str
+    from_version: str
+    output: str
+
+
+@dataclasses.dataclass(frozen=True)
+class RolledBack:
+    """
+    A machine put back on the version it was running before it updated itself.
+    """
+
+    station: Station
+    from_version: str
+    to_version: str
     output: str
 
 
@@ -182,8 +210,8 @@ def install(station: Station) -> subprocess.CompletedProcess[str]:
 
 def upgrade(station: Station) -> subprocess.CompletedProcess[str]:
     """
-    What the update button will do: look at our own source alone, then install whatever it
-    now offers.
+    An owner upgrading by hand: look at our own source alone, then install whatever it now
+    offers. The button takes the longer path through the privileged updater below.
     """
     station.run(SCOPED_UPDATE)
     return station.run(
@@ -245,3 +273,72 @@ def control_field(station: Station, field: str, package: str = "backyardchirps")
         if name.strip().lower() == field.lower():
             return value.strip()
     return ""
+
+
+def request_update(station: Station, version: str) -> None:
+    """
+    Ask for a version the way the web process does, by writing the request row.
+
+    The privileged half reads that row and then asks apt whether the version is real, so
+    writing it here is the whole of what an admin clicking the button contributes.
+    """
+    requested = station.run(
+        [
+            "sudo",
+            "-u",
+            SERVICE_USER,
+            MANAGE,
+            "shell",
+            "-c",
+            f'from backyardchirps.features.updates import queries; queries.request_version("{version}")',
+        ]
+    )
+    if requested.returncode != 0:
+        raise RuntimeError(f"Could not record the update request:\n{requested.stderr}")
+
+
+def run_updater(station: Station) -> subprocess.CompletedProcess[str]:
+    """
+    Run the updater the way its unit would, but directly, so its output is readable here
+    when it fails rather than only in the machine's journal.
+    """
+    return station.run([f"{CODE_DIR}/bin/update"])
+
+
+def run_rollback(station: Station) -> subprocess.CompletedProcess[str]:
+    return station.run([f"{CODE_DIR}/bin/rollback"])
+
+
+def run_check(station: Station) -> subprocess.CompletedProcess[str]:
+    return station.run([f"{CODE_DIR}/bin/check-update"])
+
+
+def update_status(station: Station) -> dict[str, str]:
+    """
+    The status file the two privileged scripts write and the web process reads.
+    """
+    raw = station.read(f"{DATA_DIR}/update/status.json")
+    return dict(json.loads(raw)) if raw else {}
+
+
+def available_update(station: Station) -> dict[str, Any]:
+    """
+    What the station stored about the last check, read back through the application rather
+    than out of the file, so this covers the import as well as the check.
+    """
+    printed = station.output_of(
+        [
+            "sudo",
+            "-u",
+            SERVICE_USER,
+            MANAGE,
+            "shell",
+            "-c",
+            "import json;"
+            "from backyardchirps.features.updates import queries;"
+            "result = queries.last_check();"
+            "print(json.dumps(None if result is None else "
+            "{'version': result.version, 'update_available': result.update_available, 'error': result.error}))",
+        ]
+    ).splitlines()[-1]
+    return dict(json.loads(printed) or {})

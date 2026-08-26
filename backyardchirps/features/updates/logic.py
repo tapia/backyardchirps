@@ -1,56 +1,50 @@
+import dataclasses
 import logging
 
-import requests
-from django.conf import settings
-from packaging.version import InvalidVersion
-from packaging.version import Version
-
 from backyardchirps.features.updates import queries as updates_queries
+from backyardchirps.features.updates.available import NOTHING_FOUND
+from backyardchirps.features.updates.available import read_result
 from backyardchirps.features.updates.entity import AvailableUpdate
 from backyardchirps.features.updates.progress import read_progress
-from backyardchirps.integrations import updates as updates_integration
 from backyardchirps.integrations.systemd import start_unit
 
 logger = logging.getLogger(__name__)
 
-# Root-owned, and granted `start` alone in the sudoers policy install.sh writes.
+# Root-owned, and granted `start` alone in the sudoers policy the package ships.
 UPDATE_UNIT = "backyardchirps-update"
 ROLLBACK_UNIT = "backyardchirps-rollback"
+CHECK_UNIT = "backyardchirps-check-update"
 
 
-def check_for_update() -> AvailableUpdate:
+def import_update_check() -> AvailableUpdate:
     """
-    Fetch the release manifest and store what came back, or why it could not be fetched.
-    """
-    try:
-        manifest = updates_integration.fetch_manifest()
-    except (requests.RequestException, ValueError) as exc:
-        logger.warning("Could not check for an update: %s", exc)
-        return updates_queries.record_failure(type(exc).__name__)
+    Store what the privileged check wrote down, replacing whatever was there before.
 
-    result = updates_queries.record_result(manifest)
-    if is_newer_than_current_version(result.version):
-        logger.info("Version %s is available, this station runs %s", result.version, settings.VERSION)
-    return result
-
-
-def is_newer_than_current_version(version: str) -> bool:
+    The station never talks to the repository from this process. Reading it needs root, so
+    the check runs as a unit, writes its answer to a file the web process cannot write, and
+    this puts that answer in the database.
     """
-    Check if a published version is newer than the one this station runs.
-    """
-    if not version:
-        return False
-    try:
-        return Version(version) > Version(settings.VERSION)
-    except InvalidVersion:
-        logger.warning("Cannot compare published version %r with running version %r", version, settings.VERSION)
-        return False
+    result = read_result()
+    if result is None:
+        logger.warning("There is no check result to import, so the check cannot have run.")
+        result = dataclasses.replace(NOTHING_FOUND, error="check_never_ran")
+    return updates_queries.record_result(result)
 
 
 class UpdateRefused(Exception):
     """
     Why an update was not started. The message is a code the frontend translates.
     """
+
+
+def start_check() -> None:
+    """
+    Ask the station to look at the repository now, rather than waiting for the daily timer.
+    """
+    if read_progress().is_running:
+        raise UpdateRefused("update_already_running")
+    if not start_unit(CHECK_UNIT):
+        raise UpdateRefused("could_not_start_check")
 
 
 def start_update(version: str) -> None:
@@ -65,7 +59,7 @@ def start_update(version: str) -> None:
         raise UpdateRefused("no_successful_check")
     if version != last.version:
         raise UpdateRefused("version_not_offered")
-    if not is_newer_than_current_version(version):
+    if not last.update_available:
         raise UpdateRefused("not_newer_than_running")
 
     updates_queries.request_version(version)
@@ -75,7 +69,7 @@ def start_update(version: str) -> None:
 
 def start_rollback() -> None:
     """
-    Ask the station to go back to the release installed before this one.
+    Ask the station to go back to the version running before the last update.
     """
     if read_progress().is_running:
         raise UpdateRefused("update_already_running")

@@ -1,10 +1,10 @@
 """
-Hold the sudoers policy install.sh writes to the units the code actually asks for.
+Hold the sudoers policy the package ships to the units the code actually asks for.
 
 The policy is the one place the web process crosses into root, so it is worth pinning
 from both ends: nothing in it that the code does not use, and nothing in the code that
-it does not cover. `install.sh --print-sudoers` renders it without installing anything,
-so this reads what a station is really given rather than parsing the script.
+it does not cover. This reads the file itself, which is the exact bytes a station is
+given: the package installs it verbatim rather than rendering it from anything.
 """
 
 import re
@@ -18,7 +18,7 @@ from backyardchirps.integrations.systemd import MANAGED_UNITS
 from backyardchirps.integrations.systemd import restart_unit
 from backyardchirps.integrations.systemd import start_unit
 
-INSTALLER = Path(__file__).resolve().parents[2] / "install.sh"
+POLICY_FILE = Path(__file__).resolve().parents[2] / "packaging" / "sudoers" / "backyardchirps"
 
 # What every line of the command list has to look like. The path is absolute, since a
 # relative one would let PATH decide what runs, and the unit name is one word.
@@ -29,14 +29,7 @@ ALLOWED_VERBS = {"start", "stop", "restart"}
 
 @pytest.fixture(scope="module")
 def policy() -> str:
-    result = subprocess.run(
-        ["bash", str(INSTALLER), "--print-sudoers"],
-        capture_output=True,
-        text=True,
-        timeout=60,
-        check=True,
-    )
-    return result.stdout
+    return POLICY_FILE.read_text(encoding="utf-8")
 
 
 def parse_entries(policy: str) -> list[str]:
@@ -51,9 +44,10 @@ def parse_entries(policy: str) -> list[str]:
 
 def test_the_policy_is_valid_sudoers(policy: str, tmp_path: Path) -> None:
     """
-    install.sh runs this check too and refuses to continue when it fails. Running it
-    here as well means a broken policy is a red test rather than a failed install on
-    somebody's Pi.
+    postinst runs this check too, and removes the file and fails when it does not pass:
+    sudo refuses to read the whole of /etc/sudoers.d when one entry in it does not parse.
+    Running it here as well means a broken policy is a red test rather than a package that
+    will not configure on somebody's Pi.
     """
     policy_file = tmp_path / "backyardchirps"
     policy_file.write_text(policy)
@@ -82,9 +76,13 @@ def test_the_policy_carries_no_wildcard(policy: str) -> None:
     pre-approve any unit added later whose name starts with the prefix, which is how a
     root-owned updater could become callable by the web process without anyone deciding
     that it should be.
+
+    The command list rather than the whole file: the comments above it name the pattern
+    they are warning about, and a comment grants nothing.
     """
-    for character in "*?[]":
-        assert character not in policy, f"the policy contains {character!r}: {policy}"
+    for entry in parse_entries(policy):
+        for character in "*?[]":
+            assert character not in entry, f"the policy contains {character!r}: {entry}"
 
 
 def test_the_policy_grants_exactly_the_pairs_the_code_knows_about(policy: str) -> None:

@@ -104,6 +104,7 @@ export default {
       updateChangelog: 'Qué ha cambiado',
       updateCheckFailed: 'No se ha podido comprobar si hay actualizaciones',
       updateNeverChecked: 'Todavía sin comprobar',
+      updateCheckNow: 'Buscar actualizaciones ahora',
       updateRollback: 'Volver atrás',
       updateRollbackConfirm:
         'Volver atrás reinstala la versión anterior. Si la actualización cambió la base de datos, se perderá todo lo registrado desde entonces. ¿Continuar?',
@@ -127,6 +128,7 @@ export default {
         version_not_offered: 'Esa versión ya no es la más reciente.',
         not_newer_than_running: 'La estación ya tiene esa versión.',
         could_not_start_updater: 'No se ha podido iniciar la actualización.',
+        could_not_start_check: 'No se ha podido iniciar la comprobación.',
       },
     },
     settings: {

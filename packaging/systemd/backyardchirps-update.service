@@ -1,0 +1,18 @@
+[Unit]
+Description=Backyard Chirps -> install a newer version
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Root, because it installs packages and restarts the units. The web process never gains
+# any of that: it may only ask for this unit to start, through the one sudoers entry that
+# names it, and it may not stop it half way.
+#
+# Nothing in the package's maintainer scripts may stop this unit. It is the transaction
+# they are running inside, and stopping it would kill an update at whatever point it had
+# reached.
+User=root
+ExecStart=/usr/lib/backyardchirps/bin/update
+StandardOutput=journal
+StandardError=journal

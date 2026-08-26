@@ -7,8 +7,9 @@ them, which is dpkg plus four maintainer scripts. Both run against the same imag
 machines, so neither can pass because of what the other left behind.
 
 Order matters here. The fixtures are chained and session-scoped, so a machine is installed
-once and walked forward: install, owner, upgrade, remove, purge. The last two take the
-station apart, so every assertion about a working one has to come before them.
+once and walked forward: install, owner, upgrade, self-update, rollback, remove, purge. The
+last two take the station apart, so every assertion about a working one has to come before
+them.
 
 Run it with:
 
@@ -24,17 +25,26 @@ from apt import SCOPED_UPDATE
 from apt import SHARE_DIR
 from apt import VENV_PYTHON
 from apt import Installed
+from apt import RolledBack
+from apt import SelfUpdated
 from apt import Upgraded
+from apt import available_update
 from apt import control_field
 from apt import http_status
 from apt import installed_version
+from apt import run_check
+from apt import update_status
 from station import DATA_DIR
 from station import KEPT_CLIP
 from station import SERVICE_USER
 from station import Station
 
 DAEMONS = ("backyardchirps-web", "backyardchirps-recorder")
-TIMERS = ("backyardchirps-update-species.timer", "backyardchirps-clip-disk-quota.timer")
+TIMERS = (
+    "backyardchirps-update-species.timer",
+    "backyardchirps-clip-disk-quota.timer",
+    "backyardchirps-check-update.timer",
+)
 
 
 # ---------------------------------------------------------------------------
@@ -317,6 +327,131 @@ def test_the_update_check_reads_only_our_own_source(apt_upgraded: Upgraded) -> N
         assert "deb.debian.org" in station.output_of(["ls", "/var/lib/apt/lists"])
     finally:
         station.run(["rm", "-rf", "/srv/somebody-elses", "/etc/apt/sources.list.d/somebody-elses.sources"])
+
+
+# ---------------------------------------------------------------------------
+# Checking for an update
+# ---------------------------------------------------------------------------
+
+
+def test_the_check_stores_what_apt_offers(apt_upgraded: Upgraded) -> None:
+    """
+    The whole path in one go: the script asks apt, writes its answer down, and hands it to
+    the application. A station on the newest version there is has to come out of that
+    saying so rather than saying nothing.
+    """
+    station = apt_upgraded.station
+    assert run_check(station).returncode == 0
+
+    stored = available_update(station)
+    assert stored["error"] == ""
+    assert stored["version"] == apt_upgraded.version
+    assert stored["update_available"] is False
+
+
+def test_the_answer_is_written_where_the_web_process_can_read_it_and_not_write_it(apt_upgraded: Upgraded) -> None:
+    """
+    The same trust boundary the progress file has. The web process runs as the service user
+    and must not be able to put an answer here for the rest of the station to believe.
+    """
+    station = apt_upgraded.station
+    result_file = f"{DATA_DIR}/update/available.json"
+
+    assert station.owner_of(result_file) == "root"
+    assert station.owner_of(f"{DATA_DIR}/update") == "root"
+    assert station.mode_of(result_file) == "644"
+
+
+# ---------------------------------------------------------------------------
+# Updating itself
+# ---------------------------------------------------------------------------
+
+
+def test_the_station_installed_the_version_it_was_asked_for(apt_self_updated: SelfUpdated) -> None:
+    assert installed_version(apt_self_updated.station) == apt_self_updated.version
+    assert update_status(apt_self_updated.station)["state"] == "succeeded"
+
+
+def test_the_self_update_finished_the_script_it_replaced(apt_self_updated: SelfUpdated) -> None:
+    """
+    The updater is a file belonging to the package it is upgrading. dpkg renames the new
+    file over the path rather than writing through it, so the running bash keeps its open
+    inode and reaches the end. A maintainer script that stopped the update unit would break
+    that, and the run would stop somewhere in the middle with the status file still saying
+    "running".
+    """
+    status = update_status(apt_self_updated.station)
+
+    assert status["step"] == "finished"
+    assert status["version"] == apt_self_updated.version
+
+
+def test_the_self_update_saved_the_packages_to_go_back_to(apt_self_updated: SelfUpdated) -> None:
+    """
+    This is what replaces keeping three whole releases on disk. Saved before the install,
+    so going back needs no network, which is the one moment a station may not have any.
+    """
+    station = apt_self_updated.station
+    saved = station.files_matching(f"{DATA_DIR}/update/rollback", "*.deb")
+
+    assert saved, "the updater saved nothing to go back to"
+    versions = station.read(f"{DATA_DIR}/update/rollback/versions")
+    assert f"backyardchirps={apt_self_updated.from_version}" in versions
+
+
+def test_the_self_update_stopped_offering_the_version_it_just_installed(apt_self_updated: SelfUpdated) -> None:
+    """
+    The badge would otherwise stay up until the timer next ran, which is the next morning,
+    on a station that is already up to date.
+    """
+    stored = available_update(apt_self_updated.station)
+
+    assert stored["version"] == apt_self_updated.version
+    assert stored["update_available"] is False
+
+
+def test_the_self_update_kept_the_recordings(apt_self_updated: SelfUpdated) -> None:
+    assert apt_self_updated.station.path_exists(KEPT_CLIP)
+
+
+# ---------------------------------------------------------------------------
+# Going back
+# ---------------------------------------------------------------------------
+
+
+def test_the_rollback_installed_the_version_that_was_running_before(apt_rolled_back: RolledBack) -> None:
+    assert installed_version(apt_rolled_back.station) == apt_rolled_back.to_version
+    assert update_status(apt_rolled_back.station)["state"] == "succeeded"
+
+
+def test_the_rollback_restored_the_database_the_update_had_moved_past(apt_rolled_back: RolledBack) -> None:
+    """
+    The branch that costs something. The database was made to look ahead of the restored
+    code, so the rollback had to put back the copy postinst took before the migrations, and
+    keep what it replaced rather than deleting it.
+    """
+    station = apt_rolled_back.station
+
+    assert "restoring" in apt_rolled_back.output or "Restored" in apt_rolled_back.output
+    assert station.files_matching(f"{DATA_DIR}/backups", "detections-rolled-back-*.db"), (
+        "the database it replaced was thrown away rather than kept"
+    )
+
+
+def test_the_station_answers_again_after_going_back(apt_rolled_back: RolledBack) -> None:
+    assert apt_rolled_back.station.unit_is_active("backyardchirps-web")
+    assert http_status(apt_rolled_back.station, "http://localhost/") == "200"
+
+
+def test_going_back_offers_the_version_it_left(apt_rolled_back: RolledBack) -> None:
+    """
+    A station that rolled back is behind again, and saying so is the difference between one
+    an owner can move forward from and one that looks stuck.
+    """
+    stored = available_update(apt_rolled_back.station)
+
+    assert stored["version"] == apt_rolled_back.from_version
+    assert stored["update_available"] is True
 
 
 # ---------------------------------------------------------------------------
