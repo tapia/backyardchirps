@@ -31,14 +31,13 @@ permissions:
 
 env:
   # The suite carrying per-commit builds. The keyring package ships a source file naming
-  # `stable`, which is releases only; this Pi reads a second file, owned by no package, so
-  # an upgrade of the keyring can never move it back to stable.
-  #
-  # The file is still called backyardchirps-main.sources, from when the suite was. It is
-  # rewritten on every run, so the name is all that is left of that and it goes away with
-  # the file itself. See docs/devel/debian-packaging.md.
+  # `stable`, which is releases only, and rewrites that one line from the channel file below
+  # every time it is configured. So this station says which suite it wants in a file no
+  # package owns, and the package puts the address and the key back around it.
+  # See docs/devel/debian-packaging.md.
   SUITE: unstable
-  MAIN_SOURCE: /etc/apt/sources.list.d/backyardchirps-main.sources
+  CHANNEL_FILE: /etc/backyardchirps/channel
+  SOURCE_FILE: /etc/apt/sources.list.d/backyardchirps.sources
 
 jobs:
   check:
@@ -125,7 +124,6 @@ jobs:
     needs: check
     runs-on: self-hosted
     env:
-      APT_BASE_URL: ${{ vars.APT_BASE_URL }}
       VERSION: ${{ needs.check.outputs.version }}
 
     steps:
@@ -143,27 +141,28 @@ jobs:
             exit 1
           fi
 
-      # Rewritten every deploy rather than checked, so a change of host or suite arrives
-      # with the next push instead of needing somebody to remember. No package owns this
-      # file, which is what keeps an upgrade of the keyring package from resetting this
-      # station to the stable suite.
-      - name: Point the station at the unstable suite
+      # Written every deploy rather than checked, so a station that lost the file, or that
+      # somebody moved to another suite by hand, is back where it belongs with the next push
+      # instead of waiting for anybody to remember.
+      #
+      # Writing it is not the same as applying it: the keyring package reads this when it is
+      # configured, and this job may not install that package. What a machine trusts is not a
+      # decision a job triggered from GitHub gets to make, which is the same rule that keeps
+      # the keyring off this station's automatic path entirely. So the source file is checked
+      # rather than fixed, and a station that has drifted stops the deploy with the one
+      # command that repairs it.
+      - name: Make sure this station follows the unstable suite
         run: |
           set -euo pipefail
-          if [ -z "$APT_BASE_URL" ]; then
-            echo "vars.APT_BASE_URL is not set. See docs/devel/debian-packaging.md." >&2
+          echo "$SUITE" | sudo tee "$CHANNEL_FILE" > /dev/null
+
+          if ! grep -q "^Suites: $SUITE\$" "$SOURCE_FILE"; then
+            echo "$SOURCE_FILE does not name the $SUITE suite, so this station would be" >&2
+            echo "offered releases only and the version below would never appear." >&2
+            echo "The channel now says $SUITE. Apply it on the station with:" >&2
+            echo "  sudo apt-get install -y --reinstall backyardchirps-archive-keyring" >&2
             exit 1
           fi
-          sudo tee "$MAIN_SOURCE" > /dev/null <<EOF
-          # Written by .github/workflows/deploy.yml. Owned by no package on purpose.
-          Types: deb
-          URIs: $APT_BASE_URL
-          Suites: $SUITE
-          Components: main
-          Architectures: arm64
-          Signed-By: /usr/share/keyrings/backyardchirps-archive-keyring.gpg
-          EOF
-          sudo chmod 644 "$MAIN_SOURCE"
 
       # Only our own source, for the reason a station's updater will scope its own: a dead
       # repository must never break the owner's unrelated apt upgrade, and refreshing all of
@@ -176,7 +175,7 @@ jobs:
           set -euo pipefail
           for attempt in $(seq 1 10); do
             sudo apt-get update -qq \
-              -o Dir::Etc::sourcelist="$MAIN_SOURCE" \
+              -o Dir::Etc::sourcelist="$SOURCE_FILE" \
               -o Dir::Etc::sourceparts=/dev/null \
               -o APT::Get::List-Cleanup=0
             if apt-cache show "backyardchirps=$VERSION" > /dev/null 2>&1; then
