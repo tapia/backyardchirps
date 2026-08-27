@@ -14,6 +14,8 @@
 # Options, mostly for testing:
 #
 #   --archive URL         install from a different apt repository
+#   --suite NAME          stable (the default, releases only) or unstable (every commit,
+#                         for a machine you are developing on)
 #   --ignore-preflight    skip the hardware checks (a container is not a Pi)
 #   --preflight-only      run the hardware checks and stop, installing nothing
 #   --help
@@ -30,9 +32,13 @@ set -euo pipefail
 ARCHIVE_URL=https://apt.backyardchirps.net
 PACKAGE=backyardchirps
 KEYRING_PACKAGE=backyardchirps-archive-keyring
-# Releases only. The per-commit suite exists for the development station, and is not
-# something an owner's machine should ever follow.
+# Releases only, unless --suite says otherwise. The per-commit suite is for a machine
+# somebody is developing on, and is not something an owner's machine should ever follow.
 SUITE=stable
+KNOWN_SUITES="stable unstable"
+# Where the station records which suite it follows. Written before the keyring package is
+# installed, because that package's postinst reads it to decide what its source file says.
+CHANNEL_FILE=/etc/backyardchirps/channel
 ARCHITECTURE=arm64
 
 DATA_DIR=/var/lib/backyardchirps
@@ -58,6 +64,7 @@ REQUIRED_DISK_MB=2048
 while [ $# -gt 0 ]; do
     case "$1" in
         --archive)          ARCHIVE_URL="${2%/}"; shift 2 ;;
+        --suite)            SUITE="$2"; shift 2 ;;
         --ignore-preflight) IGNORE_PREFLIGHT=yes; shift ;;
         --preflight-only)   PREFLIGHT_ONLY=yes; shift ;;
         --help)
@@ -69,6 +76,14 @@ while [ $# -gt 0 ]; do
         *) printf 'Unknown option: %s\n' "$1" >&2; exit 1 ;;
     esac
 done
+
+# Checked here rather than left to fail later. An unknown suite would otherwise reach the
+# archive as a URL that is not there, and report itself as "check this machine's network"
+# on a machine whose network is fine.
+case " $KNOWN_SUITES " in
+    *" $SUITE "*) ;;
+    *) printf 'Unknown suite: %s. Pick one of: %s\n' "$SUITE" "$KNOWN_SUITES" >&2; exit 1 ;;
+esac
 
 say()  { printf '\n==> %s\n' "$*"; }
 info() { printf '    %s\n' "$*"; }
@@ -235,6 +250,18 @@ keyring_path="$(
 
 curl -fsSL -o "$work_dir/keyring.deb" "$ARCHIVE_URL/$keyring_path" \
     || die "Could not download $ARCHIVE_URL/$keyring_path."
+
+# Written before dpkg unpacks that package, because its postinst reads this to decide which
+# suite its source file names. Afterwards would be too late: the file is read once, when the
+# package is configured, and a station whose channel arrives second stays on the default
+# until somebody reinstalls the package by hand.
+#
+# No package owns this path, which is what lets it be written first and what stops an
+# upgrade of the keyring putting the choice back.
+mkdir -p "$(dirname "$CHANNEL_FILE")"
+printf '%s\n' "$SUITE" > "$CHANNEL_FILE"
+chmod 644 "$CHANNEL_FILE"
+
 dpkg -i "$work_dir/keyring.deb" > /dev/null \
     || die "Could not install the archive keyring package."
 info "$ARCHIVE_URL, suite $SUITE"
