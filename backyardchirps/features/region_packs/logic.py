@@ -8,8 +8,10 @@ import tarfile
 import tempfile
 import threading
 from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
+import requests
 from django.conf import settings
 from django.db import connection
 
@@ -40,6 +42,14 @@ class RegionPackError(Exception):
     """
 
 
+class RegionPackSuperseded(Exception):
+    """
+    The pack being downloaded is no longer the one the station is meant to end up with,
+    because somebody chose a different one while it was running. Not a failure: the
+    download is dropped and the chosen pack is fetched instead.
+    """
+
+
 def choose_for(latitude: float, longitude: float) -> RegionPackChoice:
     """
     The pack covering these coordinates, or the nearest one when none does.
@@ -48,7 +58,15 @@ def choose_for(latitude: float, longitude: float) -> RegionPackChoice:
     you, the nearest is 400km away" is what turns somebody's disappointment into a request
     for a pack that ought to exist.
     """
-    packs = available_packs()
+    return choose_from(available_packs(), latitude, longitude)
+
+
+def choose_from(packs: list[RegionPack], latitude: float, longitude: float) -> RegionPackChoice:
+    """
+    The same choice, made from an index the caller already has. The wizard's pack step
+    lists every pack and marks one of them, so it would otherwise read the index twice to
+    draw a single page.
+    """
     if not packs:
         return RegionPackChoice(region_pack=None, covers=False, distance_km=None)
 
@@ -132,6 +150,10 @@ def install(pack: RegionPack, on_progress: Callable[[int, int], None] | None = N
         archive = Path(staging) / f"{pack.id}.tar.zst"
         try:
             region_packs.download_pack(pack.url, archive, on_progress)
+        except RegionPackSuperseded:
+            # Not a failed download but an abandoned one, and the caller has to be able to
+            # tell them apart.
+            raise
         except Exception as error:
             raise RegionPackError(f"The pack could not be downloaded: {error}") from error
 
@@ -157,33 +179,121 @@ def start_install(pack: RegionPack) -> bool:
     if install_status.is_running():
         return False
 
-    install_status.started(pack.id, pack.size_bytes)
-    thread = threading.Thread(target=_install_and_report, args=(pack,), daemon=True, name=f"install-{pack.id}")
-    thread.start()
+    _begin_installing(pack)
     return True
 
 
-def _install_and_report(pack: RegionPack) -> None:
+def replace_install(pack: RegionPack) -> None:
     """
-    What the background thread runs. Nothing may escape it: a thread that raises would
+    Make this the pack the station is installing, taking over from any download already
+    running.
+
+    Somebody who walks back through the wizard and picks a different pack has to end up
+    with the one they chose last. A download under way notices at its next chunk that it
+    is fetching a pack nobody wants, drops it, and goes on to this one, so nothing here
+    waits for it to stop.
+    """
+    install_status.wanted(pack.id)
+    if install_status.is_running():
+        return
+    _begin_installing(pack)
+
+
+def install_the_wanted_pack(pack: RegionPack) -> None:
+    """
+    Install this pack, and then whichever pack the station has been told it wants since.
+
+    What the background thread runs, so nothing may escape it: a thread that raised would
     leave the status file saying "running" for ever, and the page watching it would never
-    be told anything.
+    be told anything. Every outcome goes to the status file instead.
+
+    It loops because the choice can change while a download is running. A thread that
+    finds itself fetching a pack nobody wants any more carries on with the one that is
+    wanted, rather than leaving the station holding whichever pack was chosen first.
+    """
+    next_pack: RegionPack | None = pack
+    try:
+        while next_pack is not None:
+            next_pack = _install_one(next_pack)
+    finally:
+        connection.close()
+
+
+def _begin_installing(pack: RegionPack) -> None:
+    """
+    Record the pack as both wanted and running, and put a thread on it.
+    """
+    install_status.wanted(pack.id)
+    install_status.started(pack.id, pack.size_bytes)
+    thread = threading.Thread(target=install_the_wanted_pack, args=(pack,), daemon=True, name=f"install-{pack.id}")
+    thread.start()
+
+
+def _install_one(pack: RegionPack) -> RegionPack | None:
+    """
+    Install one pack, report how it went, and give back the pack to install after it, or
+    None when there is nothing left to do.
     """
     try:
-        install(
-            pack,
-            on_progress=lambda received, total: install_status.progressed(pack.id, received, total or pack.size_bytes),
-        )
+        install(pack, on_progress=partial(_report_progress, pack))
+    except RegionPackSuperseded:
+        logger.info("Region pack %s was dropped for another choice", pack.id)
+        return _the_pack_now_wanted()
     except RegionPackError as error:
         logger.warning("Region pack %s could not be installed: %s", pack.id, error)
         install_status.failed(pack.id, str(error))
+        return None
     except Exception:
         logger.exception("Region pack %s could not be installed", pack.id)
         install_status.failed(pack.id, "unexpected")
-    else:
-        install_status.finished(pack.id)
-    finally:
-        connection.close()
+        return None
+
+    # A choice made in the last moments of a download, after the final chunk was reported
+    # and so too late to be noticed there. The pack asked for last still wins.
+    if install_status.wanted_pack_id() not in ("", pack.id):
+        return _the_pack_now_wanted()
+    install_status.finished(pack.id)
+    return None
+
+
+def _report_progress(pack: RegionPack, received_bytes: int, total_bytes: int) -> None:
+    """
+    Say how far the download has got, and give it up once the station has been told to
+    install a different pack. Called on every chunk, which is what makes a switch take
+    effect in about a megabyte rather than at the end of a download nobody wants.
+    """
+    if install_status.wanted_pack_id() not in ("", pack.id):
+        raise RegionPackSuperseded(pack.id)
+    install_status.progressed(pack.id, received_bytes, total_bytes or pack.size_bytes)
+
+
+def _the_pack_now_wanted() -> RegionPack | None:
+    """
+    The pack the station is meant to install now, ready to download, or None when there is
+    nothing to go on with.
+
+    Every refusal is reported, because this is the only thread left: one that walks away
+    quietly would leave the status file saying an install is running when none is.
+    """
+    wanted = install_status.wanted_pack_id()
+    if not wanted:
+        install_status.failed("", "no_pack_wanted")
+        return None
+
+    try:
+        packs = available_packs()
+    except (requests.RequestException, ValueError):
+        logger.warning("Could not read the region pack index from %s", region_packs.INDEX_URL, exc_info=True)
+        install_status.failed(wanted, "index_unavailable")
+        return None
+
+    chosen = next((pack for pack in packs if pack.id == wanted), None)
+    if chosen is None:
+        install_status.failed(wanted, "unknown_pack")
+        return None
+
+    install_status.started(chosen.id, chosen.size_bytes)
+    return chosen
 
 
 def _check_the_download(archive: Path, pack: RegionPack) -> None:

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-23 17:34+0200\n"
+"POT-Creation-Date: 2026-08-27 19:43+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -123,34 +123,6 @@ msgstr ""
 msgid "Next"
 msgstr ""
 
-#: backyardchirps/templates/setup/detection.html:4
-msgid "Detection thresholds"
-msgstr ""
-
-#: backyardchirps/templates/setup/detection.html:14
-msgid ""
-"How sure BirdNET has to be before a detection counts. The defaults are a "
-"good start."
-msgstr ""
-
-#: backyardchirps/templates/setup/detection.html:19
-msgid "Low"
-msgstr ""
-
-#: backyardchirps/templates/setup/detection.html:23
-#: backyardchirps/templates/setup/detection.html:31
-#: backyardchirps/templates/setup/detection.html:39
-msgid "Give a whole number between 0 and 100."
-msgstr ""
-
-#: backyardchirps/templates/setup/detection.html:27
-msgid "Medium"
-msgstr ""
-
-#: backyardchirps/templates/setup/detection.html:35
-msgid "High"
-msgstr ""
-
 #: backyardchirps/templates/setup/done.html:4
 msgid "Ready"
 msgstr ""
@@ -175,7 +147,20 @@ msgid ""
 "beyond use, so this wizard will not open again."
 msgstr ""
 
-#: backyardchirps/templates/setup/done.html:21
+#: backyardchirps/templates/setup/done.html:30
+msgid "The region pack is still downloading. Finishing does not stop it."
+msgstr ""
+
+#: backyardchirps/templates/setup/done.html:32
+msgid "The region pack is installed."
+msgstr ""
+
+#: backyardchirps/templates/setup/done.html:34
+msgid ""
+"The region pack could not be downloaded. The settings page can try again."
+msgstr ""
+
+#: backyardchirps/templates/setup/done.html:41
 msgid "Finish"
 msgstr ""
 
@@ -269,23 +254,6 @@ msgid ""
 "This machine has no recording device, so there is nothing to listen with."
 msgstr ""
 
-#: backyardchirps/templates/setup/notifications.html:4
-msgid "Notifications"
-msgstr ""
-
-#: backyardchirps/templates/setup/notifications.html:7
-msgid ""
-"All optional. Leave anything blank and set it later on the settings page."
-msgstr ""
-
-#: backyardchirps/templates/setup/notifications.html:10
-msgid "Telegram bot token"
-msgstr ""
-
-#: backyardchirps/templates/setup/notifications.html:15
-msgid "Telegram chat id"
-msgstr ""
-
 #: backyardchirps/templates/setup/region-pack.html:4
 msgid "Region pack"
 msgstr ""
@@ -307,54 +275,47 @@ msgstr ""
 
 #: backyardchirps/templates/setup/region-pack.html:17
 msgid ""
-"You can install it anyway, or carry on without one. Without a region pack "
-"the site works, but a species page shows no seasonal chart and no range map."
+"Take it anyway, or carry on without one. Without a region pack the site "
+"works, but a species page shows no seasonal chart and no range map."
 msgstr ""
 
 #: backyardchirps/templates/setup/region-pack.html:20
 msgid "Ask for a region pack that covers you"
 msgstr ""
 
-#: backyardchirps/templates/setup/region-pack.html:24
+#: backyardchirps/templates/setup/region-pack.html:25
+msgid "Pack"
+msgstr ""
+
+#: backyardchirps/templates/setup/region-pack.html:29
 #, python-format
-msgid "About %(region_pack_megabytes)s MB to download."
+msgid "%(name)s (%(species)s species, %(megabytes)s MB)"
 msgstr ""
 
-#: backyardchirps/templates/setup/region-pack.html:32
-msgid "Download it"
-msgstr ""
-
-#: backyardchirps/templates/setup/region-pack.html:35
-msgid "Downloading. You can leave this page open."
+#: backyardchirps/templates/setup/region-pack.html:33
+msgid ""
+"The download starts when you press Next and carries on while you finish "
+"setting up."
 msgstr ""
 
 #: backyardchirps/templates/setup/region-pack.html:36
-msgid "Installed."
-msgstr ""
-
-#: backyardchirps/templates/setup/region-pack.html:37
-msgid ""
-"That did not work. You can try again, or carry on without a region pack."
-msgstr ""
-
-#: backyardchirps/templates/setup/region-pack.html:41
 msgid ""
 "The list of region packs could not be reached, so there is nothing to offer "
 "yet."
 msgstr ""
 
-#: backyardchirps/templates/setup/region-pack.html:42
+#: backyardchirps/templates/setup/region-pack.html:37
 msgid ""
 "This needs the internet. You can add a region pack later from the settings "
 "page."
 msgstr ""
 
-#: backyardchirps/templates/setup/region-pack.html:44
+#: backyardchirps/templates/setup/region-pack.html:39
 msgid ""
 "Go back and set the location first, so this step knows which region pack to "
 "offer."
 msgstr ""
 
-#: backyardchirps/templates/setup/region-pack.html:46
+#: backyardchirps/templates/setup/region-pack.html:41
 msgid "There are no region packs yet."
 msgstr ""

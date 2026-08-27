@@ -80,7 +80,8 @@ h1 {
 }
 
 input[type="text"],
-input[type="password"] {
+input[type="password"],
+select {
   width: 100%;
   padding: 0.55rem 0.7rem;
   border-radius: 8px;
@@ -90,7 +91,8 @@ input[type="password"] {
   font-size: 0.95rem;
 }
 
-input:focus {
+input:focus,
+select:focus {
   outline: 2px solid var(--leaf);
   outline-offset: 1px;
 }
@@ -100,27 +102,6 @@ input:focus {
   margin-top: 0.3rem;
   font-size: 0.75rem;
   color: var(--muted);
-}
-
-/* A field holding a percentage. The sign is drawn here rather than written into the
-   label, so no translated string has to carry a % through gettext. */
-.unit-percent {
-  position: relative;
-}
-
-.unit-percent::after {
-  content: "%";
-  position: absolute;
-  top: 50%;
-  right: 0.7rem;
-  transform: translateY(-50%);
-  font-size: 0.85rem;
-  color: var(--muted);
-  pointer-events: none;
-}
-
-.unit-percent input {
-  padding-right: 2rem;
 }
 
 .choices {

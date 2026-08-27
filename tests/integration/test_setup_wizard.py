@@ -18,6 +18,7 @@ from django.test import Client
 from rest_framework.test import APIClient
 
 from backyardchirps.features.recording.audio import devices
+from backyardchirps.features.region_packs import logic as region_packs_logic
 from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.setup import logic as setup_logic
@@ -281,69 +282,26 @@ def test_location_step_refuses_a_bad_value_and_keeps_the_good_one(claimed_client
 def test_microphone_step_takes_the_device(claimed_client: Client, restarts: list[str]) -> None:
     response = claimed_client.post("/setup/microphone/", {"audio_device": "1"})
 
-    assert response.headers["Location"] == "/setup/detection/"
+    assert response.headers["Location"] == "/setup/done/"
 
     claimed_client.post("/setup/done/", {})
 
     assert Settings.get(SettingsKey.AUDIO_DEVICE) == 1
 
 
-def test_detection_step_takes_the_thresholds_as_percentages(claimed_client: Client, restarts: list[str]) -> None:
-    """
-    The step asks for whole percentages, the way a confidence reads everywhere else, and
-    stores the 0 to 1 the rest of the app works in.
-    """
-    response = claimed_client.post(
-        "/setup/detection/",
-        {"analysis_low_confidence": "50", "analysis_medium_confidence": "70", "analysis_high_confidence": "95"},
-    )
-
-    assert response.headers["Location"] == "/setup/notifications/"
-
-    claimed_client.post("/setup/done/", {})
-
-    assert Settings.get(SettingsKey.ANALYSIS_LOW_CONFIDENCE) == 0.5
-    assert Settings.get(SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE) == 0.7
-    assert Settings.get(SettingsKey.ANALYSIS_HIGH_CONFIDENCE) == 0.95
-
-
-def test_detection_step_refuses_a_percentage_over_a_hundred(claimed_client: Client, restarts: list[str]) -> None:
-    response = claimed_client.post(
-        "/setup/detection/",
-        {"analysis_low_confidence": "150", "analysis_medium_confidence": "70", "analysis_high_confidence": "95"},
-    )
-
-    assert response.status_code == 200
-
-    claimed_client.post("/setup/done/", {})
-
-    assert Settings.get(SettingsKey.ANALYSIS_LOW_CONFIDENCE) == 0.4
-    assert Settings.get(SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE) == 0.7
-
-
-def test_detection_step_draws_the_thresholds_as_percentages(claimed_client: Client) -> None:
-    page = claimed_client.get("/setup/detection/").content.decode()
-
-    assert 'name="analysis_low_confidence" value="40"' in page
-    assert 'name="analysis_medium_confidence" value="70"' in page
-    assert 'name="analysis_high_confidence" value="90"' in page
-
-
 def test_a_spanish_wizard_draws_numbers_it_can_read_back(claimed_client: Client) -> None:
     """
-    Spanish writes 40,4 for 40.4, and both these steps draw a number into a field that is
-    posted straight back to float(). Localised, they would refuse a step the reader only
-    pressed Next on.
+    Spanish writes 40,4 for 40.4, and the location step draws both coordinates into fields
+    that are posted straight back to float(). Localised, they would refuse a step the
+    reader only pressed Next on.
     """
     session = claimed_client.session
     session[SESSION_LANGUAGE] = "es"
     session.save()
 
-    thresholds = claimed_client.get("/setup/detection/").content.decode()
     claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
     coordinates = claimed_client.get("/setup/location/").content.decode()
 
-    assert 'value="70"' in thresholds
     assert 'value="40.4"' in coordinates
     assert "," not in _field_value(coordinates, "location_lat")
 
@@ -354,31 +312,18 @@ def _field_value(page: str, name: str) -> str:
     return match.group(1)
 
 
-def test_notifications_step_may_be_walked_past(claimed_client: Client) -> None:
-    response = claimed_client.post("/setup/notifications/", {})
-
-    assert response.headers["Location"] == "/setup/done/"
-
-
 # --- finishing ---------------------------------------------------------------
 
 
 def test_finishing_saves_everything_the_wizard_was_told(claimed_client: Client, restarts: list[str]) -> None:
     claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
     claimed_client.post("/setup/microphone/", {"audio_device": "1"})
-    claimed_client.post(
-        "/setup/detection/",
-        {"analysis_low_confidence": "50", "analysis_medium_confidence": "70", "analysis_high_confidence": "95"},
-    )
-    claimed_client.post("/setup/notifications/", {"telegram_token": "  12345:abc  "})
 
     claimed_client.post("/setup/done/", {})
 
     assert Settings.get(SettingsKey.LOCATION_LAT) == 40.4
     assert Settings.get(SettingsKey.LOCATION_LON) == -3.7
     assert Settings.get(SettingsKey.AUDIO_DEVICE) == 1
-    assert Settings.get(SettingsKey.ANALYSIS_HIGH_CONFIDENCE) == 0.95
-    assert Settings.get(SettingsKey.TELEGRAM_TOKEN) == "12345:abc"
 
 
 def test_an_abandoned_wizard_leaves_the_station_as_it_was(claimed_client: Client) -> None:
@@ -617,6 +562,18 @@ IBERIA_ENTRY = {
 }
 
 
+BRITAIN_ENTRY = {
+    "id": "britain-and-ireland",
+    "names": {"en": "Britain and Ireland", "es": "Gran Bretaña e Irlanda"},
+    "bbox": {"west": -11.0, "south": 49.8, "east": 2.1, "north": 61.0},
+    "version": "2026-08-16",
+    "species_count": 274,
+    "url": "https://example.com/britain-and-ireland.tar.zst",
+    "sha256": "def",
+    "size_bytes": 150_000_000,
+}
+
+
 @pytest.fixture
 def region_packs_index(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     """
@@ -627,7 +584,22 @@ def region_packs_index(monkeypatch: pytest.MonkeyPatch) -> list[dict[str, Any]]:
     return entries
 
 
-def test_the_region_pack_step_offers_the_pack_that_covers_the_station(
+@pytest.fixture
+def installs(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """
+    The packs the wizard asked for, in the order it asked. Nothing is downloaded: what
+    these tests are about is which pack the step chose, not what installing one does.
+    """
+    asked_for: list[str] = []
+    monkeypatch.setattr(
+        region_packs_logic,
+        "replace_install",
+        lambda pack: asked_for.append(pack.id),
+    )
+    return asked_for
+
+
+def test_the_region_pack_step_preselects_the_pack_that_covers_the_station(
     claimed_client: Client, region_packs_index: list[dict[str, Any]]
 ) -> None:
     claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
@@ -636,15 +608,31 @@ def test_the_region_pack_step_offers_the_pack_that_covers_the_station(
 
     assert "Iberian Peninsula" in page
     assert "312" in page
-    assert 'data-region-pack-id="iberian-peninsula"' in page
+    assert '<option value="iberian-peninsula" selected' in page
 
 
-def test_the_region_pack_step_offers_the_nearest_when_none_covers_the_station(
+def test_the_region_pack_step_lists_every_pack_there_is(
     claimed_client: Client, region_packs_index: list[dict[str, Any]]
 ) -> None:
     """
-    A miss says which region pack is nearest and how far, so somebody outside every box learns
-    something rather than seeing an empty step.
+    A dropdown of all of them rather than the one that covers the station, so somebody
+    near a border is not stuck with the box they happen to sit in.
+    """
+    region_packs_index.append(BRITAIN_ENTRY)
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    page = claimed_client.get("/setup/region-pack/").content.decode()
+
+    assert '<option value="britain-and-ireland"' in page
+    assert '<option value="iberian-peninsula" selected' in page
+
+
+def test_the_region_pack_step_says_which_pack_is_nearest_when_none_covers_the_station(
+    claimed_client: Client, region_packs_index: list[dict[str, Any]]
+) -> None:
+    """
+    A miss says which region pack is nearest and how far, so somebody outside every box
+    learns something rather than reading a list with nothing to say about it.
     """
     claimed_client.post("/setup/location/", {"location_lat": "52.4", "location_lon": "4.9"})
 
@@ -675,14 +663,80 @@ def test_the_region_pack_step_is_walked_past_when_the_index_cannot_be_reached(
     assert claimed_client.post("/setup/region-pack/", {}).headers["Location"] == "/setup/microphone/"
 
 
-def test_the_region_pack_step_saves_nothing_by_itself(
-    claimed_client: Client, region_packs_index: list[dict[str, Any]]
+def test_the_region_pack_step_starts_the_download_and_moves_on(
+    claimed_client: Client, region_packs_index: list[dict[str, Any]], installs: list[str]
 ) -> None:
     """
-    Like every other step. Installing a pack is a button on it, not the step moving on.
+    The step does not wait for a pack that takes minutes on a Pi. It starts the download
+    and the wizard carries on, which is the whole reason there is no button on it.
     """
     claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
 
-    claimed_client.post("/setup/region-pack/", {})
+    response = claimed_client.post("/setup/region-pack/", {"region_pack": "iberian-peninsula"})
+
+    assert response.headers["Location"] == "/setup/microphone/"
+    assert installs == ["iberian-peninsula"]
+
+
+def test_the_region_pack_step_saves_no_settings_by_itself(
+    claimed_client: Client, region_packs_index: list[dict[str, Any]], installs: list[str]
+) -> None:
+    """
+    Like every other step. What pack a station has is recorded by the install that puts it
+    on disk, not by the wizard walking past this step.
+    """
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    claimed_client.post("/setup/region-pack/", {"region_pack": "iberian-peninsula"})
 
     assert Settings.get(SettingsKey.REGION_PACK) == ""
+
+
+def test_a_pack_that_is_not_in_the_index_is_refused(
+    claimed_client: Client, region_packs_index: list[dict[str, Any]], installs: list[str]
+) -> None:
+    """
+    The URL and the checksum decide what gets downloaded and whether it is trusted, so the
+    pack is looked up in the index rather than taken from the form.
+    """
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+
+    response = claimed_client.post("/setup/region-pack/", {"region_pack": "somewhere-else"})
+
+    assert response.headers["Location"] == "/setup/microphone/"
+    assert installs == []
+
+
+def test_going_back_and_choosing_again_installs_the_second_choice(
+    claimed_client: Client, region_packs_index: list[dict[str, Any]], installs: list[str]
+) -> None:
+    """
+    A download already running is taken over rather than left alone, so somebody who
+    changes their mind ends up with the pack they chose last.
+    """
+    region_packs_index.append(BRITAIN_ENTRY)
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+    claimed_client.post("/setup/region-pack/", {"region_pack": "iberian-peninsula"})
+
+    claimed_client.post("/setup/region-pack/", {"region_pack": "britain-and-ireland"})
+
+    assert installs == ["iberian-peninsula", "britain-and-ireland"]
+    assert '<option value="britain-and-ireland" selected' in claimed_client.get("/setup/region-pack/").content.decode()
+
+
+def test_the_last_step_watches_a_download_that_is_still_running(
+    claimed_client: Client, region_packs_index: list[dict[str, Any]], installs: list[str]
+) -> None:
+    claimed_client.post("/setup/location/", {"location_lat": "40.4", "location_lon": "-3.7"})
+    claimed_client.post("/setup/region-pack/", {"region_pack": "iberian-peninsula"})
+
+    page = claimed_client.get("/setup/done/").content.decode()
+
+    assert "region-pack-progress.js" in page
+    assert "still downloading" in page
+
+
+def test_the_last_step_says_nothing_about_a_pack_nobody_chose(claimed_client: Client) -> None:
+    page = claimed_client.get("/setup/done/").content.decode()
+
+    assert "region-pack-progress.js" not in page

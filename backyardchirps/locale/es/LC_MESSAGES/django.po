@@ -2,7 +2,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: \n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-23 17:34+0200\n"
+"POT-Creation-Date: 2026-08-27 19:43+0200\n"
 "PO-Revision-Date: \n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -120,36 +120,6 @@ msgstr "Atrás"
 msgid "Next"
 msgstr "Siguiente"
 
-#: backyardchirps/templates/setup/detection.html:4
-msgid "Detection thresholds"
-msgstr "Umbrales de detección"
-
-#: backyardchirps/templates/setup/detection.html:14
-msgid ""
-"How sure BirdNET has to be before a detection counts. The defaults are a "
-"good start."
-msgstr ""
-"Cómo de seguro tiene que estar BirdNET para que una detección cuente. Los "
-"valores por defecto son un buen punto de partida."
-
-#: backyardchirps/templates/setup/detection.html:19
-msgid "Low"
-msgstr "Bajo"
-
-#: backyardchirps/templates/setup/detection.html:23
-#: backyardchirps/templates/setup/detection.html:31
-#: backyardchirps/templates/setup/detection.html:39
-msgid "Give a whole number between 0 and 100."
-msgstr "Escribe un número entero entre 0 y 100."
-
-#: backyardchirps/templates/setup/detection.html:27
-msgid "Medium"
-msgstr "Medio"
-
-#: backyardchirps/templates/setup/detection.html:35
-msgid "High"
-msgstr "Alto"
-
 #: backyardchirps/templates/setup/done.html:4
 msgid "Ready"
 msgstr "Listo"
@@ -179,7 +149,22 @@ msgstr ""
 "Ya está todo. Al terminar arranca el grabador y el token de instalación deja "
 "de servir, así que este asistente no volverá a abrirse."
 
-#: backyardchirps/templates/setup/done.html:21
+#: backyardchirps/templates/setup/done.html:30
+msgid "The region pack is still downloading. Finishing does not stop it."
+msgstr "El paquete de región sigue descargándose. Terminar aquí no lo detiene."
+
+#: backyardchirps/templates/setup/done.html:32
+msgid "The region pack is installed."
+msgstr "El paquete de región está instalado."
+
+#: backyardchirps/templates/setup/done.html:34
+msgid ""
+"The region pack could not be downloaded. The settings page can try again."
+msgstr ""
+"El paquete de región no se ha podido descargar. Puedes volver a intentarlo "
+"desde la página de ajustes."
+
+#: backyardchirps/templates/setup/done.html:41
 msgid "Finish"
 msgstr "Terminar"
 
@@ -282,25 +267,6 @@ msgstr ""
 "Esta máquina no tiene ningún dispositivo de grabación, así que no hay con "
 "qué escuchar."
 
-#: backyardchirps/templates/setup/notifications.html:4
-msgid "Notifications"
-msgstr "Notificaciones"
-
-#: backyardchirps/templates/setup/notifications.html:7
-msgid ""
-"All optional. Leave anything blank and set it later on the settings page."
-msgstr ""
-"Todo es opcional. Deja en blanco lo que quieras y configúralo después en la "
-"página de ajustes."
-
-#: backyardchirps/templates/setup/notifications.html:10
-msgid "Telegram bot token"
-msgstr "Token del bot de Telegram"
-
-#: backyardchirps/templates/setup/notifications.html:15
-msgid "Telegram chat id"
-msgstr "Id del chat de Telegram"
-
 #: backyardchirps/templates/setup/region-pack.html:4
 msgid "Region pack"
 msgstr "Paquete de región"
@@ -327,10 +293,10 @@ msgstr ""
 
 #: backyardchirps/templates/setup/region-pack.html:17
 msgid ""
-"You can install it anyway, or carry on without one. Without a region pack "
-"the site works, but a species page shows no seasonal chart and no range map."
+"Take it anyway, or carry on without one. Without a region pack the site "
+"works, but a species page shows no seasonal chart and no range map."
 msgstr ""
-"Puedes instalarlo igualmente, o seguir sin ninguno. Sin paquete de región la "
+"Puedes descargarlo igualmente, o seguir sin ninguno. Sin paquete de región la "
 "web funciona, pero la página de una especie no muestra gráfico de temporada "
 "ni mapa de distribución."
 
@@ -338,30 +304,24 @@ msgstr ""
 msgid "Ask for a region pack that covers you"
 msgstr "Pide un paquete de región que te cubra"
 
-#: backyardchirps/templates/setup/region-pack.html:24
+#: backyardchirps/templates/setup/region-pack.html:25
+msgid "Pack"
+msgstr "Paquete"
+
+#: backyardchirps/templates/setup/region-pack.html:29
 #, python-format
-msgid "About %(region_pack_megabytes)s MB to download."
-msgstr "Unos %(region_pack_megabytes)s MB de descarga."
+msgid "%(name)s (%(species)s species, %(megabytes)s MB)"
+msgstr "%(name)s (%(species)s especies, %(megabytes)s MB)"
 
-#: backyardchirps/templates/setup/region-pack.html:32
-msgid "Download it"
-msgstr "Descargarlo"
-
-#: backyardchirps/templates/setup/region-pack.html:35
-msgid "Downloading. You can leave this page open."
-msgstr "Descargando. Puedes dejar esta página abierta."
+#: backyardchirps/templates/setup/region-pack.html:33
+msgid ""
+"The download starts when you press Next and carries on while you finish "
+"setting up."
+msgstr ""
+"La descarga empieza al pulsar Siguiente y continúa mientras terminas la "
+"configuración."
 
 #: backyardchirps/templates/setup/region-pack.html:36
-msgid "Installed."
-msgstr "Instalado."
-
-#: backyardchirps/templates/setup/region-pack.html:37
-msgid ""
-"That did not work. You can try again, or carry on without a region pack."
-msgstr ""
-"No ha funcionado. Puedes intentarlo otra vez, o seguir sin paquete de región."
-
-#: backyardchirps/templates/setup/region-pack.html:41
 msgid ""
 "The list of region packs could not be reached, so there is nothing to offer "
 "yet."
@@ -369,7 +329,7 @@ msgstr ""
 "No se ha podido acceder a la lista de paquetes de región, así que todavía no "
 "hay nada que ofrecer."
 
-#: backyardchirps/templates/setup/region-pack.html:42
+#: backyardchirps/templates/setup/region-pack.html:37
 msgid ""
 "This needs the internet. You can add a region pack later from the settings "
 "page."
@@ -377,7 +337,7 @@ msgstr ""
 "Esto necesita internet. Puedes añadir un paquete de región más tarde desde "
 "la página de ajustes."
 
-#: backyardchirps/templates/setup/region-pack.html:44
+#: backyardchirps/templates/setup/region-pack.html:39
 msgid ""
 "Go back and set the location first, so this step knows which region pack to "
 "offer."
@@ -385,6 +345,6 @@ msgstr ""
 "Vuelve atrás y pon la ubicación primero, para que este paso sepa qué paquete "
 "de región ofrecer."
 
-#: backyardchirps/templates/setup/region-pack.html:46
+#: backyardchirps/templates/setup/region-pack.html:41
 msgid "There are no region packs yet."
 msgstr "Todavía no hay paquetes de región."

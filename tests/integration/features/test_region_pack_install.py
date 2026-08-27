@@ -17,11 +17,13 @@ from typing import Any
 import pytest
 from django.conf import settings
 
+from backyardchirps.features.region_packs import install_status
 from backyardchirps.features.region_packs import logic as region_packs_logic
 from backyardchirps.features.region_packs.entity import BoundingBox
 from backyardchirps.features.region_packs.entity import RegionPack
 from backyardchirps.features.settings.logic import Settings
 from backyardchirps.features.settings.logic import SettingsKey
+from backyardchirps.integrations import region_packs
 
 pytestmark = pytest.mark.django_db
 
@@ -278,3 +280,153 @@ def test_an_archive_climbing_out_of_its_directory_is_refused(
         region_packs_logic.install(_pack_for(escaping))
 
     assert not (tmp_path / "escaped.txt").exists()
+
+
+# --- following a choice that changes -------------------------------------------
+
+
+@pytest.fixture
+def install_status_file(tmp_path: Path, settings: Any) -> Path:
+    path = tmp_path / "region-pack-install-status.json"
+    settings.REGION_PACK_INSTALL_STATUS_FILE = path
+    return path
+
+
+@pytest.fixture
+def serve_locally_in_chunks(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Like serve_locally, but reporting progress halfway. The chunk is where a download
+    finds out it is fetching a pack nobody wants any more, so a download that never
+    reports one cannot be given up.
+    """
+
+    def _download(url: str, destination: Path, on_progress: Any = None) -> None:
+        content = Path(url.removeprefix("file://")).read_bytes()
+        if on_progress is not None:
+            on_progress(len(content) // 2, len(content))
+        destination.write_bytes(content)
+        if on_progress is not None:
+            on_progress(len(content), len(content))
+
+    monkeypatch.setattr(region_packs_logic.region_packs, "download_pack", _download)
+
+
+def _index_entry(pack: RegionPack) -> dict[str, Any]:
+    return {
+        "id": pack.id,
+        "names": pack.names,
+        "bbox": {"west": pack.bbox.west, "south": pack.bbox.south, "east": pack.bbox.east, "north": pack.bbox.north},
+        "version": pack.version,
+        "species_count": pack.species_count,
+        "url": pack.url,
+        "sha256": pack.sha256,
+        "size_bytes": pack.size_bytes,
+    }
+
+
+def test_a_download_gives_way_to_a_pack_chosen_while_it_runs(
+    tmp_path: Path,
+    data_dir: Path,
+    install_status_file: Path,
+    serve_locally_in_chunks: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    Somebody who walks back through the wizard and picks a different pack ends up with the
+    one they chose last. The download already running is given up rather than left to
+    install a pack nobody asked for.
+    """
+    first = _pack_for(_build_archive(tmp_path, "a-region", species="barswa"))
+    second = _pack_for(_build_archive(tmp_path, "another-region", species="eurbla"), pack_id="another-region")
+    monkeypatch.setattr(region_packs, "fetch_index", lambda: [_index_entry(first), _index_entry(second)])
+    install_status.wanted(second.id)
+
+    region_packs_logic.install_the_wanted_pack(first)
+
+    assert Settings.get(SettingsKey.REGION_PACK) == "another-region"
+    assert (Path(settings.SPECIES_RUNTIME_DIR) / "ebird_occurrence" / "eurbla").is_dir()
+    # The pack it gave up on was never unpacked, so nothing of it is on the station.
+    assert not (Path(settings.REGION_PACKS_DIR) / "a-region").exists()
+
+
+def test_the_pack_that_finished_is_the_one_reported(
+    tmp_path: Path,
+    data_dir: Path,
+    install_status_file: Path,
+    serve_locally_in_chunks: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    The page watching the download is told about the pack that arrived, not the one it
+    started on.
+    """
+    first = _pack_for(_build_archive(tmp_path, "a-region", species="barswa"))
+    second = _pack_for(_build_archive(tmp_path, "another-region", species="eurbla"), pack_id="another-region")
+    monkeypatch.setattr(region_packs, "fetch_index", lambda: [_index_entry(first), _index_entry(second)])
+    install_status.wanted(second.id)
+
+    region_packs_logic.install_the_wanted_pack(first)
+
+    progress = install_status.read()
+    assert progress is not None
+    assert progress.state is install_status.InstallState.DONE
+    assert progress.pack_id == "another-region"
+
+
+def test_a_pack_wanted_but_not_in_the_index_is_reported_as_failed(
+    tmp_path: Path,
+    data_dir: Path,
+    install_status_file: Path,
+    serve_locally_in_chunks: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """
+    The thread that gives up a download is the only one left, so anything it refuses has
+    to be reported. A status file left saying "running" would never change again.
+    """
+    first = _pack_for(_build_archive(tmp_path, "a-region"))
+    monkeypatch.setattr(region_packs, "fetch_index", lambda: [_index_entry(first)])
+    install_status.wanted("a-pack-that-went-away")
+
+    region_packs_logic.install_the_wanted_pack(first)
+
+    progress = install_status.read()
+    assert progress is not None
+    assert progress.state is install_status.InstallState.FAILED
+    assert Settings.get(SettingsKey.REGION_PACK) == ""
+
+
+def test_a_download_nobody_changed_their_mind_about_is_installed(
+    tmp_path: Path,
+    data_dir: Path,
+    install_status_file: Path,
+    serve_locally_in_chunks: None,
+) -> None:
+    pack = _pack_for(_build_archive(tmp_path, "a-region"))
+    install_status.wanted(pack.id)
+
+    region_packs_logic.install_the_wanted_pack(pack)
+
+    assert Settings.get(SettingsKey.REGION_PACK) == "a-region"
+    progress = install_status.read()
+    assert progress is not None
+    assert progress.state is install_status.InstallState.DONE
+
+
+def test_choosing_another_pack_while_one_runs_hands_it_over_rather_than_starting_a_second(
+    tmp_path: Path, data_dir: Path, install_status_file: Path
+) -> None:
+    """
+    Two downloads at once would fight over the same links, so the choice is recorded and
+    the download already running is the one that acts on it.
+    """
+    second = _pack_for(_build_archive(tmp_path, "another-region"), pack_id="another-region")
+    install_status.started("a-region", second.size_bytes)
+
+    region_packs_logic.replace_install(second)
+
+    assert install_status.wanted_pack_id() == "another-region"
+    progress = install_status.read()
+    assert progress is not None
+    assert progress.pack_id == "a-region"
+    assert progress.state is install_status.InstallState.RUNNING

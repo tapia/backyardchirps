@@ -1,10 +1,10 @@
 {% extends "setup/base.html" %}
-{% load i18n static %}
+{% load i18n %}
 
 {% block title %}{% translate "Region pack" %}{% endblock %}
 
 {% block fields %}
-  {% if region_pack %}
+  {% if region_packs %}
     {% if region_pack_covers %}
       <p class="intro">
         {% blocktranslate %}Your station is inside {{ region_pack_name }}. Its region pack holds the seasonal charts, the range maps and the reference recordings for the {{ region_pack_species_count }} species that live there.{% endblocktranslate %}
@@ -14,28 +14,24 @@
         {% blocktranslate %}No region pack covers where you are. The nearest is {{ region_pack_name }}, about {{ region_pack_distance_km }} km away.{% endblocktranslate %}
       </p>
       <p class="note">
-        {% translate "You can install it anyway, or carry on without one. Without a region pack the site works, but a species page shows no seasonal chart and no range map." %}
+        {% translate "Take it anyway, or carry on without one. Without a region pack the site works, but a species page shows no seasonal chart and no range map." %}
       </p>
       <p class="note">
         <a href="{{ region_pack_request_url }}" target="_blank" rel="noopener">{% translate "Ask for a region pack that covers you" %}</a>
       </p>
     {% endif %}
 
-    <p class="note">{% blocktranslate %}About {{ region_pack_megabytes }} MB to download.{% endblocktranslate %}</p>
-
-    {% comment %}
-      One paragraph per state, so every string is translated where the others are and the
-      script only chooses which one is shown.
-    {% endcomment %}
-    <div class="region-pack" id="region-pack" data-region-pack-id="{{ region_pack.id }}">
-      <button type="button" class="button" id="region-pack-install">{% translate "Download it" %}</button>
-      <div class="meter" id="region-pack-meter" hidden><div class="meter-fill" id="region-pack-fill"></div></div>
-      <div class="meter-notes">
-        <p class="meter-note" id="region-pack-working" hidden>{% translate "Downloading. You can leave this page open." %}</p>
-        <p class="meter-note" id="region-pack-done" hidden>{% translate "Installed." %}</p>
-        <p class="meter-note error" id="region-pack-failed" hidden>{% translate "That did not work. You can try again, or carry on without a region pack." %}</p>
-      </div>
-    </div>
+    <label class="field">
+      <span>{% translate "Pack" %}</span>
+      <select name="region_pack">
+        {% for pack in region_packs %}
+          <option value="{{ pack.id }}" {% if pack.id == selected_region_pack_id %}selected{% endif %}>
+            {% blocktranslate with name=pack.name species=pack.species_count megabytes=pack.megabytes %}{{ name }} ({{ species }} species, {{ megabytes }} MB){% endblocktranslate %}
+          </option>
+        {% endfor %}
+      </select>
+      <small>{% translate "The download starts when you press Next and carries on while you finish setting up." %}</small>
+    </label>
   {% elif region_pack_unavailable == "index_unavailable" %}
     <p class="intro">{% translate "The list of region packs could not be reached, so there is nothing to offer yet." %}</p>
     <p class="note">{% translate "This needs the internet. You can add a region pack later from the settings page." %}</p>
@@ -44,8 +40,4 @@
   {% else %}
     <p class="intro">{% translate "There are no region packs yet." %}</p>
   {% endif %}
-{% endblock %}
-
-{% block script %}
-  <script src="{% static 'setup/region-pack.js' %}" defer></script>
 {% endblock %}

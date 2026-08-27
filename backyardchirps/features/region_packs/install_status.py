@@ -59,10 +59,6 @@ class InstallProgress:
 def read() -> InstallProgress | None:
     """
     The current install, or None when nothing has ever been started here.
-
-    An install that has said nothing for a long time is reported as failed. The
-    alternative is a progress bar that sits still for ever because the worker carrying it
-    was killed.
     """
     path = _path()
     try:
@@ -93,6 +89,27 @@ def is_running() -> bool:
     return progress is not None and progress.state is InstallState.RUNNING
 
 
+def wanted(pack_id: str) -> None:
+    """
+    Record which pack the station is meant to end up with.
+    """
+    path = _wanted_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    partial = path.with_name(path.name + ".part")
+    partial.write_text(pack_id, encoding="utf-8")
+    os.replace(partial, path)
+
+
+def wanted_pack_id() -> str:
+    """
+    The pack last asked for, or an empty string when nothing has ever been asked for here.
+    """
+    try:
+        return _wanted_path().read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
 def started(pack_id: str, total_bytes: int) -> None:
     _write(InstallState.RUNNING, pack_id, 0, total_bytes, "")
 
@@ -120,6 +137,7 @@ def failed(pack_id: str, error: str) -> None:
 
 def clear() -> None:
     _path().unlink(missing_ok=True)
+    _wanted_path().unlink(missing_ok=True)
 
 
 _last_written_at = 0.0
@@ -127,6 +145,10 @@ _last_written_at = 0.0
 
 def _path() -> Path:
     return Path(settings.REGION_PACK_INSTALL_STATUS_FILE)
+
+
+def _wanted_path() -> Path:
+    return _path().with_suffix(".wanted")
 
 
 def _now() -> float:

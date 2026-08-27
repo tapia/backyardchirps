@@ -1,5 +1,5 @@
 {% extends "setup/base.html" %}
-{% load i18n %}
+{% load i18n static %}
 
 {% block title %}{% translate "Ready" %}{% endblock %}
 
@@ -16,6 +16,31 @@
       {% translate "That is everything. Finishing starts the recorder and puts the setup token beyond use, so this wizard will not open again." %}
     </p>
   {% endif %}
+
+  {% if region_pack_downloading %}
+    {% comment %}
+      One paragraph per state, so every string is translated where the others are and the
+      script only chooses which one is shown.
+    {% endcomment %}
+    <div id="region-pack-progress">
+      <div class="meter" id="region-pack-meter" hidden><div class="meter-fill" id="region-pack-fill"></div></div>
+      <div class="meter-notes">
+        <p class="meter-note" id="region-pack-working" hidden>
+          {% translate "The region pack is still downloading. Finishing does not stop it." %}
+        </p>
+        <p class="meter-note" id="region-pack-done" hidden>{% translate "The region pack is installed." %}</p>
+        <p class="meter-note error" id="region-pack-failed" hidden>
+          {% translate "The region pack could not be downloaded. The settings page can try again." %}
+        </p>
+      </div>
+    </div>
+  {% endif %}
 {% endblock %}
 
 {% block submit %}{% translate "Finish" %}{% endblock %}
+
+{% block script %}
+  {% if region_pack_downloading %}
+    <script src="{% static 'setup/region-pack-progress.js' %}" defer></script>
+  {% endif %}
+{% endblock %}

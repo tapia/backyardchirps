@@ -37,7 +37,7 @@ logger = logging.getLogger(__name__)
 # The wizard in order. Which step a visitor is on is a URL, and moving on is a POST
 # followed by a redirect, so reloading repeats nothing and a dropped connection costs at
 # most the step being filled in. Nothing about the flow lives in a browser.
-STEPS = ("language", "admin", "location", "region-pack", "microphone", "detection", "notifications", "done")
+STEPS = ("language", "admin", "location", "region-pack", "microphone", "done")
 
 # How long the browser waits before opening the next meter stream, in milliseconds. Every
 # stream ends sooner or later, so this is the width of the gap in a meter that is working
@@ -48,29 +48,8 @@ _METER_RECONNECT_MS = 500
 # agree on field names and validation, because both finish at Settings.set.
 FIELDS_BY_STEP: dict[str, tuple[SettingsKey, ...]] = {
     "location": (SettingsKey.LOCATION_LAT, SettingsKey.LOCATION_LON),
-    "detection": (
-        SettingsKey.ANALYSIS_LOW_CONFIDENCE,
-        SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE,
-        SettingsKey.ANALYSIS_HIGH_CONFIDENCE,
-    ),
     "microphone": (SettingsKey.AUDIO_DEVICE,),
-    "notifications": (
-        SettingsKey.NOTIFICATIONS_LANGUAGE,
-        SettingsKey.TELEGRAM_TOKEN,
-        SettingsKey.TELEGRAM_CHAT_ID,
-    ),
 }
-
-# The confidences, which the detection step asks for as whole percentages. They are
-# stored from 0 to 1, the scale BirdNET scores on, but that is not how anyone reads a
-# confidence: the settings page and every badge on the site write it as a percentage.
-PERCENTAGE_FIELDS: frozenset[SettingsKey] = frozenset(
-    {
-        SettingsKey.ANALYSIS_LOW_CONFIDENCE,
-        SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE,
-        SettingsKey.ANALYSIS_HIGH_CONFIDENCE,
-    }
-)
 
 # The wizard's own language, chosen on the first step. Held in the session rather than
 # saved, because it decides what this visitor reads now and nothing else: the site's
@@ -82,6 +61,11 @@ SESSION_LANGUAGE = "setup_language"
 # has always promised, and what lets the whole thing be walked through on a laptop
 # without keeping anything.
 SESSION_ANSWERS = "setup_answers"
+
+# The pack chosen on the region pack step. Kept apart from the answers because it is not
+# one: the download records the pack it installed itself, and a wizard that saved the id
+# on top of that would claim a pack whose download had failed or was still running.
+SESSION_REGION_PACK = "setup_region_pack"
 
 LANGUAGE_OPTIONS = (("en", "English"), ("es", "Español"))
 
@@ -285,6 +269,10 @@ def _handle_post(request: HttpRequest, step: str, status: SetupStatus) -> HttpRe
             return _render_step(request, step, status, errors={"admin": error})
         return _advance(request, step)
 
+    if step == "region-pack":
+        _start_the_pack_download(request)
+        return _advance(request, step)
+
     if step == "done":
         try:
             recorder_started = setup_logic.complete(_answers(request))
@@ -292,6 +280,7 @@ def _handle_post(request: HttpRequest, step: str, status: SetupStatus) -> HttpRe
             return _render_step(request, step, status, errors={"done": error.code.value})
         request.session.pop(SESSION_FLAG, None)
         request.session.pop(SESSION_ANSWERS, None)
+        request.session.pop(SESSION_REGION_PACK, None)
         request.session.pop("setup_step", None)
         if recorder_started:
             return redirect("/")
@@ -354,8 +343,6 @@ def _remember_answers(request: HttpRequest, step: str) -> dict[str, str]:
         if key not in request.POST:
             continue
         value = request.POST[key].strip()
-        if key in PERCENTAGE_FIELDS:
-            value = _confidence_from_percentage(value)
         try:
             answers[key] = Settings.parse(key, value)
         except ValueError as exc:
@@ -407,47 +394,54 @@ def _render_step(request: HttpRequest, step: str, status: SetupStatus, errors: d
         "language": _language(request),
         "language_options": LANGUAGE_OPTIONS,
     }
-    if step == "detection":
-        context["percentages"] = _percentages(context["settings"])
     if step == "microphone":
         context["devices"] = setup_logic.list_audio_devices()
     if step == "region-pack":
         context |= _region_pack_context(request)
+    if step == "done":
+        context["region_pack_downloading"] = bool(request.session.get(SESSION_REGION_PACK))
     return render(request, f"setup/{step}.html", context)
 
 
-def _confidence_from_percentage(raw: str) -> str:
+def _start_the_pack_download(request: HttpRequest) -> None:
     """
-    A percentage typed on the detection step, as the confidence the settings API stores.
+    Take the pack chosen on the step and start fetching it in the background.
 
-    Anything that is not a number is handed back untouched, so the parser refuses it with
-    the message it gives any other unusable value rather than this reporting a different
-    one.
+    Nothing waits for it. A pack is hundreds of megabytes and a Pi is often on wifi at the
+    end of a garden, so the download runs while the rest of the wizard is filled in and the
+    Finish step says how far it has got. A station whose download fails is a station with
+    no pack, which everything downstream already copes with.
+
+    The pack is looked up in the index rather than taken from the form. The URL and the
+    checksum decide what gets downloaded and whether it is trusted, so they may only come
+    from the index, never from whoever is asking.
     """
+    wanted = request.POST.get("region_pack", "").strip()
+    if not wanted:
+        return
+
     try:
-        return str(float(raw) / 100)
-    except ValueError:
-        return raw
+        packs = region_packs_logic.available_packs()
+    except (requests.RequestException, ValueError):
+        logger.warning("Could not read the region pack index from %s", region_packs.INDEX_URL, exc_info=True)
+        return
 
+    chosen = next((pack for pack in packs if pack.id == wanted), None)
+    if chosen is None:
+        return
 
-def _percentages(settings: dict[str, Any]) -> dict[str, int]:
-    """
-    The confidence thresholds as whole percentages, for the fields to be drawn with.
-    """
-    return {
-        key.value: round(float(settings[key.value]) * 100)
-        for key in PERCENTAGE_FIELDS
-        if settings.get(key.value) is not None
-    }
+    request.session[SESSION_REGION_PACK] = chosen.id
+    region_packs_logic.replace_install(chosen)
 
 
 def _region_pack_context(request: HttpRequest) -> dict[str, Any]:
     """
-    What the pack step needs: which pack covers the coordinates given one step ago.
+    What the pack step needs: every pack there is, and which one to have selected.
 
-    Read from the answers rather than from the settings, because nothing has been saved
-    yet. A station with no internet, or one nobody has told where it is, gets no region pack and
-    a step it can walk past, which is a working station with no seasonality charts.
+    The coordinates are read from the answers rather than from the settings, because
+    nothing has been saved yet. A station with no internet, or one nobody has told where it
+    is, gets no packs to choose from and a step it can walk past, which is a working
+    station with no seasonality charts.
     """
     answers = _answers(request)
     latitude = answers.get(SettingsKey.LOCATION_LAT.value)
@@ -456,7 +450,8 @@ def _region_pack_context(request: HttpRequest) -> dict[str, Any]:
         return {"region_pack_unavailable": "no_location"}
 
     try:
-        choice = region_packs_logic.choose_for(float(latitude), float(longitude))
+        packs = region_packs_logic.available_packs()
+        choice = region_packs_logic.choose_from(packs, float(latitude), float(longitude))
     except (requests.RequestException, ValueError):
         # Logged rather than only shown. The step says "could not be reached", which is
         # all its reader can do anything about, and leaves whoever is looking at the
@@ -467,15 +462,27 @@ def _region_pack_context(request: HttpRequest) -> dict[str, Any]:
 
     if choice.region_pack is None:
         return {"region_pack_unavailable": "no_packs"}
+
+    language = _language(request)
     return {
-        "region_pack": choice.region_pack,
-        "region_pack_name": choice.region_pack.name_in(_language(request)),
+        "region_packs": [
+            {
+                "id": pack.id,
+                "name": pack.name_in(language),
+                "species_count": pack.species_count,
+                "megabytes": round(pack.size_bytes / 1_000_000),
+            }
+            for pack in sorted(packs, key=lambda pack: pack.name_in(language))
+        ],
+        # What this visitor picked, and the pack for the coordinates until they pick. The
+        # dropdown is a list of everything so that somebody near a border, or somebody who
+        # knows better, is not stuck with the box they happen to sit in.
+        "selected_region_pack_id": request.session.get(SESSION_REGION_PACK) or choice.region_pack.id,
+        "region_pack_name": choice.region_pack.name_in(language),
         "region_pack_covers": choice.covers,
         "region_pack_distance_km": None if choice.distance_km is None else round(choice.distance_km),
         "region_pack_request_url": region_packs_logic.REGION_PACK_REQUEST_URL,
         "region_pack_species_count": choice.region_pack.species_count,
-        "region_pack_megabytes": round(choice.region_pack.size_bytes / 1_000_000),
-        "installed_region_pack_id": region_packs_logic.installed_region_pack_id(),
     }
 
 
