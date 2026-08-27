@@ -1,8 +1,9 @@
 # Build the packages and publish them to the apt repository stations install from.
 #
 # Two suites come out of one pool. A push to main publishes a build carrying a PEP 440 local
-# version, which only the `main` suite offers, so nothing an owner runs can see it. A release
-# is published by hand from here until phase 5 wires the tag up, and goes to both suites.
+# version, which only the `unstable` suite offers, so nothing an owner runs can see it. A
+# release is published by hand from here until phase 5 wires the tag up, and goes to both
+# suites.
 #
 # The published site is a rendering of the pool, not the place the pool lives. The pool is the
 # assets of the `apt-pool` release: storage there is not capped, and unlike a branch it adds
@@ -129,8 +130,8 @@ jobs:
           path: backyardchirps/species_data/generated/taxonomy
           key: taxonomy-${{ env.TAXONOMY_WEEK }}
 
-      # A push to main publishes a local version, which only the main suite offers. A manual
-      # run with an empty suffix publishes a release, which both suites offer.
+      # A push to main publishes a local version, which only the unstable suite offers. A
+      # manual run with an empty suffix publishes a release, which both suites offer.
       #
       # The rule for what that local version looks like lives in build_packages.py and
       # nowhere else. Deploy needs the same string to install the exact version this job
@@ -323,7 +324,7 @@ jobs:
             cat > /etc/apt/sources.list.d/backyardchirps.sources <<EOF
           Types: deb
           URIs: $BASE
-          Suites: main
+          Suites: unstable
           Components: main
           Architectures: arm64
           Signed-By: /usr/share/keyrings/backyardchirps-archive-keyring.gpg

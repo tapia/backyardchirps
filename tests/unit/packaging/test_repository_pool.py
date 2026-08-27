@@ -16,8 +16,8 @@ import subprocess
 
 import pytest
 
-from tools.build_repository import MAIN
 from tools.build_repository import STABLE
+from tools.build_repository import UNSTABLE
 from tools.build_repository import DebianVersion
 from tools.build_repository import keyring_files_that_changed
 from tools.build_repository import plan_additions
@@ -37,15 +37,15 @@ def pooled(*packages: tuple[str, str]) -> dict[str, tuple[str, str]]:
 
 
 def test_a_release_is_offered_to_both_suites() -> None:
-    assert suites_for("0.3.0") == (STABLE, MAIN)
+    assert suites_for("0.3.0") == (STABLE, UNSTABLE)
 
 
-def test_a_build_off_main_is_offered_to_main_alone() -> None:
+def test_a_build_off_main_is_offered_to_unstable_alone() -> None:
     """
     The local version is the whole difference between a push to main and a cut release, and
     this is where that difference stops a contributor's commit from reaching a station.
     """
-    assert suites_for("0.3.0+main.abc1234") == (MAIN,)
+    assert suites_for("0.3.0+main.abc1234") == (UNSTABLE,)
 
 
 def test_the_pool_keeps_one_virtualenv_per_suite() -> None:
@@ -65,9 +65,9 @@ def test_the_pool_keeps_several_app_versions() -> None:
 
 def test_a_release_survives_even_when_newer_main_builds_crowd_it_out() -> None:
     """
-    The case that would break a station. main gets a build per commit, so five of them
+    The case that would break a station. unstable gets a build per commit, so five of them
     outnumber the release they came after. Pruning per suite is what keeps the release: it
-    is the newest thing stable offers, whatever main has been doing.
+    is the newest thing stable offers, whatever unstable has been doing.
     """
     main_builds = [("backyardchirps", f"0.3.0+main.{marker}") for marker in ("a1", "b2", "c3", "d4", "e5", "f6")]
     kept, _ = plan_pool(pooled(("backyardchirps", "0.3.0"), *main_builds))
@@ -90,7 +90,7 @@ def test_every_suite_a_kept_file_serves_still_has_something_to_offer() -> None:
     )
     kept, _ = plan_pool(everything)
 
-    for suite in (STABLE, MAIN):
+    for suite in (STABLE, UNSTABLE):
         offered = {everything[name][0] for name in kept if suite in suites_for(everything[name][1])}
         wanted = {package for package, version in everything.values() if suite in suites_for(version)}
         assert offered == wanted, f"{suite} lost a package entirely"
@@ -111,8 +111,8 @@ def test_stanzas_are_split_by_suite_rather_than_indexed_twice() -> None:
     entries = pooled(("backyardchirps", "0.3.0"), ("backyardchirps", "0.3.0+main.a1"))
 
     assert "0.3.0+main.a1" not in stanzas_for(packages_text, entries, STABLE)
-    assert "0.3.0+main.a1" in stanzas_for(packages_text, entries, MAIN)
-    assert "Version: 0.3.0\n" in stanzas_for(packages_text, entries, MAIN)
+    assert "0.3.0+main.a1" in stanzas_for(packages_text, entries, UNSTABLE)
+    assert "Version: 0.3.0\n" in stanzas_for(packages_text, entries, UNSTABLE)
 
 
 ORDERED_PAIRS = [

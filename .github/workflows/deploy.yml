@@ -33,7 +33,11 @@ env:
   # The suite carrying per-commit builds. The keyring package ships a source file naming
   # `stable`, which is releases only; this Pi reads a second file, owned by no package, so
   # an upgrade of the keyring can never move it back to stable.
-  SUITE: main
+  #
+  # The file is still called backyardchirps-main.sources, from when the suite was. It is
+  # rewritten on every run, so the name is all that is left of that and it goes away with
+  # the file itself. See docs/devel/debian-packaging.md.
+  SUITE: unstable
   MAIN_SOURCE: /etc/apt/sources.list.d/backyardchirps-main.sources
 
 jobs:
@@ -143,7 +147,7 @@ jobs:
       # with the next push instead of needing somebody to remember. No package owns this
       # file, which is what keeps an upgrade of the keyring package from resetting this
       # station to the stable suite.
-      - name: Point the station at the main suite
+      - name: Point the station at the unstable suite
         run: |
           set -euo pipefail
           if [ -z "$APT_BASE_URL" ]; then

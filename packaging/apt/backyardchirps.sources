@@ -5,7 +5,7 @@
 # ordinary package update. A conffile dpkg refused to overwrite would leave a station
 # pointing at a dead host, and nobody would find out until a release did not arrive.
 #
-# Suites is stable, which is releases only. The deploy Pi follows main through a separate
+# Suites is stable, which is releases only. The deploy Pi follows unstable through a separate
 # file no package owns, so rewriting this one never moves it back to stable.
 Types: deb
 URIs: ${APT_BASE_URL}

@@ -5,8 +5,8 @@ Turn a pool of .deb files into the signed apt repository a station installs from
 
 Two suites share one pool:
 
-  stable   what a station follows. Releases only
-  main     the per-commit suite. Releases and builds off main
+  stable     what a station follows. Releases only
+  unstable   the per-commit suite. Releases and builds off main
 
 Output is key=value lines on stdout and progress on stderr, the same shape the other two
 builders use, so a caller can do:
@@ -34,10 +34,12 @@ from typing import NoReturn
 REPO_ROOT = Path(__file__).resolve().parent.parent
 
 # Both suites, and which packages each one is offered. stable is what an owner's station
-# follows; main exists so every commit is exercised on real hardware before it is a release.
+# follows; unstable exists so every commit is exercised on real hardware before it is a
+# release. The component below is called main as well, which is Debian's own name for it,
+# and is a different thing from the suite.
 STABLE = "stable"
-MAIN = "main"
-SUITES = (STABLE, MAIN)
+UNSTABLE = "unstable"
+SUITES = (STABLE, UNSTABLE)
 
 COMPONENT = "main"
 ARCHITECTURE = "arm64"
@@ -136,7 +138,7 @@ def suites_for(version: str) -> tuple[str, ...]:
     that is the whole difference between "somebody pushed to main" and "somebody cut a
     release". Only a release reaches a station an owner runs.
     """
-    return (MAIN,) if "+" in version else SUITES
+    return (UNSTABLE,) if "+" in version else SUITES
 
 
 def plan_additions(pooled: set[tuple[str, str]], incoming: list[tuple[str, str]]) -> set[tuple[str, str]]:
