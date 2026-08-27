@@ -25,6 +25,7 @@ SERVICE_USER=backyardchirps
 MANAGE=/usr/lib/backyardchirps/bin/manage
 PYTHON=/opt/backyardchirps/venv/bin/python
 CHECK_UPDATE=/usr/lib/backyardchirps/bin/check-update
+REFRESH_KEYRING=/usr/lib/backyardchirps/bin/refresh-keyring
 ROLLBACK=/usr/lib/backyardchirps/bin/rollback
 
 PACKAGE=backyardchirps
@@ -129,6 +130,11 @@ VERSION="$requested"
 say "Requested: $VERSION"
 
 "${SCOPED_UPDATE[@]}" > /dev/null 2>&1 || fail checking "Could not read the repository."
+
+# The keyring first, so what follows is fetched from wherever the newest one says the archive
+# is. It cannot fail this update: a station that cannot take a new keyring can still take a
+# new version of itself.
+"$REFRESH_KEYRING" || true
 
 candidate="$(apt-cache policy "$PACKAGE" 2> /dev/null | awk '$1 == "Candidate:" { print $2; exit }')" \
     || candidate=""

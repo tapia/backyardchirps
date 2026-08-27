@@ -1,0 +1,86 @@
+#!/bin/bash
+# Bring the archive keyring package up to date.
+#
+# The one thing on a station that can act on a change of address or of signing key. Both
+# live in that package, so a station that never installs a newer copy of it can never be
+# told the archive has moved, and would go quiet the day the old address stopped answering.
+#
+# Run from check-update, which a timer starts daily, and from update just before it installs.
+# The daily one is what matters: it is the only path that reaches a machine nobody is
+# looking at.
+#
+# Never fatal, and always exits 0. A keyring that will not install leaves the station
+# exactly where it was, which is a working station, and reporting it as "the update check
+# failed" would hide a real update behind something unrelated to it.
+#
+# What makes this safe to run unattended is on the other side: the build refuses to publish
+# a keyring package whose key or address differs from the published copy at the same
+# version, so a changed address cannot arrive quietly at a version stations already accept.
+# See docs/devel/debian-packaging.md.
+set -euo pipefail
+
+PACKAGE=backyardchirps-archive-keyring
+
+# Overridable so the script can be run against fixtures. Same reason install.sh reads its
+# preflight paths this way.
+SOURCE_FILE="${SOURCE_FILE:-/etc/apt/sources.list.d/backyardchirps.sources}"
+
+# See check-update for why the refresh is scoped to our own source alone, and why it waits
+# for apt's lock rather than failing on it.
+SCOPED_UPDATE=(
+    apt-get update
+    -o "Dir::Etc::sourcelist=$SOURCE_FILE"
+    -o "Dir::Etc::sourceparts=/dev/null"
+    -o "APT::Get::List-Cleanup=0"
+    -o "DPkg::Lock::Timeout=60"
+)
+
+UNATTENDED=(
+    -y
+    -o "Dpkg::Options::=--force-confold"
+    -o "Dpkg::Options::=--force-confdef"
+    -o "DPkg::Lock::Timeout=60"
+)
+
+say() { printf '[refresh-keyring] %s\n' "$*"; }
+
+policy_field() {
+    apt-cache policy "$PACKAGE" 2> /dev/null | awk -v field="$1" '$1 == field ":" { print $2; exit }'
+}
+
+[ -f "$SOURCE_FILE" ] || exit 0
+
+candidate="$(policy_field Candidate)" || candidate=""
+installed="$(policy_field Installed)" || installed=""
+
+# Never installed here, only upgraded. A station with no keyring package is one installing
+# from somewhere that does not need it, which is what the container suite does with an
+# unsigned local repository, and putting one on it would change what that machine trusts.
+if [ -z "$installed" ] || [ "$installed" = "(none)" ]; then
+    exit 0
+fi
+
+if [ -z "$candidate" ] || [ "$candidate" = "(none)" ]; then
+    exit 0
+fi
+
+# dpkg's ordering, which is the one apt will obey. Anything worked out here could disagree
+# with it.
+if ! dpkg --compare-versions "$candidate" gt "$installed"; then
+    exit 0
+fi
+
+say "Archive keyring $installed is superseded by $candidate."
+if ! env DEBIAN_FRONTEND=noninteractive apt-get install "${UNATTENDED[@]}" "$PACKAGE"; then
+    say "It would not install, so this station keeps reading $installed. Nothing else changed."
+    exit 0
+fi
+say "Archive keyring is now $candidate."
+
+# The package has just replaced the source file, and it may name a different address from
+# the one the lists were read from. Without this the caller would go on to compare versions
+# against an archive the station no longer reads.
+"${SCOPED_UPDATE[@]}" > /dev/null 2>&1 \
+    || say "The repository could not be read after the keyring changed. The next run will try again."
+
+exit 0

@@ -18,6 +18,7 @@ set -euo pipefail
 DATA_DIR=/var/lib/backyardchirps
 SERVICE_USER=backyardchirps
 MANAGE=/usr/lib/backyardchirps/bin/manage
+REFRESH_KEYRING=/usr/lib/backyardchirps/bin/refresh-keyring
 PYTHON=/opt/backyardchirps/venv/bin/python
 
 PACKAGE=backyardchirps
@@ -113,6 +114,11 @@ if ! "${SCOPED_UPDATE[@]}" > /dev/null 2>&1; then
     import_result
     exit 0
 fi
+
+# Before the comparison below, because the keyring package carries the address this station
+# reads and a newer one may move it. This is the daily path, and the only one that reaches a
+# station whose owner never presses anything. It cannot fail this run: see the script.
+"$REFRESH_KEYRING" || true
 
 # Both fall back to empty rather than ending the run, so a station whose apt is unhappy
 # stores a reason instead of leaving the last answer looking current.
