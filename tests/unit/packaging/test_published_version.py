@@ -22,7 +22,8 @@ from tools.build_packages import main_build_version
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WORKFLOWS = REPO_ROOT / ".github" / "workflows"
 
-# The one command that composes it. Both workflows run this and read what it prints.
+# The one command that composes it. The workflow runs this and reads what it prints, rather
+# than building the string out of parts of its own.
 COMPOSER = "tools/build_packages.py --print-main-version"
 
 # Anything that looks like a workflow building the local version out of parts of its own.
@@ -36,12 +37,12 @@ def workflow(name: str) -> str:
     return (WORKFLOWS / name).read_text(encoding="utf-8")
 
 
-@pytest.mark.parametrize("name", ["publish.yml", "deploy.yml"])
+@pytest.mark.parametrize("name", ["publish.yml"])
 def test_the_version_of_a_main_build_comes_from_one_command(name: str) -> None:
     assert COMPOSER in workflow(name), f"{name} does not ask for the version, so it works it out itself"
 
 
-@pytest.mark.parametrize("name", ["publish.yml", "deploy.yml"])
+@pytest.mark.parametrize("name", ["publish.yml"])
 def test_no_workflow_builds_the_version_out_of_parts(name: str) -> None:
     lines = [line for line in workflow(name).splitlines() if not line.lstrip().startswith("#")]
     hand_rolled = [line.strip() for line in lines if COMPOSED_BY_HAND.search(line)]

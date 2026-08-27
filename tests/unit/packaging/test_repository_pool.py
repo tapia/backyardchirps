@@ -121,6 +121,10 @@ ORDERED_PAIRS = [
     ("0.2.0", "0.2.0+main.abc1234"),
     ("0.2.0+main.abc1234", "0.2.1"),
     ("0.2.0+main.abc1234", "0.2.0+main.bcd2345"),
+    # The shape a per-commit version actually has, and the one the update badge compares:
+    # the count rises while the sha falls, so anything ordering by sha gets this backwards.
+    # Nothing depended on it until the station started choosing its own build.
+    ("0.3.0+main.500.f9e8d7c", "0.3.0+main.501.a1b2c3d"),
     ("1.9", "1.10"),
     ("1.20260101", "1.20260102"),
     ("1.0~rc1", "1.0"),
