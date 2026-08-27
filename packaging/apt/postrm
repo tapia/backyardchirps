@@ -1,0 +1,19 @@
+#!/bin/sh
+# Runs after the package's own files are gone.
+#
+#   $1  remove | purge | upgrade | disappear | failed-upgrade | abort-*
+#
+# The channel file is not shipped by the package, so dpkg does not know to take it away.
+# See the comment in postinst for why it is not shipped.
+set -e
+
+CHANNEL_FILE="${CHANNEL_FILE:-/etc/backyardchirps/channel}"
+
+# Only on purge. A plain remove keeps the choice, so a station that reinstalls comes back on
+# the suite it was following rather than quietly on stable.
+if [ "$1" = purge ]; then
+    rm -f "$CHANNEL_FILE"
+    # Only if nothing else is in there. It is this package's directory today, and being
+    # wrong about that later should cost nothing.
+    rmdir "$(dirname "$CHANNEL_FILE")" 2> /dev/null || true
+fi

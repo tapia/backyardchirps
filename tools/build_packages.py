@@ -199,6 +199,7 @@ def main() -> None:
         "STAGING_DATA": str(staging / "species-data"),
         "STAGING_KEYRING": str(staging / "keyring"),
         "SCRIPTS": str(staging / "scripts"),
+        "KEYRING_SCRIPTS": str(staging / "keyring-scripts"),
         "TAXONOMY_FETCHED": taxonomy_fetched,
         "TAXONOMY_SHA256": taxonomy_sha256,
         "RELEASED": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -431,6 +432,15 @@ def _stage_keyring(staging: Path, apt_key: Path | None, apt_base_url: str) -> No
     source = keyring / "etc/apt/sources.list.d/backyardchirps.sources"
     source.parent.mkdir(parents=True, exist_ok=True)
     source.write_text(Template(template).substitute(APT_BASE_URL=apt_base_url.rstrip("/")), encoding="utf-8")
+
+    # The two scripts that put the machine's own suite back on top of that file. They live
+    # beside it under packaging/apt, which is what the keyring package counts commits over,
+    # so changing one of them moves the version the way changing the source file does.
+    scripts = staging / "keyring-scripts"
+    scripts.mkdir(parents=True, exist_ok=True)
+    for name in ("postinst", "postrm"):
+        _copy_to(PACKAGING / "apt" / name, scripts / name)
+        (scripts / name).chmod(0o755)
 
 
 def _stage_licence(tree: Path, package: str) -> None:

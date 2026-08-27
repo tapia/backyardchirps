@@ -1,0 +1,76 @@
+#!/bin/sh
+# Runs after the key and the source file are unpacked.
+#
+#   $1  configure | abort-upgrade | abort-remove | abort-deconfigure
+#   $2  on an upgrade, the version being replaced. Empty on a first install.
+#
+# The one job here is to put the machine's own choice of suite back on top of the source
+# file dpkg has just restored. That file is not a conffile on purpose: every upgrade
+# rewrites it verbatim, which is how a change of address or of key reaches a station nobody
+# is watching. The cost is that it cannot also carry a local decision, so the suite lives
+# in a file of its own and this puts the two together.
+#
+# See docs/devel/debian-packaging.md.
+set -e
+
+# Overridable so the script can be run against fixtures, which is the only way to exercise
+# it: a test cannot write to /etc, and installing the package to find out is the container
+# suite's job. Same reason install.sh reads its preflight paths this way.
+CHANNEL_FILE="${CHANNEL_FILE:-/etc/backyardchirps/channel}"
+SOURCE_FILE="${SOURCE_FILE:-/etc/apt/sources.list.d/backyardchirps.sources}"
+
+# The suites the archive publishes. stable is releases only and is what a station follows.
+# unstable carries a build of every commit, and is for a machine somebody is developing on.
+KNOWN_CHANNELS="stable unstable"
+DEFAULT_CHANNEL=stable
+
+say() { echo "[backyardchirps-archive-keyring] $*"; }
+
+is_known() {
+    case " $KNOWN_CHANNELS " in
+        *" $1 "*) return 0 ;;
+    esac
+    return 1
+}
+
+[ "$1" = configure ] || exit 0
+
+# Created here rather than shipped in the package. A path dpkg owned would be one it had
+# opinions about, and install.sh writes this before the package ever arrives: dpkg meeting a
+# file it did not put there is a prompt with nobody present to answer it.
+if [ ! -f "$CHANNEL_FILE" ]; then
+    mkdir -p "$(dirname "$CHANNEL_FILE")"
+    echo "$DEFAULT_CHANNEL" > "$CHANNEL_FILE"
+    chmod 644 "$CHANNEL_FILE"
+fi
+
+# The first word that is not a comment. Anything else in there is somebody's note to
+# themselves.
+channel="$(sed -e 's/#.*//' -e 's/[[:space:]]//g' "$CHANNEL_FILE" | grep -v '^$' | head -n 1)"
+
+if [ -z "$channel" ]; then
+    say "$CHANNEL_FILE is empty, so this station follows $DEFAULT_CHANNEL."
+    channel="$DEFAULT_CHANNEL"
+elif ! is_known "$channel"; then
+    say "$CHANNEL_FILE says '$channel', which is not one of: $KNOWN_CHANNELS."
+    say "This station follows $DEFAULT_CHANNEL instead. Correct the file and reinstall this package."
+    channel="$DEFAULT_CHANNEL"
+fi
+
+# A source file with no Suites line is one this does not understand, and guessing at it
+# would be worse than leaving a station on what it already reads.
+if ! grep -q '^Suites: ' "$SOURCE_FILE"; then
+    say "$SOURCE_FILE has no Suites line, so it was left alone."
+    exit 0
+fi
+
+# Written whole through a temporary file beside it, so apt never reads it half written.
+sed "s|^Suites: .*|Suites: $channel|" "$SOURCE_FILE" > "$SOURCE_FILE.new"
+chmod 644 "$SOURCE_FILE.new"
+mv "$SOURCE_FILE.new" "$SOURCE_FILE"
+
+# Said only when it is not the ordinary answer. A station on stable would otherwise print
+# this on every upgrade for ever.
+if [ "$channel" != "$DEFAULT_CHANNEL" ]; then
+    say "This station follows the $channel suite."
+fi

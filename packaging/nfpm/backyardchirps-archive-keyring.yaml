@@ -39,3 +39,10 @@ contents:
   # The licence, at the path a Debian package keeps it.
   - src: ${STAGING_KEYRING}/usr/share/doc/backyardchirps-archive-keyring/copyright
     dst: /usr/share/doc/backyardchirps-archive-keyring/copyright
+
+# /etc/backyardchirps/channel is deliberately not in the list above. The postinst creates it
+# when it is missing, so dpkg never owns it, never restores it and never asks about a copy
+# install.sh wrote before this package arrived. postrm takes it away on a purge.
+scripts:
+  postinstall: ${KEYRING_SCRIPTS}/postinst
+  postremove: ${KEYRING_SCRIPTS}/postrm

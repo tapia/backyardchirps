@@ -5,8 +5,10 @@
 # ordinary package update. A conffile dpkg refused to overwrite would leave a station
 # pointing at a dead host, and nobody would find out until a release did not arrive.
 #
-# Suites is stable, which is releases only. The deploy Pi follows unstable through a separate
-# file no package owns, so rewriting this one never moves it back to stable.
+# Suites names the default, which is releases only. A machine that follows another suite says
+# so in /etc/backyardchirps/channel, and the postinst beside this file rewrites the line to
+# match after every upgrade has restored it. So the address and the key come from the
+# package, the suite comes from the machine, and neither can overwrite the other.
 Types: deb
 URIs: ${APT_BASE_URL}
 Suites: stable

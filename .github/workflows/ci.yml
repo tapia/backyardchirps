@@ -88,4 +88,4 @@ jobs:
       - name: ShellCheck
         run: |
           shellcheck --severity=style \
-            install.sh packaging/scripts/* packaging/bin/*
+            install.sh packaging/scripts/* packaging/bin/* packaging/apt/postinst packaging/apt/postrm
