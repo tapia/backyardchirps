@@ -2,8 +2,8 @@
 #
 # Two suites come out of one pool. A push to main publishes a build carrying a PEP 440 local
 # version, which only the `unstable` suite offers, so nothing an owner runs can see it. A
-# release is published by hand from here until phase 5 wires the tag up, and goes to both
-# suites.
+# release is published by hand from here, through workflow_dispatch with no version suffix,
+# and goes to both suites.
 #
 # The published site is a rendering of the pool, not the place the pool lives. The pool is the
 # assets of the `apt-pool` release: storage there is not capped, and unlike a branch it adds
@@ -113,6 +113,11 @@ jobs:
       #
       # CI takes about a minute and starts at the same moment as this, so the first look
       # usually finds a finished run. The loop is for the times it does not.
+      #
+      # An error from the API is not an answer about CI, and the two are kept apart on
+      # purpose: "CI has not started yet" means wait, while "this job cannot see CI" means
+      # the workflow is wrong and no amount of waiting fixes it. Reading them as the same
+      # thing costs ten minutes and then blames CI for a permissions problem.
       - name: Refuse to publish a commit CI has not passed
         if: github.event_name == 'push'
         env:
@@ -121,11 +126,33 @@ jobs:
           SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
+          errors="$RUNNER_TEMP/ci-gate.err"
+          # Which of the two the last attempt hit, so the message at the end blames the
+          # right thing after ten minutes of either.
+          could_not_read=no
+
           for attempt in $(seq 1 30); do
-            run="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA" \
-              --jq '.workflow_runs[0] | "\(.status) \(.conclusion // "")"' 2> /dev/null || true)"
-            status="${run%% *}"
-            conclusion="${run#* }"
+            # stderr to a file rather than folded into the answer, so a warning on a
+            # successful call cannot be parsed as CI's status.
+            if ! answer="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA" \
+                --jq '.workflow_runs[0] | "\(.status) \(.conclusion // "")"' 2> "$errors")"; then
+              echo "attempt $attempt: could not read the CI runs for $SHA. GitHub answered:" >&2
+              cat "$errors" >&2
+              case "$(cat "$errors")" in
+                *403*|*401*|*"not accessible"*)
+                  echo "That is an answer about permissions, not about CI, and waiting will" >&2
+                  echo "not change it. This workflow needs 'actions: read'." >&2
+                  exit 1
+                  ;;
+              esac
+              could_not_read=yes
+              sleep 20
+              continue
+            fi
+            could_not_read=no
+
+            status="${answer%% *}"
+            conclusion="${answer#* }"
             case "$status" in
               completed)
                 if [ "$conclusion" = success ]; then
@@ -135,7 +162,9 @@ jobs:
                 echo "CI concluded '$conclusion' for $SHA, so nothing is published." >&2
                 exit 1
                 ;;
-              '')
+              # No run yet. jq reads the missing first element as null, which is what the
+              # API says when CI has not started, not when it has gone wrong.
+              null)
                 echo "attempt $attempt: no CI run for $SHA yet"
                 ;;
               *)
@@ -144,7 +173,14 @@ jobs:
             esac
             sleep 20
           done
-          echo "CI never reported for $SHA within ten minutes." >&2
+
+          if [ "$could_not_read" = yes ]; then
+            echo "The CI runs for $SHA could not be read in ten minutes of trying." >&2
+            echo "That is a problem with this job or with GitHub, not with CI." >&2
+          else
+            echo "CI did not finish for $SHA within ten minutes." >&2
+          fi
+          echo "Nothing is published." >&2
           exit 1
 
       - name: Install uv
