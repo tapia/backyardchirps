@@ -58,6 +58,9 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  # Reading the CI run over the commit being published. Everything not listed here is none,
+  # so without this the gate below cannot see whether CI passed and fails with a 403.
+  actions: read
 
 env:
   # The release whose assets are the pool. It holds no source and is never something a person
@@ -100,6 +103,49 @@ jobs:
             https://*) ;;
             *) echo "vars.APT_BASE_URL must be an https URL." >&2; exit 1 ;;
           esac
+
+      # The gate that keeps a failing commit out of the archive. CI does not gate this
+      # workflow by trigger, so without it a commit that fails the suite would be built,
+      # signed and offered to every machine following the unstable suite.
+      #
+      # Only for a push. A release published by hand is a person deciding, and the nightly
+      # taxonomy job runs the suite itself before it calls this.
+      #
+      # CI takes about a minute and starts at the same moment as this, so the first look
+      # usually finds a finished run. The loop is for the times it does not.
+      - name: Refuse to publish a commit CI has not passed
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 30); do
+            run="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA" \
+              --jq '.workflow_runs[0] | "\(.status) \(.conclusion // "")"' 2> /dev/null || true)"
+            status="${run%% *}"
+            conclusion="${run#* }"
+            case "$status" in
+              completed)
+                if [ "$conclusion" = success ]; then
+                  echo "CI passed for $SHA"
+                  exit 0
+                fi
+                echo "CI concluded '$conclusion' for $SHA, so nothing is published." >&2
+                exit 1
+                ;;
+              '')
+                echo "attempt $attempt: no CI run for $SHA yet"
+                ;;
+              *)
+                echo "attempt $attempt: CI is $status"
+                ;;
+            esac
+            sleep 20
+          done
+          echo "CI never reported for $SHA within ten minutes." >&2
+          exit 1
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

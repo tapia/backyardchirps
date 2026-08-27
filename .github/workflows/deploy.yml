@@ -8,8 +8,9 @@ name: Deploy
 # station installs them the way a stranger's would.
 #
 # The trigger is Publish rather than CI, because the thing being deployed is a package that
-# does not exist until Publish has made it. CI is still the gate: the job below waits for
-# the CI run over the same commit and refuses to deploy a commit CI rejected.
+# does not exist until Publish has made it. CI is still the gate, one step further back:
+# Publish refuses to publish a commit CI has not passed, so a rejected commit has no version
+# for this to install.
 #
 # The branches filter is not enough on its own. It matches the head branch of whatever
 # triggered Publish, and a pull request from a fork carries its own branch name, which is
@@ -27,7 +28,6 @@ on:
 
 permissions:
   contents: read
-  actions: read
 
 env:
   # The suite carrying per-commit builds. The keyring package ships a source file naming
@@ -41,7 +41,7 @@ env:
 
 jobs:
   check:
-    name: Wait for CI and work out the version
+    name: Work out the version
     runs-on: ubuntu-latest
     # Pushes only. Publish is also reachable by hand and from the nightly taxonomy job, and
     # neither of those builds a per-commit app package, so a deploy triggered by one would sit
@@ -62,43 +62,6 @@ jobs:
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
-
-      # Publish does not depend on CI, so without this a commit that fails the suite would
-      # reach the station anyway. Publish takes several minutes and CI about one, so this
-      # almost always finds a finished run on the first look; the loop is for the times it
-      # does not.
-      - name: Refuse to deploy a commit CI has not passed
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPO: ${{ github.repository }}
-          SHA: ${{ github.event.workflow_run.head_sha }}
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 30); do
-            run="$(gh api "repos/$REPO/actions/workflows/ci.yml/runs?head_sha=$SHA" \
-              --jq '.workflow_runs[0] | "\(.status) \(.conclusion // "")"' 2> /dev/null || true)"
-            status="${run%% *}"
-            conclusion="${run#* }"
-            case "$status" in
-              completed)
-                if [ "$conclusion" = success ]; then
-                  echo "CI passed for $SHA"
-                  exit 0
-                fi
-                echo "CI concluded '$conclusion' for $SHA, so nothing is deployed." >&2
-                exit 1
-                ;;
-              '')
-                echo "attempt $attempt: no CI run for $SHA yet"
-                ;;
-              *)
-                echo "attempt $attempt: CI is $status"
-                ;;
-            esac
-            sleep 20
-          done
-          echo "CI never reported for $SHA within ten minutes." >&2
-          exit 1
 
       # Nothing is synced. The step below reads pyproject.toml and the git history and
       # nothing else, and uv is here so that it runs under the same interpreter Publish uses.
