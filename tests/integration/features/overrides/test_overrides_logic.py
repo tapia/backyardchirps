@@ -84,9 +84,8 @@ def test_lowering_the_global_bar_publishes_what_was_waiting_on_it(
     below = create_detection(scientific_name=ROBIN, confidence=0.60, validation_status=ValidationStatus.PENDING)
 
     Settings.set(SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE, "0.8")
-    published = species_overrides.clear_queue_for_global_bar(previous_bar=0.9)
+    species_overrides.clear_queue_for_global_bar(previous_bar=0.9)
 
-    assert published == 1
     assert _status(above.id) == ValidationStatus.AUTO_CONFIRMED
     assert _status(below.id) == ValidationStatus.PENDING
 
@@ -101,8 +100,8 @@ def test_a_species_with_its_own_bar_ignores_the_global_one(
     create_override(scientific_name=BLACKBIRD, threshold=0.95)
 
     Settings.set(SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE, "0.8")
+    species_overrides.clear_queue_for_global_bar(previous_bar=0.9)
 
-    assert species_overrides.clear_queue_for_global_bar(previous_bar=0.9) == 0
     assert _status(pending.id) == ValidationStatus.PENDING
 
 
@@ -113,6 +112,6 @@ def test_raising_the_global_bar_publishes_nothing(
     pending = create_detection(scientific_name=BLACKBIRD, confidence=0.95, validation_status=ValidationStatus.PENDING)
 
     Settings.set(SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE, "0.98")
+    species_overrides.clear_queue_for_global_bar(previous_bar=0.9)
 
-    assert species_overrides.clear_queue_for_global_bar(previous_bar=0.9) == 0
     assert _status(pending.id) == ValidationStatus.PENDING

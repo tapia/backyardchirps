@@ -18,8 +18,7 @@ def app_settings(request: Request) -> Response:
     reports an unknown key or a bad value against the field it came from.
 
     Lowering the auto-confirm bar publishes the detections that were only waiting on the
-    old one, and the response says how many, since that is a change to the site nobody
-    asked for directly.
+    old one.
     """
     if request.method == "PUT":
         errors: dict[str, str] = {}
@@ -34,7 +33,6 @@ def app_settings(request: Request) -> Response:
         if errors:
             return Response({"errors": errors}, status=400)
 
-        published = clear_queue_for_global_bar(previous_bar)
-        return Response({**Settings.as_dict(), "published_from_queue": published})
+        clear_queue_for_global_bar(previous_bar)
 
     return Response(Settings.as_dict())

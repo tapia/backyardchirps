@@ -33,10 +33,10 @@ def clear_override(species: Species) -> None:
     _clear_queue_if_lowered(species, old_bar, _global_bar())
 
 
-def clear_queue_for_global_bar(previous_bar: float) -> int:
+def clear_queue_for_global_bar(previous_bar: float) -> None:
     """
     Publish the detections that were only waiting because the global auto-confirm bar
-    used to be higher, and report how many.
+    used to be higher.
 
     Called after the setting is saved. Without it a detection's fate would depend on the
     day it was heard: the same bird at the same score published today and still queued
@@ -44,9 +44,8 @@ def clear_queue_for_global_bar(previous_bar: float) -> int:
     detections people have already seen back into the queue.
     """
     new_bar = _global_bar()
-    if new_bar >= previous_bar:
-        return 0
-    return detection_queries.auto_confirm_pending_above_default(new_bar)
+    if new_bar < previous_bar:
+        detection_queries.auto_confirm_pending_above_default(new_bar)
 
 
 def _clear_queue_if_lowered(species: Species, old_bar: float, new_bar: float) -> None:

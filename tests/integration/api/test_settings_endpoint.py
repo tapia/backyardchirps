@@ -48,5 +48,5 @@ def test_lowering_the_auto_confirm_bar_publishes_what_was_waiting(
 
     response = admin_client.put(_SETTINGS_PATH, {"analysis_auto_confirm_confidence": "0.8"}, format="json")
 
-    assert response.data["published_from_queue"] == 1
+    assert response.status_code == 200
     assert detection_queries.get_by_id(pending.id).validation_status == ValidationStatus.AUTO_CONFIRMED
