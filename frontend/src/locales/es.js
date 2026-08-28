@@ -269,6 +269,8 @@ export default {
     copied: '¡Copiado!',
   },
   detection: {
+    pending: 'Pendiente de revisión',
+    pendingHint: 'Esperando a que alguien la revise, y no aparece en ninguna otra parte del sitio',
     validated: 'Validada',
     validatedHint: 'Revisada por una persona, así que la puntuación de BirdNET ya no dice nada',
   },

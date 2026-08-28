@@ -232,6 +232,7 @@ def _detection_list_entry(detection: dict, lang: str) -> dict:
         "recorded_at": detection["recorded_at"],
         "confidence": detection["confidence"],
         "analysis_time_ms": detection["analysis_time_ms"],
+        "validation_status": detection["validation_status"],
         "species": _list_species(detection["species"], detection["scientific_name"], lang),
         "candidates": [_candidate_entry(candidate, lang) for candidate in detection["candidates"]],
     }

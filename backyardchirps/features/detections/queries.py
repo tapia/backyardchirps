@@ -67,6 +67,10 @@ def list_detections(
     """
     A page of detections, newest first, plus the total number that matched.
 
+    Unlike everywhere else on the site, this includes the detections still waiting for
+    review: it is the one page that shows everything the station heard, and it says which
+    rows are pending rather than leaving them out.
+
     Can be narrowed to one species and to a [start, end] date range. A filter left as
     None is not applied.
     """
@@ -76,7 +80,13 @@ def list_detections(
     queryset = queryset.order_by("-recorded_at")
     total = queryset.count()
     rows = queryset.values(
-        "id", "recorded_at", "confidence", "analysis_time_ms", "species__scientific_name", "analysis_candidates"
+        "id",
+        "recorded_at",
+        "confidence",
+        "analysis_time_ms",
+        "validation_status",
+        "species__scientific_name",
+        "analysis_candidates",
     )[offset : offset + limit]
     detections = []
     for row in rows:
@@ -87,6 +97,7 @@ def list_detections(
                 "recorded_at": row["recorded_at"],
                 "confidence": row["confidence"],
                 "analysis_time_ms": row["analysis_time_ms"],
+                "validation_status": row["validation_status"],
                 "scientific_name": scientific_name,
                 "species": Species.from_scientific_name(scientific_name),
                 "candidates": [

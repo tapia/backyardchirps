@@ -159,6 +159,8 @@ def test_detections_list(api_client: APIClient, create_detection: Callable[..., 
     newest = entries[0]
     assert newest["analysis_time_ms"] == 140
     assert newest["confidence"] == 0.82
+    # This is the one page that shows pending detections, so it has to say which they are.
+    assert newest["validation_status"] == ValidationStatus.AUTO_CONFIRMED
     assert newest["species"]["scientific_name"] == BLACKBIRD
     # The frontend reads the capture time under this name.
     assert newest["recorded_at"] == datetime(2026, 1, 2, 8, 0, tzinfo=timezone.utc)

@@ -76,7 +76,17 @@
                   >
                     {{ detection.species.common_name || detection.species.scientific_name }}
                   </span>
-                  <ConfidenceBadge :confidence="detection.confidence" />
+                  <ConfidenceBadge
+                    :confidence="detection.confidence"
+                    :validated="detection.validation_status === 'human_confirmed'"
+                  />
+                  <span
+                    v-if="detection.validation_status === 'pending'"
+                    class="pending-badge"
+                    v-bs-tooltip="t('detection.pendingHint')"
+                  >
+                    <i class="bi bi-hourglass-split me-1"></i>{{ t('detection.pending') }}
+                  </span>
                 </div>
               </td>
               <td class="candidates">
@@ -340,6 +350,20 @@ watch(selectedSpecies, () => load(0))
   display: flex;
   align-items: center;
   gap: 8px;
+}
+/* This page is the only one that shows detections still waiting for review, so
+   they carry a marker rather than passing as published. */
+.pending-badge {
+  display: inline-block;
+  font-family: var(--font-sans);
+  font-size: 0.68rem;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  padding: 0 5px;
+  border: 1px solid var(--dust);
+  border-radius: 1px;
+  color: var(--slate);
+  white-space: nowrap;
 }
 .species-name {
   font-family: var(--font-serif);

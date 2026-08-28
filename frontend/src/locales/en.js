@@ -268,6 +268,8 @@ export default {
     yesterday: 'Yesterday',
   },
   detection: {
+    pending: 'Pending review',
+    pendingHint: 'Waiting for someone to check it, and not shown anywhere else on the site',
     validated: 'Validated',
     validatedHint: "Checked by a person, so BirdNET's score no longer says anything",
   },
