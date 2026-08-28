@@ -187,13 +187,11 @@ import SpeciesGridCard from '../components/species/SpeciesGridCard.vue'
 import SpeciesListRow from '../components/species/SpeciesListRow.vue'
 import SpeciesComparisonViolinChart from '../components/charts/SpeciesComparisonViolinChart.vue'
 import SpeciesHourlyHeatmapChart from '../components/charts/SpeciesHourlyHeatmapChart.vue'
-import { useConfidenceFilter } from '../composables/useConfidenceFilter.js'
 import { readChartMode, writeChartMode } from '../chartModeStorage.js'
 import { formatShortDateRange } from '../dates.js'
 
 const { t, locale } = useI18n()
 const lang = inject('lang')
-const { confidenceLevel } = useConfidenceFilter()
 // Initial window is left null: the period picker emits the restored (or default)
 // selection on mount, which populates these and triggers the first fetch.
 const start = ref(null)
@@ -305,7 +303,6 @@ async function fetchSpecies() {
       lang: lang.value,
       start: start.value,
       end: end.value,
-      minConfidence: confidenceLevel.value,
     })
     species.value = fresh
     // Both charts follow this selection; the selectedSlugs watch refreshes them.
@@ -325,7 +322,6 @@ async function fetchChart() {
     lang: lang.value,
     start: start.value,
     end: end.value,
-    minConfidence: confidenceLevel.value,
   })
   chartSeries.value = data.series
   chartGranularity.value = data.granularity
@@ -349,7 +345,6 @@ async function fetchHourly() {
     lang: lang.value,
     start: start.value,
     end: end.value,
-    minConfidence: confidenceLevel.value,
   })
   hourlySpecies.value = data.species
   hourlyDays.value = data.days
@@ -373,9 +368,9 @@ watch(chartSpeciesCount, (count) => {
 // The period picker emits the restored (or default) window on mount, which
 // flows through onPeriodChange and triggers the initial fetch via this watch,
 // so no separate onMounted fetch is needed.
-watch([start, end, sort, lang, confidenceLevel], fetchSpecies)
+watch([start, end, sort, lang], fetchSpecies)
 
-// Every input change (period, sort, language, confidence) reassigns
+// Every input change (period, sort, language) reassigns
 // selectedSlugs in fetchSpecies, and toggling a card reassigns it too, so a
 // single watch keeps both charts in sync with the selection. The violin
 // refetches eagerly; the hourly chart is lazy and only refetches when shown.

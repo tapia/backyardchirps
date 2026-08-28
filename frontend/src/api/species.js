@@ -1,15 +1,15 @@
 import client, { dropEmptyParams } from './client.js'
 
-export async function fetchSpeciesList({ sort, lang, start, end, minConfidence } = {}) {
+export async function fetchSpeciesList({ sort, lang, start, end } = {}) {
   const { data } = await client.get('/api/species/', {
-    params: dropEmptyParams({ sort, lang, start, end, min_confidence: minConfidence }),
+    params: dropEmptyParams({ sort, lang, start, end }),
   })
   return data.species
 }
 
-export async function fetchSpeciesDetail(speciesSlug, { lang, start, end, minConfidence } = {}) {
+export async function fetchSpeciesDetail(speciesSlug, { lang, start, end } = {}) {
   const { data } = await client.get(speciesUrl(speciesSlug), {
-    params: dropEmptyParams({ lang, start, end, min_confidence: minConfidence }),
+    params: dropEmptyParams({ lang, start, end }),
   })
   return data
 }

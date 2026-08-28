@@ -17,56 +17,46 @@ export async function fetchAllDetections({ lang, offset, limit, species, start, 
 }
 
 // Detection counts for one species, bucketed by hour of day (0-23).
-export async function fetchDetectionsPerHourOfDay(speciesSlug, { start, end, minConfidence } = {}) {
+export async function fetchDetectionsPerHourOfDay(speciesSlug, { start, end } = {}) {
   const { data } = await client.get(speciesUrl(speciesSlug, 'hourly/'), {
-    params: dropEmptyParams({ start, end, min_confidence: minConfidence }),
+    params: dropEmptyParams({ start, end }),
   })
   return data.hourly
 }
 
 // Detection counts for one species on a date × hour grid.
 // Returns { heatmap, x_labels, granularity }.
-export async function fetchDetectionsHeatmap(speciesSlug, { start, end, minConfidence } = {}) {
+export async function fetchDetectionsHeatmap(speciesSlug, { start, end } = {}) {
   const { data } = await client.get(speciesUrl(speciesSlug, 'heatmap/'), {
-    params: dropEmptyParams({ start, end, min_confidence: minConfidence }),
+    params: dropEmptyParams({ start, end }),
   })
   return data
 }
 
 // Daily detection counts for one species over the last year.
-export async function fetchDetectionsPerDayOverLastYear(speciesSlug, { minConfidence } = {}) {
-  const { data } = await client.get(speciesUrl(speciesSlug, 'yearly/'), {
-    params: dropEmptyParams({ min_confidence: minConfidence }),
-  })
+export async function fetchDetectionsPerDayOverLastYear(speciesSlug) {
+  const { data } = await client.get(speciesUrl(speciesSlug, 'yearly/'))
   return data.daily
 }
 
 // Detection counts for every species over a 24-hour window, one bucket per hour,
 // plus sunrise/sunset times. daysBack shifts the window into the past (0 = ending now).
 // Returns { hours, astro }.
-export async function fetchDetectionsPerSpeciesPerHour({ lang, minConfidence, daysBack } = {}) {
+export async function fetchDetectionsPerSpeciesPerHour({ lang, daysBack } = {}) {
   const { data } = await client.get('/api/detections/hourly/', {
-    params: dropEmptyParams({ lang, min_confidence: minConfidence, offset: daysBack || undefined }),
+    params: dropEmptyParams({ lang, offset: daysBack || undefined }),
   })
   return data
 }
 
 // Detection counts for the given species bucketed by clock hour (0-23) summed
 // across the period, in the requested order. Returns { species, days }.
-export async function fetchDetectionsByHourOfDay({
-  speciesSlugs,
-  lang,
-  start,
-  end,
-  minConfidence,
-} = {}) {
+export async function fetchDetectionsByHourOfDay({ speciesSlugs, lang, start, end } = {}) {
   // Hand-built query string: the endpoint expects the species param repeated
   // (?species=a&species=b), which axios' default array serialization doesn't produce.
   const params = new URLSearchParams()
   for (const speciesSlug of speciesSlugs) params.append('species', speciesSlug)
-  for (const [key, value] of Object.entries(
-    dropEmptyParams({ lang, start, end, min_confidence: minConfidence }),
-  )) {
+  for (const [key, value] of Object.entries(dropEmptyParams({ lang, start, end }))) {
     params.append(key, value)
   }
   const { data } = await client.get(`/api/detections/by-hour-of-day/?${params}`)
@@ -75,20 +65,12 @@ export async function fetchDetectionsByHourOfDay({
 
 // Detection-count time series for several species at once.
 // Returns { series, granularity }.
-export async function fetchDetectionsTimeline({
-  speciesSlugs,
-  lang,
-  start,
-  end,
-  minConfidence,
-} = {}) {
+export async function fetchDetectionsTimeline({ speciesSlugs, lang, start, end } = {}) {
   // Hand-built query string: the endpoint expects the species param repeated
   // (?species=a&species=b), which axios' default array serialization doesn't produce.
   const params = new URLSearchParams()
   for (const speciesSlug of speciesSlugs) params.append('species', speciesSlug)
-  for (const [key, value] of Object.entries(
-    dropEmptyParams({ lang, start, end, min_confidence: minConfidence }),
-  )) {
+  for (const [key, value] of Object.entries(dropEmptyParams({ lang, start, end }))) {
     params.append(key, value)
   }
   const { data } = await client.get(`/api/detections/timeline/?${params}`)

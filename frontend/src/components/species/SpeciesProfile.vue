@@ -146,7 +146,6 @@ import SpeciesProfileHeader from './SpeciesProfileHeader.vue'
 import SpeciesKpiCards from './SpeciesKpiCards.vue'
 import SpeciesPresence from './SpeciesPresence.vue'
 import SpeciesRecordingsTab from './SpeciesRecordingsTab.vue'
-import { useConfidenceFilter } from '../../composables/useConfidenceFilter.js'
 import { formatShortDateRange } from '../../dates.js'
 
 const props = defineProps({
@@ -173,7 +172,6 @@ function presetStartDate(preset) {
 
 const { t, locale } = useI18n()
 const lang = inject('lang')
-const { confidenceLevel } = useConfidenceFilter()
 
 const detectionSettings = computed(
   () => species.value?.detection_settings ?? { blacklisted: false, auto_confirm_threshold: null },
@@ -227,19 +225,10 @@ const highlights = computed(() =>
 )
 
 async function _fetchHighlightsHourly() {
-  return api.fetchDetectionsPerHourOfDay(props.speciesSlug, {
-    start: presetStartDate('1y'),
-    minConfidence: confidenceLevel.value,
-  })
+  return api.fetchDetectionsPerHourOfDay(props.speciesSlug, { start: presetStartDate('1y') })
 }
 
-watch(confidenceLevel, async () => {
-  if (species.value?.has_detections) {
-    highlightsHourly.value = await _fetchHighlightsHourly()
-  }
-})
-
-watch([start, end, confidenceLevel, locale], reloadSpeciesAndCharts)
+watch([start, end, locale], reloadSpeciesAndCharts)
 
 watch(
   () => props.speciesSlug,
@@ -257,7 +246,7 @@ async function onSettingsUpdated() {
 }
 
 function _filterParams() {
-  return { start: start.value, end: end.value, minConfidence: confidenceLevel.value }
+  return { start: start.value, end: end.value }
 }
 
 async function _fetchSpeciesDetail() {
@@ -269,9 +258,7 @@ async function _fetchChartData() {
   const [hourly, heatmap, yearly] = await Promise.all([
     api.fetchDetectionsPerHourOfDay(props.speciesSlug, params),
     api.fetchDetectionsHeatmap(props.speciesSlug, params),
-    api.fetchDetectionsPerDayOverLastYear(props.speciesSlug, {
-      minConfidence: confidenceLevel.value,
-    }),
+    api.fetchDetectionsPerDayOverLastYear(props.speciesSlug),
   ])
   return {
     hourly,

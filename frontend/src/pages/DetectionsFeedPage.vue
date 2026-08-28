@@ -128,11 +128,9 @@ import { formatShortDateRange, shortRelativeTime } from '../dates.js'
 import { speciesRoute } from '../links.js'
 import DetectionsFeedItem from '../components/feed/DetectionsFeedItem.vue'
 import DailyActivityChart from '../components/charts/DailyActivityChart.vue'
-import { useConfidenceFilter } from '../composables/useConfidenceFilter.js'
 
 const { t, locale } = useI18n()
 const lang = inject('lang')
-const { confidenceLevel } = useConfidenceFilter()
 const species = ref([])
 const hours = ref([])
 const astro = ref(null)
@@ -178,11 +176,9 @@ async function refresh(isInitial = false) {
         lang: lang.value,
         start: start.toISOString(),
         end: end?.toISOString(),
-        minConfidence: confidenceLevel.value,
       }),
       api.fetchDetectionsPerSpeciesPerHour({
         lang: lang.value,
-        minConfidence: confidenceLevel.value,
         daysBack: navOffset.value,
       }),
     ])
@@ -241,7 +237,7 @@ onMounted(() => {
   startRefreshTimer()
 })
 onUnmounted(() => clearInterval(timer))
-watch([confidenceLevel, lang], () => refresh())
+watch(lang, () => refresh())
 </script>
 
 <style scoped>
