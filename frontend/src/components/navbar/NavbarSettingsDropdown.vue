@@ -14,31 +14,6 @@
       <li class="dropdown-submenu">
         <span
           class="dropdown-item dropdown-submenu-toggle d-flex align-items-center"
-          @click.stop="toggleSubmenu('confidence')"
-        >
-          <i class="bi bi-chevron-left submenu-caret"></i>
-          <span><i class="bi bi-shield-check me-2"></i>{{ t('filter.minConfidence') }}</span>
-        </span>
-        <ul class="dropdown-menu submenu" :class="{ show: openSubmenu === 'confidence' }">
-          <li v-for="opt in confidenceOptions" :key="opt.value">
-            <a
-              class="dropdown-item"
-              :class="{ 'submenu-selected': confidenceLevel === opt.value }"
-              href="#"
-              @click.prevent="confidenceLevel = opt.value"
-            >
-              <i
-                class="bi bi-check2 submenu-tick me-2"
-                :class="{ invisible: confidenceLevel !== opt.value }"
-              ></i
-              >{{ opt.label }}</a
-            >
-          </li>
-        </ul>
-      </li>
-      <li class="dropdown-submenu">
-        <span
-          class="dropdown-item dropdown-submenu-toggle d-flex align-items-center"
           @click.stop="toggleSubmenu('language')"
         >
           <i class="bi bi-chevron-left submenu-caret"></i>
@@ -112,7 +87,6 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuth } from '../../composables/useAuth.js'
 import { useServerStatus } from '../../composables/useServerStatus.js'
-import { useConfidenceFilter } from '../../composables/useConfidenceFilter.js'
 import { LANGUAGE_OPTIONS } from '../../locales/languageOptions.js'
 
 const emit = defineEmits(['navigate', 'logout'])
@@ -120,7 +94,6 @@ const emit = defineEmits(['navigate', 'logout'])
 const { t, locale } = useI18n()
 const { currentUser } = useAuth()
 const { status: serverStatus } = useServerStatus()
-const { confidenceLevel, confidenceOptions } = useConfidenceFilter()
 
 const dropdownEl = ref(null)
 const openSubmenu = ref(null)

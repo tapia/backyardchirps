@@ -53,24 +53,6 @@
       <div class="mobile-filters-grid">
         <div class="mobile-filter-cell">
           <span class="mobile-filter-label">
-            <i class="bi bi-shield-check"></i>{{ t('filter.minConfidence') }}
-          </span>
-          <div class="btn-group btn-group-sm w-100">
-            <button
-              v-for="opt in confidenceOptions"
-              :key="opt.value"
-              type="button"
-              class="btn"
-              :class="confidenceLevel === opt.value ? 'btn-primary' : 'btn-outline-primary'"
-              @click="confidenceLevel = opt.value"
-            >
-              {{ opt.label }}
-            </button>
-          </div>
-        </div>
-        <div class="mobile-filter-divider"></div>
-        <div class="mobile-filter-cell">
-          <span class="mobile-filter-label">
             <i class="bi bi-translate"></i>{{ t('nav.language') }}
           </span>
           <div class="btn-group btn-group-sm w-100">
@@ -152,7 +134,6 @@ import { useI18n } from 'vue-i18n'
 import { useDubiousCount } from '../../composables/useDubiousCount.js'
 import { useAuth } from '../../composables/useAuth.js'
 import { useServerStatus } from '../../composables/useServerStatus.js'
-import { useConfidenceFilter } from '../../composables/useConfidenceFilter.js'
 import { LANGUAGE_OPTIONS } from '../../locales/languageOptions.js'
 import { speciesRoute } from '../../links.js'
 import WeatherWidget from '../common/WeatherWidget.vue'
@@ -171,7 +152,6 @@ const { currentUser } = useAuth()
 // and then refused.
 const visiblePages = computed(() => visibleNavPages(currentUser.value?.is_staff))
 const { status: serverStatus } = useServerStatus()
-const { confidenceLevel, confidenceOptions } = useConfidenceFilter()
 
 const isOpen = ref(false)
 const panel = ref(null)
@@ -377,11 +357,6 @@ function onLogout() {
   gap: 0.5rem;
   flex: 1 1 0;
   min-width: 0;
-}
-.mobile-filter-divider {
-  width: 1px;
-  background: var(--limestone);
-  flex-shrink: 0;
 }
 .mobile-filter-label {
   display: flex;
