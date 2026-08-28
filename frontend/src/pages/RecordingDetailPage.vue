@@ -32,7 +32,11 @@
             >
               {{ detection.species.common_name }}
             </RouterLink>
-            <ConfidenceBadge class="flex-shrink-0" :confidence="detection.confidence" />
+            <ConfidenceBadge
+              class="flex-shrink-0"
+              :confidence="detection.confidence"
+              :validated="detection.reviewed_by_human"
+            />
           </div>
           <div class="fst-italic text-warm-muted text-truncate species-sci">
             {{ detection.species.scientific_name }}
@@ -55,12 +59,8 @@
 
       <SpectrogramPlayer :audio-url="detection.clip_url" />
 
-      <div v-if="detection.reviewed_by_human || detection.original_detection" class="detail-card">
-        <span v-if="detection.reviewed_by_human" class="review-badge">
-          <i class="bi bi-person-check"></i>
-          {{ t('page.recording.reviewedByHuman') }}
-        </span>
-        <div v-if="detection.original_detection" class="original-line">
+      <div v-if="detection.original_detection" class="detail-card">
+        <div class="original-line">
           <span class="detail-label">{{ t('page.recording.originalDetection') }}</span>
           <span class="original-species">
             <RouterLink
@@ -255,22 +255,11 @@ onMounted(load)
   color: var(--warm-muted);
   margin: 2px 0 10px;
 }
-.review-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  color: var(--forest);
-}
-.review-badge .bi {
-  font-size: 0.95rem;
-}
 .original-line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  margin-top: 10px;
 }
 .original-species {
   display: inline-flex;

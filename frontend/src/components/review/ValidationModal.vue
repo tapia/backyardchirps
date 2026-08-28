@@ -70,7 +70,11 @@
                     <span class="species-date__text text-warm-muted">
                       <i class="bi bi-calendar3"></i>{{ formatDateTime(detection.recorded_at) }}
                     </span>
-                    <ConfidenceBadge class="flex-shrink-0" :confidence="detection.confidence" />
+                    <ConfidenceBadge
+                      class="flex-shrink-0"
+                      :confidence="detection.confidence"
+                      :validated="detection.reviewed_by_human"
+                    />
                   </div>
                   <div v-else class="species-chips">
                     <span class="species-chip species-chip--pending">

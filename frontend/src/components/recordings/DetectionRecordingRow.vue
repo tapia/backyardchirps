@@ -7,7 +7,10 @@
       <i class="bi bi-stopwatch"></i>{{ formatDuration(recording.length_seconds) }}
     </span>
     <div class="ms-auto d-flex align-items-center gap-2">
-      <ConfidenceBadge :confidence="recording.confidence" />
+      <ConfidenceBadge
+        :confidence="recording.confidence"
+        :validated="recording.validation_status === 'human_confirmed'"
+      />
       <ShareRecordingButton v-if="showShare" :recording-id="recording.id" />
       <template v-if="showActions">
         <button

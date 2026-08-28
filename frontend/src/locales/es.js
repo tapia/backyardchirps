@@ -65,7 +65,6 @@ export default {
     },
     recording: {
       notFound: 'Grabación no encontrada.',
-      reviewedByHuman: 'Revisado por una persona',
       originalDetection: 'BirdNET identificó originalmente',
       processingTime: 'Tiempo de procesamiento de BirdNET',
       allDetections: 'Todo lo que oyó BirdNET',
@@ -268,6 +267,10 @@ export default {
     actions: 'Acciones',
     back: 'Atrás',
     copied: '¡Copiado!',
+  },
+  detection: {
+    validated: 'Validada',
+    validatedHint: 'Revisada por una persona, así que la puntuación de BirdNET ya no dice nada',
   },
   search: {
     title: 'Buscar especie',

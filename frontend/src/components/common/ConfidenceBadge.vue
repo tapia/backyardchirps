@@ -1,18 +1,26 @@
 <template>
-  <span class="confidence-badge" :class="level">{{ (confidence * 100).toFixed(0) }}%</span>
+  <span
+    v-if="validated"
+    class="confidence-badge validated"
+    v-bs-tooltip="t('detection.validatedHint')"
+  >
+    <i class="bi bi-check2 me-1"></i>{{ t('detection.validated') }}
+  </span>
+  <span v-else class="confidence-badge">{{ (confidence * 100).toFixed(0) }}%</span>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
-const props = defineProps({
+// A detection a person has checked shows no number. Once someone has decided, the
+// model's score says nothing more, and after a reassignment it was the score for a
+// different species altogether.
+defineProps({
   confidence: { type: Number, required: true }, // 0..1
+  validated: { type: Boolean, default: false },
 })
 
-const level = computed(() => {
-  const percentage = props.confidence * 100
-  return percentage >= 75 ? 'high' : percentage >= 50 ? 'medium' : 'low'
-})
+const { t } = useI18n()
 </script>
 
 <style scoped>
@@ -25,14 +33,10 @@ const level = computed(() => {
   padding: 1px 6px;
   border-radius: 1px;
   color: var(--sheet);
+  background: var(--confidence-badge);
+  white-space: nowrap;
 }
-.confidence-badge.high {
-  background: var(--confidence-high);
-}
-.confidence-badge.medium {
-  background: var(--confidence-medium);
-}
-.confidence-badge.low {
-  background: var(--confidence-low);
+.confidence-badge.validated {
+  background: var(--confidence-validated);
 }
 </style>

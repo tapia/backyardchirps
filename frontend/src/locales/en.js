@@ -65,7 +65,6 @@ export default {
     },
     recording: {
       notFound: 'Recording not found.',
-      reviewedByHuman: 'Reviewed by a person',
       originalDetection: 'BirdNET originally identified',
       processingTime: 'BirdNET processing time',
       allDetections: 'Everything BirdNET heard',
@@ -267,6 +266,10 @@ export default {
     copied: 'Copied!',
     today: 'Today',
     yesterday: 'Yesterday',
+  },
+  detection: {
+    validated: 'Validated',
+    validatedHint: "Checked by a person, so BirdNET's score no longer says anything",
   },
   search: {
     title: 'Search species',

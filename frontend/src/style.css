@@ -35,10 +35,12 @@ html {
   /* Softer border for dashboard-style cards (lighter than --limestone) */
   --border-soft: #e6e2da;
 
-  /* Confidence badge levels (ConfidenceBadge.vue) */
-  --confidence-high: #4a5940;
-  --confidence-medium: #8a7035;
-  --confidence-low: #8b3a3a;
+  /* ConfidenceBadge.vue. One colour for every score: the number says how sure
+     BirdNET was, and nothing about whether the detection was published, so
+     colouring it in bands only ever suggested a verdict it does not carry. The
+     second is for a detection a person has validated, which shows no number. */
+  --confidence-badge: #4a5940;
+  --confidence-validated: #3f6188;
 
   /* Distribution-map seasonal ranges (SpeciesMapCard.vue legend). */
   --range-breeding: #c68856;
