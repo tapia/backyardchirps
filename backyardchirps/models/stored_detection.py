@@ -37,6 +37,12 @@ class StoredDetectionQuerySet(models.QuerySet["StoredDetection"]):
             queryset = queryset.filter(recorded_at__lte=end)
         return queryset
 
+    def approved(self) -> "StoredDetectionQuerySet":
+        """
+        What the site shows: everything except the detections waiting for review.
+        """
+        return self.filter(validation_status__in=ValidationStatus.approved())
+
     def with_min_confidence(self, min_confidence: float | None) -> "StoredDetectionQuerySet":
         if min_confidence is None:
             return self

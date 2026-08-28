@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from backyardchirps.features.analytics import queries as analytics_queries
 from backyardchirps.features.analytics.queries import TimeGranularity
+from backyardchirps.features.detections.entity import ValidationStatus
 from backyardchirps.features.species.entity import Species
 
 pytestmark = pytest.mark.django_db
@@ -36,6 +37,18 @@ def test_species_detections_by_hour_of_day_buckets_and_zero_fills(create_detecti
     assert hourly[9] == 2
     assert hourly[14] == 1
     assert sum(hourly) == 3
+
+
+def test_species_detections_by_hour_of_day_leaves_out_the_review_queue(
+    create_detection: Callable[..., Any],
+) -> None:
+    recorded_at = datetime(2024, 6, 15, 9, 0, tzinfo=_MADRID)
+    create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at)
+    create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at, validation_status=ValidationStatus.PENDING)
+
+    hourly = analytics_queries.species_detections_by_hour_of_day(Species(BLACKBIRD), start=None, end=None)
+
+    assert hourly[9] == 1
 
 
 def test_species_detections_by_hour_of_day_respects_min_confidence(create_detection: Callable[..., Any]) -> None:

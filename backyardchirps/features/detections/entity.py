@@ -13,6 +13,14 @@ class ValidationStatus(StrEnum):
     AUTO_CONFIRMED = "auto_confirmed"
     HUMAN_CONFIRMED = "human_confirmed"
 
+    @classmethod
+    def approved(cls) -> tuple["ValidationStatus", ...]:
+        """
+        The statuses the site shows: published without review, or confirmed by a person.
+        A pending detection belongs to the review queue and nowhere else.
+        """
+        return (cls.AUTO_CONFIRMED, cls.HUMAN_CONFIRMED)
+
 
 class SpeciesAlreadyIdentifiedException(Exception):
     pass

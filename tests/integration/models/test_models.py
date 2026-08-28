@@ -6,6 +6,7 @@ from typing import Callable
 
 import pytest
 
+from backyardchirps.features.detections.entity import ValidationStatus
 from backyardchirps.features.species.entity import Species
 from backyardchirps.models.detected_species import DetectedSpecies
 from backyardchirps.models.stored_detection import StoredDetection
@@ -34,6 +35,14 @@ def test_in_period_treats_none_as_unrestricted(create_detection: Callable[..., A
 
     assert StoredDetection.objects.in_period(None, None).count() == 2
     assert StoredDetection.objects.in_period(_AT + timedelta(days=1), None).count() == 1
+
+
+def test_approved_leaves_out_the_review_queue(create_detection: Callable[..., Any]) -> None:
+    create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.AUTO_CONFIRMED)
+    create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.HUMAN_CONFIRMED)
+    create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.PENDING)
+
+    assert StoredDetection.objects.approved().count() == 2
 
 
 def test_with_min_confidence_passthrough_and_filter(create_detection: Callable[..., Any]) -> None:

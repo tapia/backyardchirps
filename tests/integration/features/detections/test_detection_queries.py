@@ -170,6 +170,25 @@ def test_species_with_detection_counts_excludes_blacklisted(
     assert ROBIN not in names
 
 
+def test_species_with_detection_counts_leaves_out_the_review_queue(create_detection: Callable[..., Any]) -> None:
+    create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.AUTO_CONFIRMED)
+    create_detection(scientific_name=ROBIN, validation_status=ValidationStatus.PENDING)
+
+    counts = detection_queries.species_with_detection_counts()
+
+    assert [row.species.scientific_name for row in counts] == [BLACKBIRD]
+
+
+def test_species_with_detection_counts_counts_only_approved_rows(create_detection: Callable[..., Any]) -> None:
+    create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.AUTO_CONFIRMED)
+    create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.HUMAN_CONFIRMED)
+    create_detection(scientific_name=BLACKBIRD, validation_status=ValidationStatus.PENDING)
+
+    counts = detection_queries.species_with_detection_counts()
+
+    assert [row.count_total for row in counts] == [2]
+
+
 def test_species_with_detection_counts_min_confidence_filter(create_detection: Callable[..., Any]) -> None:
     create_detection(scientific_name=BLACKBIRD, confidence=0.95)
     create_detection(scientific_name=ROBIN, confidence=0.5)

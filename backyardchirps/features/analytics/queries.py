@@ -42,7 +42,7 @@ def species_detections_over_time(
     use_hourly = granularity == TimeGranularity.HOUR
 
     base_queryset = (
-        StoredDetection.objects.of_species(species).in_period(start, end).with_min_confidence(min_confidence)
+        StoredDetection.objects.of_species(species).in_period(start, end).approved().with_min_confidence(min_confidence)
     )
     detections_grouped_by_period = {
         _period_start(row["period_start"], use_hourly): row for row in _group_by_time_period(base_queryset, trunc_fn)
@@ -80,7 +80,7 @@ def species_detections_by_hour_of_day(
     """
     hourly = [0] * 24
     base_queryset = (
-        StoredDetection.objects.of_species(species).in_period(start, end).with_min_confidence(min_confidence)
+        StoredDetection.objects.of_species(species).in_period(start, end).approved().with_min_confidence(min_confidence)
     )
     for row in _by_hour_of_day(base_queryset):
         hourly[row["hour"]] = row["count"]
@@ -107,7 +107,10 @@ def species_detections_by_date_and_hour(
     day_end = local_end.replace(hour=23, minute=59, second=59, microsecond=999999)
 
     base_queryset = (
-        StoredDetection.objects.of_species(species).in_period(day_start, day_end).with_min_confidence(min_confidence)
+        StoredDetection.objects.of_species(species)
+        .in_period(day_start, day_end)
+        .approved()
+        .with_min_confidence(min_confidence)
     )
     cells = [
         {"x": row["period_start"].date().isoformat(), "y": row["hour"], "v": row["count"]}
@@ -138,6 +141,7 @@ def detections_by_species_hourly(
     per_species = (
         StoredDetection.objects.excluding_blacklisted()
         .in_period(effective_start, effective_end)
+        .approved()
         .with_min_confidence(min_confidence)
         .annotate(hour=TruncHour("recorded_at"))
         .values("hour", "species_id")
@@ -213,6 +217,7 @@ def species_by_hour_of_day(
     base_queryset = (
         StoredDetection.objects.excluding_blacklisted()
         .in_period(start, end)
+        .approved()
         .with_min_confidence(min_confidence)
         .filter(species_id__in=species_id_by_name.values())
     )
@@ -288,7 +293,12 @@ def species_detections_by_day_yearly(
     above, a day with nothing heard is left out rather than set to zero.
     """
     since = timezone.now() - timedelta(days=364)
-    queryset = StoredDetection.objects.of_species(species).in_period(since, None).with_min_confidence(min_confidence)
+    queryset = (
+        StoredDetection.objects.of_species(species)
+        .in_period(since, None)
+        .approved()
+        .with_min_confidence(min_confidence)
+    )
     rows = queryset.annotate(day=TruncDay("recorded_at")).values("day").annotate(count=Count("id")).order_by("day")
     return {row["day"].date().isoformat(): row["count"] for row in rows}
 
