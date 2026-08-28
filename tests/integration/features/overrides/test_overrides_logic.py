@@ -7,11 +7,14 @@ from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import ValidationStatus
 from backyardchirps.features.overrides import logic as species_overrides
 from backyardchirps.features.overrides import queries as override_queries
+from backyardchirps.features.settings.logic import Settings
+from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.species.entity import Species
 
 pytestmark = pytest.mark.django_db
 
 BLACKBIRD = "Turdus merula"
+ROBIN = "Erithacus rubecula"
 
 # The default global auto-confirm bar is ANALYSIS_AUTO_CONFIRM_CONFIDENCE = 0.9.
 
@@ -71,3 +74,45 @@ def test_clear_override_reverts_to_global_and_clears_queue_if_lowered(
 
     assert override_queries.get(Species(BLACKBIRD)) is None
     assert _status(pending.id) == ValidationStatus.AUTO_CONFIRMED
+
+
+def test_lowering_the_global_bar_publishes_what_was_waiting_on_it(
+    create_detected_species: Callable[..., Any], create_detection: Callable[..., Any]
+) -> None:
+    create_detected_species(BLACKBIRD)
+    above = create_detection(scientific_name=BLACKBIRD, confidence=0.85, validation_status=ValidationStatus.PENDING)
+    below = create_detection(scientific_name=ROBIN, confidence=0.60, validation_status=ValidationStatus.PENDING)
+
+    Settings.set(SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE, "0.8")
+    published = species_overrides.clear_queue_for_global_bar(previous_bar=0.9)
+
+    assert published == 1
+    assert _status(above.id) == ValidationStatus.AUTO_CONFIRMED
+    assert _status(below.id) == ValidationStatus.PENDING
+
+
+def test_a_species_with_its_own_bar_ignores_the_global_one(
+    create_detected_species: Callable[..., Any],
+    create_detection: Callable[..., Any],
+    create_override: Callable[..., Any],
+) -> None:
+    create_detected_species(BLACKBIRD)
+    pending = create_detection(scientific_name=BLACKBIRD, confidence=0.85, validation_status=ValidationStatus.PENDING)
+    create_override(scientific_name=BLACKBIRD, threshold=0.95)
+
+    Settings.set(SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE, "0.8")
+
+    assert species_overrides.clear_queue_for_global_bar(previous_bar=0.9) == 0
+    assert _status(pending.id) == ValidationStatus.PENDING
+
+
+def test_raising_the_global_bar_publishes_nothing(
+    create_detected_species: Callable[..., Any], create_detection: Callable[..., Any]
+) -> None:
+    create_detected_species(BLACKBIRD)
+    pending = create_detection(scientific_name=BLACKBIRD, confidence=0.95, validation_status=ValidationStatus.PENDING)
+
+    Settings.set(SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE, "0.98")
+
+    assert species_overrides.clear_queue_for_global_bar(previous_bar=0.9) == 0
+    assert _status(pending.id) == ValidationStatus.PENDING

@@ -436,6 +436,22 @@ def auto_confirm_pending_above(species: Species, threshold: float) -> int:
     )
 
 
+def auto_confirm_pending_above_default(threshold: float) -> int:
+    """
+    The same, for a lowered global bar rather than one species' own.
+
+    A species that has its own threshold is left alone: its detections wait on that
+    number, and the global one says nothing about them.
+
+    Returns how many rows changed.
+    """
+    return (
+        StoredDetection.objects.filter(validation_status=ValidationStatus.PENDING, confidence__gte=threshold)
+        .exclude(species__override__auto_confirm_threshold__isnull=False)
+        .update(validation_status=ValidationStatus.AUTO_CONFIRMED)
+    )
+
+
 def get_block_time(dt: datetime) -> datetime:
     """
     The start of the batch window a moment falls in.
