@@ -21,7 +21,9 @@ Environment=BACKYARDCHIRPS_DATA_DIR=/var/lib/backyardchirps
 # wait shows up in the journal rather than as a package that will not configure.
 ExecStartPre=/usr/lib/backyardchirps/bin/manage download_birdnet3_model
 ExecStart=/usr/lib/backyardchirps/bin/manage run_recorder
-Restart=on-failure
+# always, not on-failure: the recorder stops itself on purpose when a setting it read at
+# startup changes, and that is a clean exit. Coming back is the whole point of stopping.
+Restart=always
 RestartSec=10
 
 [Install]

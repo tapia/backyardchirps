@@ -16,9 +16,9 @@ from backyardchirps.features.recording.audio.detection import AnalysisResult
 from backyardchirps.features.recording.audio.detection import discard_non_birds
 from backyardchirps.features.recording.audio.queue_monitor import QueueMonitor
 from backyardchirps.features.recording.audio.recorder import AudioRecorder
+from backyardchirps.features.recording.entity import RecorderStartupSettings
 from backyardchirps.features.recording.logic import discard_blacklisted
-from backyardchirps.features.settings.logic import Settings
-from backyardchirps.features.settings.logic import SettingsKey
+from backyardchirps.features.recording.logic import recorder_startup_settings
 from backyardchirps.shared.recorder_heartbeat import write_heartbeat
 
 logger = logging.getLogger(__name__)
@@ -37,16 +37,17 @@ class Command(BaseCommand):
         signal.signal(signal.SIGINT, self._shutdown)
         signal.signal(signal.SIGTERM, self._shutdown)
 
+        startup_settings = recorder_startup_settings()
         recorder = AudioRecorder(
             sample_rate=settings.RECORDING["sample_rate"],
             clip_duration=settings.RECORDING["clip_duration"],
             step_duration=settings.RECORDING["step_duration"],
-            device=Settings.get(SettingsKey.AUDIO_DEVICE),
+            device=startup_settings.audio_device,
         )
         analyzer = BirdNet3Analyzer(
-            latitude=Settings.get(SettingsKey.LOCATION_LAT) or 0.0,
-            longitude=Settings.get(SettingsKey.LOCATION_LON) or 0.0,
-            min_confidence=Settings.get(SettingsKey.ANALYSIS_MIN_CONFIDENCE),
+            latitude=startup_settings.latitude,
+            longitude=startup_settings.longitude,
+            min_confidence=startup_settings.min_confidence,
         )
         consistency_filter = ConsistencyFilter(
             window_size=settings.CONSISTENCY_FILTER["window_size"],
@@ -57,7 +58,7 @@ class Command(BaseCommand):
         notifier = Notifier()
         queue_monitor = QueueMonitor(budget_ms=round(settings.RECORDING["step_duration"] * 1000))
 
-        self._log_initialization_messages()
+        self._log_initialization_messages(startup_settings)
 
         self.running = True
         with recorder:
@@ -109,18 +110,36 @@ class Command(BaseCommand):
                         if detection:
                             notifier.maybe_notify(detection, confirmed.clip)
                         self._log(confirmed.result, detection)
+
+                    if self._settings_have_moved_on(startup_settings):
+                        self.running = False
                 except Exception:
                     logger.exception("Could not process the clip recorded at %s", clip.recorded_at)
 
-    def _log_initialization_messages(self) -> None:
+    def _settings_have_moved_on(self, startup_settings: RecorderStartupSettings) -> bool:
+        """
+        Whether this process is still the recorder the settings describe.
+
+        The microphone and the analyzer are built once and never look again, so a change
+        to any of the values behind them can only be picked up by starting over. Stopping
+        is how that happens: the unit is Restart=always, so systemd brings the recorder
+        straight back with the new values. Started by hand, it stays stopped, and the log
+        line says why.
+        """
+        if recorder_startup_settings() == startup_settings:
+            return False
+        logger.info("A setting the recorder reads at startup has changed. Stopping so it starts again with it.")
+        return True
+
+    def _log_initialization_messages(self, startup_settings: RecorderStartupSettings) -> None:
         overlap_pct = (1 - settings.RECORDING["step_duration"] / settings.RECORDING["clip_duration"]) * 100
 
         logger.info(
             "Recording started. lat=%s, lon=%s",
-            Settings.get(SettingsKey.LOCATION_LAT),
-            Settings.get(SettingsKey.LOCATION_LON),
+            startup_settings.latitude,
+            startup_settings.longitude,
         )
-        logger.info(f"Min confidence: {Settings.get(SettingsKey.ANALYSIS_MIN_CONFIDENCE)}")
+        logger.info(f"Min confidence: {startup_settings.min_confidence}")
         logger.info(f"Detection time buffer: {settings.RECORDING['detection_time_buffer_in_minutes']} min")
         logger.info(
             f"Sliding window: clip={settings.RECORDING['clip_duration']:.1f}s, "
