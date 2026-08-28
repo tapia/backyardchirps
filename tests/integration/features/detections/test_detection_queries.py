@@ -40,7 +40,8 @@ def test_upsert_creates_detection_and_saves_clip(make_audio_clip: Callable[..., 
 
     assert detection is not None
     assert detection.confidence == 0.8
-    assert detection.validation_status == ValidationStatus.AUTO_CONFIRMED
+    # 0.8 is below the default auto-confirm bar, so it waits for review.
+    assert detection.validation_status == ValidationStatus.PENDING
     assert detection.clip_path is not None
     assert Path(detection.clip_path).exists()
     assert Path(detection.clip_path).parent == clips_dir
@@ -104,7 +105,7 @@ def test_upsert_ignores_equal_or_lower_confidence(make_audio_clip: Callable[...,
 
 
 def test_upsert_marks_low_confidence_as_pending(make_audio_clip: Callable[..., AudioClip], clips_dir: Path) -> None:
-    # Default global auto-confirm bar is ANALYSIS_AUTO_CONFIRM_CONFIDENCE = 0.7.
+    # Default global auto-confirm bar is ANALYSIS_AUTO_CONFIRM_CONFIDENCE = 0.9.
     detection = detection_queries.upsert(_clip(make_audio_clip), _result(0.6))
     assert detection is not None
     assert detection.validation_status == ValidationStatus.PENDING
@@ -113,7 +114,7 @@ def test_upsert_marks_low_confidence_as_pending(make_audio_clip: Callable[..., A
 def test_upsert_uses_per_species_override_threshold(
     make_audio_clip: Callable[..., AudioClip], clips_dir: Path, create_override: Callable[..., Any]
 ) -> None:
-    # A custom threshold of 0.5 auto-confirms a 0.6 detection that the global 0.7 bar would pend.
+    # A custom threshold of 0.5 auto-confirms a 0.6 detection that the global 0.9 bar would pend.
     create_override(scientific_name=BLACKBIRD, threshold=0.5)
 
     detection = detection_queries.upsert(_clip(make_audio_clip), _result(0.6))

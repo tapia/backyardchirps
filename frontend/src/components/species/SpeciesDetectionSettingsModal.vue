@@ -130,7 +130,7 @@ async function loadDefaultThreshold() {
   try {
     const settings = await fetchSettings()
     defaultThresholdPercent.value = Math.round(
-      (settings.analysis_auto_confirm_confidence ?? 0.7) * 100,
+      (settings.analysis_auto_confirm_confidence ?? 0.9) * 100,
     )
     defaultLoaded = true
   } catch {

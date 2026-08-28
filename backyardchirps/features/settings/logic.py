@@ -226,8 +226,8 @@ def parse_percentage(value: Any) -> int:
 DEFAULTS: dict[SettingsKey, SettingDefinition[Any]] = {
     SettingsKey.LOCATION_LAT: SettingDefinition(default=None, parser=parse_lat),
     SettingsKey.LOCATION_LON: SettingDefinition(default=None, parser=parse_lon),
-    SettingsKey.ANALYSIS_MIN_CONFIDENCE: SettingDefinition(default=0.4, parser=parse_confidence),
-    SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE: SettingDefinition(default=0.7, parser=parse_confidence),
+    SettingsKey.ANALYSIS_MIN_CONFIDENCE: SettingDefinition(default=0.75, parser=parse_confidence),
+    SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE: SettingDefinition(default=0.9, parser=parse_confidence),
     SettingsKey.CLIPS_MAX_DISK_USAGE_PERCENT: SettingDefinition(default=85, parser=parse_percentage),
     SettingsKey.NOTIFICATIONS_LANGUAGE: SettingDefinition(default="es", parser=parse_language),
     SettingsKey.NOTIFICATIONS_FIRST_TODAY_ENABLED: SettingDefinition(default=True, parser=parse_bool),
