@@ -61,7 +61,6 @@ const recording = useSettingsForm({
 const detection = useSettingsForm({
   analysis_low_confidence: '',
   analysis_medium_confidence: '',
-  analysis_high_confidence: '',
 })
 const notifications = useSettingsForm({
   telegram_token: '',

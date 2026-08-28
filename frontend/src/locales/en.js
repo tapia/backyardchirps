@@ -177,7 +177,6 @@ export default {
       analysisMediumConfidence: 'Medium confidence',
       analysisMediumConfidenceHint:
         'Identifications below this threshold will be flagged for manual review',
-      analysisHighConfidence: 'High confidence',
       perSpecies: 'Per-species rules',
       perSpeciesHint:
         'A single species can be blacklisted, or given its own auto-confirm threshold in place of the medium confidence one above.',

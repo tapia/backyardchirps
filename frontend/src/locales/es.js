@@ -179,7 +179,6 @@ export default {
       analysisMediumConfidence: 'Confianza media',
       analysisMediumConfidenceHint:
         'Las identificaciones por debajo de este umbral se marcarán para revisión manual',
-      analysisHighConfidence: 'Confianza alta',
       perSpecies: 'Reglas por especie',
       perSpeciesHint:
         'Una especie concreta puede estar en la lista negra, o tener su propio umbral de confirmación automática en lugar del de confianza media de arriba.',

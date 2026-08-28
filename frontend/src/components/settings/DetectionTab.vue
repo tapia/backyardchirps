@@ -9,16 +9,10 @@
         :hint="t('page.settings.analysisLowConfidenceHint')"
       />
       <SettingsPercentField
-        class="mb-3"
         :form="form"
         name="analysis_medium_confidence"
         :label="t('page.settings.analysisMediumConfidence')"
         :hint="t('page.settings.analysisMediumConfidenceHint')"
-      />
-      <SettingsPercentField
-        :form="form"
-        name="analysis_high_confidence"
-        :label="t('page.settings.analysisHighConfidence')"
       />
     </SettingsCard>
 
