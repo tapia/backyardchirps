@@ -13,7 +13,7 @@ pytestmark = pytest.mark.django_db
 
 BLACKBIRD = "Turdus merula"
 
-# The default global auto-confirm bar is ANALYSIS_MEDIUM_CONFIDENCE = 0.7.
+# The default global auto-confirm bar is ANALYSIS_AUTO_CONFIRM_CONFIDENCE = 0.7.
 
 
 def _status(detection_id: int) -> ValidationStatus:

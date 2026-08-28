@@ -104,7 +104,7 @@ def test_upsert_ignores_equal_or_lower_confidence(make_audio_clip: Callable[...,
 
 
 def test_upsert_marks_low_confidence_as_pending(make_audio_clip: Callable[..., AudioClip], clips_dir: Path) -> None:
-    # Default global auto-confirm bar is ANALYSIS_MEDIUM_CONFIDENCE = 0.7.
+    # Default global auto-confirm bar is ANALYSIS_AUTO_CONFIRM_CONFIDENCE = 0.7.
     detection = detection_queries.upsert(_clip(make_audio_clip), _result(0.6))
     assert detection is not None
     assert detection.validation_status == ValidationStatus.PENDING

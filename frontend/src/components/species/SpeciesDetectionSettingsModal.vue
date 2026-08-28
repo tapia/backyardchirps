@@ -129,7 +129,9 @@ async function loadDefaultThreshold() {
   if (defaultLoaded) return
   try {
     const settings = await fetchSettings()
-    defaultThresholdPercent.value = Math.round((settings.analysis_medium_confidence ?? 0.7) * 100)
+    defaultThresholdPercent.value = Math.round(
+      (settings.analysis_auto_confirm_confidence ?? 0.7) * 100,
+    )
     defaultLoaded = true
   } catch {
     // Leave it unset; enabling the switch just starts from a blank field.

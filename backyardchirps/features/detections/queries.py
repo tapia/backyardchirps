@@ -477,4 +477,4 @@ def _auto_confirm_bar(species: Species) -> float:
     custom_threshold = override_queries.auto_confirm_threshold(species)
     if custom_threshold is not None:
         return custom_threshold
-    return cast(float, Settings.get(SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE))
+    return cast(float, Settings.get(SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE))

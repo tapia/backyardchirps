@@ -17,8 +17,8 @@ class SettingsKey(StrEnum):
 
     LOCATION_LAT = "location_lat"
     LOCATION_LON = "location_lon"
-    ANALYSIS_LOW_CONFIDENCE = "analysis_low_confidence"
-    ANALYSIS_MEDIUM_CONFIDENCE = "analysis_medium_confidence"
+    ANALYSIS_MIN_CONFIDENCE = "analysis_min_confidence"
+    ANALYSIS_AUTO_CONFIRM_CONFIDENCE = "analysis_auto_confirm_confidence"
     CLIPS_MAX_DISK_USAGE_PERCENT = "clips_max_disk_usage_percent"
     NOTIFICATIONS_LANGUAGE = "notifications_language"
     NOTIFICATIONS_FIRST_TODAY_ENABLED = "notifications_first_today_enabled"
@@ -226,8 +226,8 @@ def parse_percentage(value: Any) -> int:
 DEFAULTS: dict[SettingsKey, SettingDefinition[Any]] = {
     SettingsKey.LOCATION_LAT: SettingDefinition(default=None, parser=parse_lat),
     SettingsKey.LOCATION_LON: SettingDefinition(default=None, parser=parse_lon),
-    SettingsKey.ANALYSIS_LOW_CONFIDENCE: SettingDefinition(default=0.4, parser=parse_confidence),
-    SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE: SettingDefinition(default=0.7, parser=parse_confidence),
+    SettingsKey.ANALYSIS_MIN_CONFIDENCE: SettingDefinition(default=0.4, parser=parse_confidence),
+    SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE: SettingDefinition(default=0.7, parser=parse_confidence),
     SettingsKey.CLIPS_MAX_DISK_USAGE_PERCENT: SettingDefinition(default=85, parser=parse_percentage),
     SettingsKey.NOTIFICATIONS_LANGUAGE: SettingDefinition(default="es", parser=parse_language),
     SettingsKey.NOTIFICATIONS_FIRST_TODAY_ENABLED: SettingDefinition(default=True, parser=parse_bool),

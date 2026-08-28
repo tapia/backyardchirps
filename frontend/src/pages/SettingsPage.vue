@@ -59,8 +59,8 @@ const recording = useSettingsForm({
   clips_max_disk_usage_percent: '',
 })
 const detection = useSettingsForm({
-  analysis_low_confidence: '',
-  analysis_medium_confidence: '',
+  analysis_min_confidence: '',
+  analysis_auto_confirm_confidence: '',
 })
 const notifications = useSettingsForm({
   telegram_token: '',

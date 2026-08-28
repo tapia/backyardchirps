@@ -172,14 +172,14 @@ export default {
       weatherWindSpeedUnitKmh: 'Kilometers per hour (km/h)',
       weatherWindSpeedUnitMph: 'Miles per hour (mph)',
       analysis: 'BirdNET Analysis',
-      analysisLowConfidence: 'Low confidence',
-      analysisLowConfidenceHint: 'Identifications below this threshold will be ignored',
-      analysisMediumConfidence: 'Medium confidence',
-      analysisMediumConfidenceHint:
+      analysisMinConfidence: 'Minimum confidence',
+      analysisMinConfidenceHint: 'Identifications below this threshold will be ignored',
+      analysisAutoConfirmConfidence: 'Auto-confirm confidence',
+      analysisAutoConfirmConfidenceHint:
         'Identifications below this threshold will be flagged for manual review',
       perSpecies: 'Per-species rules',
       perSpeciesHint:
-        'A single species can be blacklisted, or given its own auto-confirm threshold in place of the medium confidence one above.',
+        'A single species can be blacklisted, or given its own auto-confirm threshold in place of the one above.',
       perSpeciesNone: 'No species has its own rules yet.',
       perSpeciesCount: 'One species has its own rules. | {n} species have their own rules.',
       perSpeciesLink: 'Open per-species rules',

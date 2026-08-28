@@ -4,7 +4,7 @@ from dataclasses import field
 from backyardchirps.features.species.entity import Species
 
 # How far down the raw candidate list goes. It sits well below the detection floor
-# (analysis_low_confidence) so the record shows everything BirdNET seriously weighed up,
+# (analysis_min_confidence) so the record shows everything BirdNET seriously weighed up,
 # not just the species that made it through. Nothing here can create a detection.
 RAW_CANDIDATE_FLOOR = 0.05
 

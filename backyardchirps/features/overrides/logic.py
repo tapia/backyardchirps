@@ -45,4 +45,4 @@ def _effective_bar(override: SpeciesOverride | None) -> float:
 
 
 def _global_bar() -> float:
-    return cast(float, Settings.get(SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE))
+    return cast(float, Settings.get(SettingsKey.ANALYSIS_AUTO_CONFIRM_CONFIDENCE))

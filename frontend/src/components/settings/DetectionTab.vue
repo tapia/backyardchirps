@@ -4,15 +4,15 @@
       <SettingsPercentField
         class="mb-3"
         :form="form"
-        name="analysis_low_confidence"
-        :label="t('page.settings.analysisLowConfidence')"
-        :hint="t('page.settings.analysisLowConfidenceHint')"
+        name="analysis_min_confidence"
+        :label="t('page.settings.analysisMinConfidence')"
+        :hint="t('page.settings.analysisMinConfidenceHint')"
       />
       <SettingsPercentField
         :form="form"
-        name="analysis_medium_confidence"
-        :label="t('page.settings.analysisMediumConfidence')"
-        :hint="t('page.settings.analysisMediumConfidenceHint')"
+        name="analysis_auto_confirm_confidence"
+        :label="t('page.settings.analysisAutoConfirmConfidence')"
+        :hint="t('page.settings.analysisAutoConfirmConfidenceHint')"
       />
     </SettingsCard>
 

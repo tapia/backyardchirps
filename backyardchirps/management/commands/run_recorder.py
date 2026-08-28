@@ -46,7 +46,7 @@ class Command(BaseCommand):
         analyzer = BirdNet3Analyzer(
             latitude=Settings.get(SettingsKey.LOCATION_LAT) or 0.0,
             longitude=Settings.get(SettingsKey.LOCATION_LON) or 0.0,
-            min_confidence=Settings.get(SettingsKey.ANALYSIS_LOW_CONFIDENCE),
+            min_confidence=Settings.get(SettingsKey.ANALYSIS_MIN_CONFIDENCE),
         )
         consistency_filter = ConsistencyFilter(
             window_size=settings.CONSISTENCY_FILTER["window_size"],
@@ -120,7 +120,7 @@ class Command(BaseCommand):
             Settings.get(SettingsKey.LOCATION_LAT),
             Settings.get(SettingsKey.LOCATION_LON),
         )
-        logger.info(f"Min confidence: {Settings.get(SettingsKey.ANALYSIS_LOW_CONFIDENCE)}")
+        logger.info(f"Min confidence: {Settings.get(SettingsKey.ANALYSIS_MIN_CONFIDENCE)}")
         logger.info(f"Detection time buffer: {settings.RECORDING['detection_time_buffer_in_minutes']} min")
         logger.info(
             f"Sliding window: clip={settings.RECORDING['clip_duration']:.1f}s, "

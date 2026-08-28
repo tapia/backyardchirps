@@ -174,14 +174,14 @@ export default {
       weatherWindSpeedUnitKmh: 'Kilómetros por hora (km/h)',
       weatherWindSpeedUnitMph: 'Millas por hora (mph)',
       analysis: 'Análisis BirdNET',
-      analysisLowConfidence: 'Confianza baja',
-      analysisLowConfidenceHint: 'Las identificaciones por debajo de este umbral se ignorarán',
-      analysisMediumConfidence: 'Confianza media',
-      analysisMediumConfidenceHint:
+      analysisMinConfidence: 'Confianza mínima',
+      analysisMinConfidenceHint: 'Las identificaciones por debajo de este umbral se ignorarán',
+      analysisAutoConfirmConfidence: 'Confianza para confirmar sola',
+      analysisAutoConfirmConfidenceHint:
         'Las identificaciones por debajo de este umbral se marcarán para revisión manual',
       perSpecies: 'Reglas por especie',
       perSpeciesHint:
-        'Una especie concreta puede estar en la lista negra, o tener su propio umbral de confirmación automática en lugar del de confianza media de arriba.',
+        'Una especie concreta puede estar en la lista negra, o tener su propio umbral de confirmación automática en lugar del de arriba.',
       perSpeciesNone: 'Todavía no hay ninguna especie con reglas propias.',
       perSpeciesCount: 'Una especie tiene reglas propias. | {n} especies tienen reglas propias.',
       perSpeciesLink: 'Abrir las reglas por especie',
