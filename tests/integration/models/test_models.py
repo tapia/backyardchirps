@@ -45,14 +45,6 @@ def test_approved_leaves_out_the_review_queue(create_detection: Callable[..., An
     assert StoredDetection.objects.approved().count() == 2
 
 
-def test_with_min_confidence_passthrough_and_filter(create_detection: Callable[..., Any]) -> None:
-    create_detection(scientific_name=BLACKBIRD, confidence=0.4)
-    create_detection(scientific_name=BLACKBIRD, confidence=0.9)
-
-    assert StoredDetection.objects.with_min_confidence(None).count() == 2  # None = no restriction
-    assert StoredDetection.objects.with_min_confidence(0.8).count() == 1
-
-
 def test_excluding_blacklisted(create_detection: Callable[..., Any], create_override: Callable[..., Any]) -> None:
     create_detection(scientific_name=BLACKBIRD)
     create_detection(scientific_name=ROBIN)

@@ -29,7 +29,6 @@ def species_detections_over_time(
     species: Species,
     start: datetime | None,
     end: datetime | None,
-    min_confidence: float | None = None,
 ) -> tuple[list[dict], TimeGranularity]:
     """
     How many detections there were in each period, counting a period with none as zero.
@@ -41,9 +40,7 @@ def species_detections_over_time(
     granularity, trunc_fn = _pick_granularity(start, effective_end)
     use_hourly = granularity == TimeGranularity.HOUR
 
-    base_queryset = (
-        StoredDetection.objects.of_species(species).in_period(start, end).approved().with_min_confidence(min_confidence)
-    )
+    base_queryset = StoredDetection.objects.of_species(species).in_period(start, end).approved()
     detections_grouped_by_period = {
         _period_start(row["period_start"], use_hourly): row for row in _group_by_time_period(base_queryset, trunc_fn)
     }
@@ -72,16 +69,13 @@ def species_detections_by_hour_of_day(
     species: Species,
     start: datetime | None,
     end: datetime | None,
-    min_confidence: float | None = None,
 ) -> list[int]:
     """
     At what time of day the species is most active. Every date in the period is added
     together, so what comes back is 24 counts, one per hour of the clock.
     """
     hourly = [0] * 24
-    base_queryset = (
-        StoredDetection.objects.of_species(species).in_period(start, end).approved().with_min_confidence(min_confidence)
-    )
+    base_queryset = StoredDetection.objects.of_species(species).in_period(start, end).approved()
     for row in _by_hour_of_day(base_queryset):
         hourly[row["hour"]] = row["count"]
     return hourly
@@ -91,7 +85,6 @@ def species_detections_by_date_and_hour(
     species: Species,
     start: datetime | None,
     end: datetime | None,
-    min_confidence: float | None = None,
 ) -> tuple[list[dict], list[str], TimeGranularity]:
     """
     On which days and at which hours the detections happened, split by both at once. Made
@@ -106,12 +99,7 @@ def species_detections_by_date_and_hour(
     day_start = timezone.localtime(start).replace(hour=0, minute=0, second=0, microsecond=0) if start else None
     day_end = local_end.replace(hour=23, minute=59, second=59, microsecond=999999)
 
-    base_queryset = (
-        StoredDetection.objects.of_species(species)
-        .in_period(day_start, day_end)
-        .approved()
-        .with_min_confidence(min_confidence)
-    )
+    base_queryset = StoredDetection.objects.of_species(species).in_period(day_start, day_end).approved()
     cells = [
         {"x": row["period_start"].date().isoformat(), "y": row["hour"], "v": row["count"]}
         for row in _by_heatmap_cell(base_queryset, trunc_fn)
@@ -121,7 +109,6 @@ def species_detections_by_date_and_hour(
 
 
 def detections_by_species_hourly(
-    min_confidence: float | None = None,
     lang: str = "en",
     top_species_count: int = 5,
     start: datetime | None = None,
@@ -142,7 +129,6 @@ def detections_by_species_hourly(
         StoredDetection.objects.excluding_blacklisted()
         .in_period(effective_start, effective_end)
         .approved()
-        .with_min_confidence(min_confidence)
         .annotate(hour=TruncHour("recorded_at"))
         .values("hour", "species_id")
         .annotate(detection_count=Count("id"))
@@ -197,7 +183,6 @@ def species_by_hour_of_day(
     lang: str,
     start: datetime | None,
     end: datetime | None,
-    min_confidence: float | None = None,
 ) -> dict:
     """
     Which species turn up at which hours of the day. Every date in the period is added
@@ -218,7 +203,6 @@ def species_by_hour_of_day(
         StoredDetection.objects.excluding_blacklisted()
         .in_period(start, end)
         .approved()
-        .with_min_confidence(min_confidence)
         .filter(species_id__in=species_id_by_name.values())
     )
     per_species_hour = (
@@ -256,7 +240,6 @@ def multi_species_timelines(
     lang: str,
     start: datetime | None,
     end: datetime | None,
-    min_confidence: float | None = None,
 ) -> tuple[list[dict], TimeGranularity]:
     """
     One timeline per species, skipping any that are blacklisted or have never been heard
@@ -273,7 +256,7 @@ def multi_species_timelines(
     granularity = TimeGranularity.DAY
     visible_species = [species for species in species_list if species.scientific_name in visible_names]
     for species in visible_species:
-        data, granularity = species_detections_over_time(species, start, end, min_confidence)
+        data, granularity = species_detections_over_time(species, start, end)
         series.append(
             {
                 "scientific_name": species.scientific_name,
@@ -286,19 +269,13 @@ def multi_species_timelines(
 
 def species_detections_by_day_yearly(
     species: Species,
-    min_confidence: float | None = None,
 ) -> dict[str, int]:
     """
     Detections per day over the past year, keyed by ISO date. Unlike the series builders
     above, a day with nothing heard is left out rather than set to zero.
     """
     since = timezone.now() - timedelta(days=364)
-    queryset = (
-        StoredDetection.objects.of_species(species)
-        .in_period(since, None)
-        .approved()
-        .with_min_confidence(min_confidence)
-    )
+    queryset = StoredDetection.objects.of_species(species).in_period(since, None).approved()
     rows = queryset.annotate(day=TruncDay("recorded_at")).values("day").annotate(count=Count("id")).order_by("day")
     return {row["day"].date().isoformat(): row["count"] for row in rows}
 

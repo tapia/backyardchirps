@@ -43,11 +43,6 @@ class StoredDetectionQuerySet(models.QuerySet["StoredDetection"]):
         """
         return self.filter(validation_status__in=ValidationStatus.approved())
 
-    def with_min_confidence(self, min_confidence: float | None) -> "StoredDetectionQuerySet":
-        if min_confidence is None:
-            return self
-        return self.filter(confidence__gte=min_confidence)
-
     def excluding_blacklisted(self) -> "StoredDetectionQuerySet":
         return self.exclude(species__override__blacklisted=True)
 

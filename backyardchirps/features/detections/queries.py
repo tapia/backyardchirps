@@ -162,18 +162,15 @@ def upsert(
 def species_with_detection_counts(
     start: datetime | None = None,
     end: datetime | None = None,
-    min_confidence: float | None = None,
     order: str | None = None,
 ) -> list[SpeciesDetectionCounts]:
     """
     Detection statistics per species, counting only what the site shows. Pass
     "most_recent" or "most_frequent" as order, or None to leave the results unsorted.
     """
-    all_time_filter = Q(detections__validation_status__in=ValidationStatus.approved())
-    if min_confidence is not None:
-        all_time_filter &= Q(detections__confidence__gte=min_confidence)
+    approved_q = Q(detections__validation_status__in=ValidationStatus.approved())
 
-    period_q = all_time_filter
+    period_q = approved_q
     if start:
         period_q &= Q(detections__recorded_at__gte=start)
     if end:
@@ -181,21 +178,16 @@ def species_with_detection_counts(
 
     queryset = (
         DetectedSpecies.objects.annotate(
-            last_seen=Max("detections__recorded_at", filter=all_time_filter),
-            count_total=Count("detections", filter=all_time_filter),
+            last_seen=Max("detections__recorded_at", filter=approved_q),
+            count_total=Count("detections", filter=approved_q),
             count_in_period=Count("detections", filter=period_q),
         )
         .filter(count_total__gt=0)
         .exclude(override__blacklisted=True)
     )
 
-    if start or end or min_confidence is not None:
-        exists_queryset = (
-            StoredDetection.objects.filter(species=OuterRef("pk"))
-            .approved()
-            .in_period(start, end)
-            .with_min_confidence(min_confidence)
-        )
+    if start or end:
+        exists_queryset = StoredDetection.objects.filter(species=OuterRef("pk")).approved().in_period(start, end)
         queryset = queryset.filter(Exists(exists_queryset))
 
     if order == "most_recent":
@@ -223,24 +215,21 @@ def get_species_stats(
     species: Species,
     start: datetime | None = None,
     end: datetime | None = None,
-    min_confidence: float | None = None,
 ) -> dict:
     """
     Note that the two answer slightly different questions: last_seen is the most recent
     detection ever, ignoring start and end, while count_total counts only the period
     asked for. Both count only what the site shows.
     """
-    confidence_q = Q(validation_status__in=ValidationStatus.approved())
-    if min_confidence is not None:
-        confidence_q &= Q(confidence__gte=min_confidence)
-    period_q = confidence_q
+    approved_q = Q(validation_status__in=ValidationStatus.approved())
+    period_q = approved_q
     if start:
         period_q &= Q(recorded_at__gte=start)
     if end:
         period_q &= Q(recorded_at__lte=end)
 
     return StoredDetection.objects.of_species(species).aggregate(
-        last_seen=Max("recorded_at", filter=confidence_q),
+        last_seen=Max("recorded_at", filter=approved_q),
         count_total=Count("id", filter=period_q),
     )
 

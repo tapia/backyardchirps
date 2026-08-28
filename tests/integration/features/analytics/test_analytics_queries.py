@@ -51,17 +51,6 @@ def test_species_detections_by_hour_of_day_leaves_out_the_review_queue(
     assert hourly[9] == 1
 
 
-def test_species_detections_by_hour_of_day_respects_min_confidence(create_detection: Callable[..., Any]) -> None:
-    create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 9, 0, tzinfo=_MADRID), confidence=0.9)
-    create_detection(scientific_name=BLACKBIRD, recorded_at=datetime(2024, 6, 15, 9, 0, tzinfo=_MADRID), confidence=0.4)
-
-    hourly = analytics_queries.species_detections_by_hour_of_day(
-        Species(BLACKBIRD), start=None, end=None, min_confidence=0.8
-    )
-
-    assert hourly[9] == 1
-
-
 # --- species_detections_over_time -------------------------------------------
 
 
@@ -241,12 +230,12 @@ def test_species_by_hour_of_day_skips_blacklisted_and_undetected(
     assert [entry["scientific_name"] for entry in result["species"]] == [BLACKBIRD]
 
 
-def test_species_by_hour_of_day_respects_min_confidence(create_detection: Callable[..., Any]) -> None:
+def test_species_by_hour_of_day_leaves_out_the_review_queue(create_detection: Callable[..., Any]) -> None:
     recorded_at = datetime(2024, 6, 15, 9, 0, tzinfo=_MADRID)
-    create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at, confidence=0.9)
-    create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at, confidence=0.4)
+    create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at)
+    create_detection(scientific_name=BLACKBIRD, recorded_at=recorded_at, validation_status=ValidationStatus.PENDING)
 
-    result = analytics_queries.species_by_hour_of_day([Species(BLACKBIRD)], "en", None, None, min_confidence=0.8)
+    result = analytics_queries.species_by_hour_of_day([Species(BLACKBIRD)], "en", None, None)
 
     assert result["species"][0]["hours"][9] == 1
     assert result["species"][0]["total"] == 1

@@ -23,7 +23,6 @@ from backyardchirps.features.species.seasonality import get_yearly_seasonality
 from backyardchirps.shared.http import get_detected_species_or_404
 from backyardchirps.shared.http import get_species_or_404
 from backyardchirps.shared.http import parse_dt
-from backyardchirps.shared.http import resolve_confidence_level
 
 
 class SpeciesListOrder(Enum):
@@ -37,11 +36,10 @@ class SpeciesListOrder(Enum):
 def species_list(request: Request) -> Response:
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
-    min_confidence = resolve_confidence_level(request)
     order = _parse_species_order(request.GET.get("sort"))
 
     db_order = order.value if order != SpeciesListOrder.ALPHABETICAL else None
-    species_counts = species_with_detection_counts(start, end, min_confidence, db_order)
+    species_counts = species_with_detection_counts(start, end, db_order)
 
     if order == SpeciesListOrder.ALPHABETICAL:
         species_counts.sort(key=lambda entry: entry.species.common_name(lang))
@@ -83,7 +81,6 @@ def taxonomy_search(request: Request) -> Response:
 def species_detail(request: Request, slug: str) -> Response:
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
-    min_confidence = resolve_confidence_level(request)
     species = get_species_or_404(slug)
 
     override = override_queries.get(species)
@@ -92,7 +89,7 @@ def species_detail(request: Request, slug: str) -> Response:
     blacklisted = override is not None and override.blacklisted
     has_detections = not blacklisted and queries.has_been_detected(species)
     if has_detections:
-        detection_stats = get_species_stats(species, start, end, min_confidence)
+        detection_stats = get_species_stats(species, start, end)
         # The recordings tab ignores the selected period and shows everything, so its
         # count has to cover every clip we have.
         recordings_total = count_species_recordings(species)

@@ -14,13 +14,11 @@ from backyardchirps.features.weather.astronomy import get_for_date as get_astro_
 from backyardchirps.features.weather.astronomy import serialize_astro_times
 from backyardchirps.shared.http import get_detected_species_or_404
 from backyardchirps.shared.http import parse_dt
-from backyardchirps.shared.http import resolve_confidence_level
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def count_detections_by_species_hourly(request: Request) -> Response:
-    min_confidence = resolve_confidence_level(request)
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     offset = int(request.GET.get("offset", "0"))
     now = timezone.now()
@@ -31,7 +29,7 @@ def count_detections_by_species_hourly(request: Request) -> Response:
     astro_dates = [start_date] if start_date == end_date else [start_date, end_date]
     return Response(
         {
-            "hours": analytics_queries.detections_by_species_hourly(min_confidence, lang, start=start, end=end),
+            "hours": analytics_queries.detections_by_species_hourly(lang, start=start, end=end),
             "astro": serialize_astro_times([get_astro_times(astro_date) for astro_date in astro_dates]),
         }
     )
@@ -40,23 +38,21 @@ def count_detections_by_species_hourly(request: Request) -> Response:
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def detections_by_hour_of_day(request: Request) -> Response:
-    min_confidence = resolve_confidence_level(request)
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start = parse_dt(request.GET.get("start"))
     end = parse_dt(request.GET.get("end"))
     slugs = request.GET.getlist("species")
     species_list = [species for species in (Species.from_slug(slug) for slug in slugs) if species is not None]
-    return Response(analytics_queries.species_by_hour_of_day(species_list, lang, start, end, min_confidence))
+    return Response(analytics_queries.species_by_hour_of_day(species_list, lang, start, end))
 
 
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def species_hourly(request: Request, slug: str) -> Response:
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
-    min_confidence = resolve_confidence_level(request)
     species = get_detected_species_or_404(slug)
 
-    hourly = analytics_queries.species_detections_by_hour_of_day(species, start, end, min_confidence)
+    hourly = analytics_queries.species_detections_by_hour_of_day(species, start, end)
     return Response({"hourly": hourly})
 
 
@@ -64,12 +60,9 @@ def species_hourly(request: Request, slug: str) -> Response:
 @permission_classes([AllowAny])
 def species_heatmap(request: Request, slug: str) -> Response:
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
-    min_confidence = resolve_confidence_level(request)
     species = get_detected_species_or_404(slug)
 
-    cells, x_labels, granularity = analytics_queries.species_detections_by_date_and_hour(
-        species, start, end, min_confidence
-    )
+    cells, x_labels, granularity = analytics_queries.species_detections_by_date_and_hour(species, start, end)
 
     return Response({"heatmap": cells, "x_labels": x_labels, "granularity": granularity.value})
 
@@ -77,9 +70,8 @@ def species_heatmap(request: Request, slug: str) -> Response:
 @api_view(["GET"])
 @permission_classes([AllowAny])
 def species_yearly(request: Request, slug: str) -> Response:
-    min_confidence = resolve_confidence_level(request)
     species = get_detected_species_or_404(slug)
-    daily = analytics_queries.species_detections_by_day_yearly(species, min_confidence)
+    daily = analytics_queries.species_detections_by_day_yearly(species)
     return Response({"daily": daily})
 
 
@@ -89,9 +81,8 @@ def multi_species_timeline(request: Request) -> Response:
     slugs = request.GET.getlist("species")
     lang = request.GET.get("lang", settings.LANGUAGE_CODE)
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
-    min_confidence = resolve_confidence_level(request)
 
     species_list = [species for species in (Species.from_slug(slug) for slug in slugs) if species is not None]
-    series, granularity = analytics_queries.multi_species_timelines(species_list, lang, start, end, min_confidence)
+    series, granularity = analytics_queries.multi_species_timelines(species_list, lang, start, end)
 
     return Response({"series": series, "granularity": granularity.value})

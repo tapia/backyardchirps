@@ -189,15 +189,6 @@ def test_species_with_detection_counts_counts_only_approved_rows(create_detectio
     assert [row.count_total for row in counts] == [2]
 
 
-def test_species_with_detection_counts_min_confidence_filter(create_detection: Callable[..., Any]) -> None:
-    create_detection(scientific_name=BLACKBIRD, confidence=0.95)
-    create_detection(scientific_name=ROBIN, confidence=0.5)
-
-    counts = detection_queries.species_with_detection_counts(min_confidence=0.8)
-
-    assert [row.species.scientific_name for row in counts] == [BLACKBIRD]
-
-
 # --- dubious / validation ----------------------------------------------------
 
 

@@ -1,9 +1,6 @@
 from datetime import datetime
-from enum import Enum
 from typing import Any
-from typing import cast
 
-from django.http import HttpRequest
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from rest_framework.exceptions import NotFound
@@ -11,8 +8,6 @@ from rest_framework.exceptions import ParseError
 from rest_framework.request import Request
 
 from backyardchirps.features.overrides import queries as override_queries
-from backyardchirps.features.settings.logic import Settings
-from backyardchirps.features.settings.logic import SettingsKey
 from backyardchirps.features.species import queries as species_queries
 from backyardchirps.features.species.entity import Species
 
@@ -54,12 +49,6 @@ def get_detected_species_or_404(slug: str) -> Species:
     return species
 
 
-class ConfidenceLevel(Enum):
-    LOW = "low"
-    MEDIUM = "medium"
-    HIGH = "high"
-
-
 def parse_dt(value: str | None) -> datetime | None:
     if not value:
         return None
@@ -67,27 +56,3 @@ def parse_dt(value: str | None) -> datetime | None:
     if dt is None:
         return None
     return timezone.make_aware(dt) if timezone.is_naive(dt) else dt
-
-
-def resolve_confidence_level(request: HttpRequest) -> float | None:
-    """
-    Turn the 'min_confidence' query parameter, one of low, medium or high, into the
-    threshold it stands for. Anything else is treated as high. "low" means no threshold
-    at all, so it returns None.
-
-    The thresholds are read from AppSetting on every request, so changing one takes
-    effect at once.
-    """
-    raw = request.GET.get("min_confidence", ConfidenceLevel.HIGH.value)
-    try:
-        level = ConfidenceLevel(raw)
-    except ValueError:
-        level = ConfidenceLevel.HIGH
-    if level == ConfidenceLevel.LOW:
-        return None
-    settings_key = (
-        SettingsKey.ANALYSIS_MEDIUM_CONFIDENCE
-        if level == ConfidenceLevel.MEDIUM
-        else SettingsKey.ANALYSIS_HIGH_CONFIDENCE
-    )
-    return cast(float, Settings.get(settings_key))

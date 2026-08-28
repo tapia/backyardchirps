@@ -95,12 +95,12 @@ def test_detections_by_hour_of_day_parses_params(api_client: APIClient, create_d
 
     response = api_client.get(
         f"/api/detections/by-hour-of-day/?species={BLACKBIRD_SLUG}&species={ROBIN_SLUG}"
-        "&start=2024-06-14T00:00:00Z&end=2024-06-16T00:00:00Z&min_confidence=low"
+        "&start=2024-06-14T00:00:00Z&end=2024-06-16T00:00:00Z"
     )
 
     assert response.status_code == 200
     totals = {entry["scientific_name"]: entry["total"] for entry in response.data["species"]}
-    # min_confidence=low keeps the blackbird's 0.4 detection; the window excludes
-    # the July robin, so it stays a selected but empty row (like the violin).
+    # The window excludes the July robin, so it stays a selected but empty row (like the
+    # violin), while the blackbird is counted whatever it scored.
     assert totals == {BLACKBIRD: 1, ROBIN: 0}
     assert response.data["days"] == 2
