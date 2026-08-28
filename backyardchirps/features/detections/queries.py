@@ -103,9 +103,10 @@ def upsert(
     Create or update the detection record for this clip's time block.
 
     Detections of the same species are grouped into 3-minute blocks, and each block
-    keeps only its most confident one. Since the analysis time and the raw candidates
-    describe the saved clip, they are rewritten whenever that clip is replaced. Returns
-    None when the stored record is already at least as confident.
+    keeps only its most confident one, with the longest recording of it. Since the
+    analysis time and the raw candidates describe the saved clip, they are rewritten
+    whenever that clip is replaced. Returns None when the stored record is already the
+    better of the two.
     """
     block_start = get_block_time(clip.recorded_at)
     block_end = block_start + timedelta(minutes=_detection_time_buffer_in_minutes())
@@ -131,7 +132,7 @@ def upsert(
         )
         return created.to_entity()
 
-    if analysis_result.confidence <= existing.confidence:
+    if not _is_better_record(analysis_result.confidence, clip.duration_seconds(), existing):
         return None
 
     if existing.clip_path:
@@ -460,6 +461,24 @@ def _serialize_candidates(raw_candidates: list[RawCandidate] | None) -> list[dic
     if not raw_candidates:
         return None
     return [{"label": candidate.label, "confidence": candidate.confidence} for candidate in raw_candidates]
+
+
+def _is_better_record(confidence: float, duration_seconds: float | None, existing: StoredDetection) -> bool:
+    """
+    Whether the clip just analyzed should replace the one stored for this block.
+
+    A more confident hearing always wins. At the same confidence the longer recording
+    wins: the consistency window reports a species again on every clip it is heard in,
+    with more of the window stitched together each time, and the reviewer should end up
+    with the longest of those rather than the first.
+
+    A lower confidence never wins, even with more audio. The window slides, so once the
+    best clip has left it a later hearing reports a smaller maximum, and the stored one
+    is still the better record.
+    """
+    if confidence != existing.confidence:
+        return confidence > existing.confidence
+    return (duration_seconds or 0.0) > (existing.clip_duration_seconds or 0.0)
 
 
 def _initial_validation_status(confidence: float, species: Species) -> ValidationStatus:

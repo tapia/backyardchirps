@@ -24,8 +24,10 @@ HOUSE_SPARROW = "Passer domesticus"
 _RECORDED_AT = datetime(2024, 6, 15, 8, 6, 0, tzinfo=timezone.utc)
 
 
-def _clip(make_audio_clip: Callable[..., AudioClip], recorded_at: datetime = _RECORDED_AT) -> AudioClip:
-    return make_audio_clip(seconds=3.0, recorded_at=recorded_at)
+def _clip(
+    make_audio_clip: Callable[..., AudioClip], recorded_at: datetime = _RECORDED_AT, seconds: float = 3.0
+) -> AudioClip:
+    return make_audio_clip(seconds=seconds, recorded_at=recorded_at)
 
 
 def _result(confidence: float, scientific_name: str = BLACKBIRD) -> AnalysisResult:
@@ -102,6 +104,40 @@ def test_upsert_ignores_equal_or_lower_confidence(make_audio_clip: Callable[...,
     assert detection_queries.upsert(_clip(make_audio_clip), _result(0.8)) is None  # equal
     assert detection_queries.upsert(_clip(make_audio_clip), _result(0.7)) is None  # lower
     assert Path(first.clip_path).exists()  # original clip untouched
+
+
+def test_upsert_replaces_an_equal_hearing_that_brings_a_longer_recording(
+    make_audio_clip: Callable[..., AudioClip], clips_dir: Path
+) -> None:
+    """
+    The consistency window reports a species again on every clip it is heard in, with
+    more of the window stitched together each time and the same maximum confidence. The
+    reviewer should end up with the longest of those, not the first.
+    """
+    detection_queries.upsert(_clip(make_audio_clip, seconds=3.0), _result(0.8))
+
+    longer = detection_queries.upsert(_clip(make_audio_clip, seconds=6.0), _result(0.8))
+
+    assert longer is not None
+    assert longer.clip_duration_seconds == 6.0
+
+
+def test_upsert_keeps_the_longer_recording_it_already_has(
+    make_audio_clip: Callable[..., AudioClip], clips_dir: Path
+) -> None:
+    detection_queries.upsert(_clip(make_audio_clip, seconds=6.0), _result(0.8))
+
+    assert detection_queries.upsert(_clip(make_audio_clip, seconds=3.0), _result(0.8)) is None
+
+
+def test_upsert_prefers_confidence_over_length(make_audio_clip: Callable[..., AudioClip], clips_dir: Path) -> None:
+    """
+    A later hearing reports a smaller maximum once the best clip has left the window.
+    More audio does not make it the better record.
+    """
+    detection_queries.upsert(_clip(make_audio_clip, seconds=3.0), _result(0.8))
+
+    assert detection_queries.upsert(_clip(make_audio_clip, seconds=6.0), _result(0.7)) is None
 
 
 def test_upsert_marks_low_confidence_as_pending(make_audio_clip: Callable[..., AudioClip], clips_dir: Path) -> None:
