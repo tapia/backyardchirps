@@ -11,9 +11,9 @@ from backyardchirps.features.detections import queries as detection_queries
 from backyardchirps.features.detections.entity import Detection
 from backyardchirps.features.notifications.logic import Notifier
 from backyardchirps.features.recording.audio.birdnet3.analyzer import BirdNet3Analyzer
-from backyardchirps.features.recording.audio.consistency_filter import ConsistencyFilter
 from backyardchirps.features.recording.audio.detection import AnalysisResult
 from backyardchirps.features.recording.audio.detection import discard_non_birds
+from backyardchirps.features.recording.audio.detection_window import DetectionWindow
 from backyardchirps.features.recording.audio.queue_monitor import QueueMonitor
 from backyardchirps.features.recording.audio.recorder import AudioRecorder
 from backyardchirps.features.recording.entity import RecorderStartupSettings
@@ -49,10 +49,9 @@ class Command(BaseCommand):
             longitude=startup_settings.longitude,
             min_confidence=startup_settings.min_confidence,
         )
-        consistency_filter = ConsistencyFilter(
-            window_size=settings.CONSISTENCY_FILTER["window_size"],
-            min_detections=settings.CONSISTENCY_FILTER["min_detections"],
-            bypass_confidence=settings.CONSISTENCY_FILTER["bypass_confidence"],
+        detection_window = DetectionWindow(
+            window_size=settings.DETECTION_WINDOW["window_size"],
+            min_clips_to_merge=settings.DETECTION_WINDOW["min_clips_to_merge"],
             overlap_time=settings.RECORDING["clip_duration"] - settings.RECORDING["step_duration"],
         )
         notifier = Notifier()
@@ -75,7 +74,7 @@ class Command(BaseCommand):
 
                 # A microphone that comes and goes, a model that chokes on one clip, a
                 # database locked by the web process: none of those are worth ending the
-                # process for. The clip is lost, the consistency window survives, and the
+                # process for. The clip is lost, the detection window survives, and the
                 # next clip is already being recorded.
                 try:
                     notifier.flush(detection_queries.get_block_time(clip.recorded_at))
@@ -90,26 +89,23 @@ class Command(BaseCommand):
                         last_heartbeat_at = time.monotonic()
 
                     analysis_results = discard_non_birds(discard_blacklisted(analysis.results))
-                    confirmed_results = consistency_filter.add(
+                    recorded_detections = detection_window.add(
                         clip, analysis_results, analysis.raw_candidates, analysis_time_ms
                     )
-                    logger.info(
-                        f"Clip processed in {analysis_time_ms}ms. {len(analysis_results)} BirdNET result(s), "
-                        f"{len(confirmed_results)} confirmed"
-                    )
+                    logger.info(f"Clip processed in {analysis_time_ms}ms. {len(analysis_results)} BirdNET result(s)")
 
-                    for confirmed in confirmed_results:
+                    for recorded in recorded_detections:
                         # None when a record for this block already exists and is at least
                         # as confident, so there is nothing to update and nothing to say.
                         detection = detection_queries.upsert(
-                            confirmed.clip,
-                            confirmed.result,
-                            analysis_time_ms=confirmed.analysis_time_ms,
-                            raw_candidates=confirmed.raw_candidates,
+                            recorded.clip,
+                            recorded.result,
+                            analysis_time_ms=recorded.analysis_time_ms,
+                            raw_candidates=recorded.raw_candidates,
                         )
                         if detection:
-                            notifier.maybe_notify(detection, confirmed.clip)
-                        self._log(confirmed.result, detection)
+                            notifier.maybe_notify(detection, recorded.clip)
+                        self._log(recorded.result, detection)
 
                     if self._settings_have_moved_on(startup_settings):
                         self.running = False
@@ -146,9 +142,8 @@ class Command(BaseCommand):
             f"step={settings.RECORDING['step_duration']:.1f}s ({overlap_pct:.0f}% overlap)"
         )
         logger.info(
-            f"Consistency filter: window={settings.CONSISTENCY_FILTER['window_size']} clips, "
-            f"min_detections={settings.CONSISTENCY_FILTER['min_detections']}, "
-            f"bypass_confidence={settings.CONSISTENCY_FILTER['bypass_confidence']}"
+            f"Detection window: {settings.DETECTION_WINDOW['window_size']} clips, "
+            f"merged from {settings.DETECTION_WINDOW['min_clips_to_merge']}"
         )
 
     def _log(

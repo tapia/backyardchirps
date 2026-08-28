@@ -25,10 +25,9 @@ class _Birdnet3Settings(TypedDict):
     intra_op_threads: int
 
 
-class _ConsistencyFilterSettings(TypedDict):
+class _DetectionWindowSettings(TypedDict):
     window_size: int
-    min_detections: int
-    bypass_confidence: float
+    min_clips_to_merge: int
 
 
 class _ServerStatusThresholds(TypedDict):
@@ -76,19 +75,16 @@ RECORDING: _RecordingSettings = {
 }
 
 # ---------------------------------------------------------------------------
-# Consistency filter: drops one-off BirdNET hits, which are usually noise rather
-# than a real call.
+# How much audio a detection is saved with. Nothing here decides what is worth
+# recording: ANALYSIS_MIN_CONFIDENCE does that on its own.
 # ---------------------------------------------------------------------------
-CONSISTENCY_FILTER: _ConsistencyFilterSettings = {
-    # How many clips in a row the filter looks at.
+DETECTION_WINDOW: _DetectionWindowSettings = {
+    # How many clips in a row are kept, and so the longest recording a detection can
+    # be given: 6 seconds at the default clip and step durations.
     "window_size": 3,
-    # How many of those clips must contain the species before it is accepted.
-    # Set to 1 to turn the repetition check off.
-    "min_detections": 2,
-    # A hit this confident is accepted on its own, without waiting for repetition.
-    # It catches the short calls (a House Sparrow chirp) that score very high but
-    # only ever land in one clip.
-    "bypass_confidence": 0.8,
+    # How many of those clips must contain the species before the window is joined into
+    # one recording. Set it above window_size to save every detection with its own clip.
+    "min_clips_to_merge": 2,
 }
 
 # ---------------------------------------------------------------------------
