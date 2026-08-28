@@ -65,10 +65,10 @@ class Detection:
     clip_path: str | None
     clip_duration_seconds: float | None
     validation_status: ValidationStatus
-    # What BirdNET originally said, saved at the moment a human overruled it. Stays None
-    # until someone changes the species.
+    # The species BirdNET originally named, saved at the moment a human overruled it.
+    # Stays None until someone changes the species, and `confidence` is then the score
+    # the model gave to that original species rather than to the one now recorded.
     original_species: Species | None = None
-    original_confidence: float | None = None
     # How long the model took on the clip, and everything it heard there. Empty on
     # detections made before we started recording this.
     analysis_time_ms: int | None = None

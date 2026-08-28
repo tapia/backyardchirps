@@ -25,7 +25,8 @@ def test_confirm_marks_human_confirmed(create_detection: Callable[..., Any]) -> 
 
     updated = detection_queries.get_by_id(detection.id)
     assert updated.validation_status == ValidationStatus.HUMAN_CONFIRMED
-    assert updated.confidence == 1.0
+    # The score stays as BirdNET reported it. The status is what says a person checked it.
+    assert updated.confidence == 0.6
 
 
 def test_confirm_with_reassignment(create_detection: Callable[..., Any]) -> None:

@@ -288,11 +288,14 @@ def _detection_entry(detection: Detection, clips_base: Path, lang: str) -> dict:
 def _original_detection(detection: Detection, lang: str) -> dict | None:
     """
     What BirdNET originally said. Only present when a human changed the species.
+
+    The confidence is the detection's own, which a validation no longer overwrites, so
+    it is still the score the model gave to this original species.
     """
     if detection.original_species is None:
         return None
     return {
-        "confidence": detection.original_confidence,
+        "confidence": detection.confidence,
         "species": {
             "slug": detection.original_species.slug,
             "scientific_name": detection.original_species.scientific_name,

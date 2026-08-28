@@ -140,6 +140,23 @@ def test_upsert_prefers_confidence_over_length(make_audio_clip: Callable[..., Au
     assert detection_queries.upsert(_clip(make_audio_clip, seconds=6.0), _result(0.7)) is None
 
 
+def test_upsert_leaves_a_validated_detection_alone(make_audio_clip: Callable[..., AudioClip], clips_dir: Path) -> None:
+    """
+    A louder clip of the same bird arriving in the same block must not undo the review.
+    Confirming used to write 1.0 over the confidence, which no later clip could beat, so
+    nothing protects this now that the real score stays.
+    """
+    detection = detection_queries.upsert(_clip(make_audio_clip), _result(0.6))
+    assert detection is not None
+    detection_queries.confirm(detection.id)
+
+    assert detection_queries.upsert(_clip(make_audio_clip), _result(0.95)) is None
+
+    unchanged = detection_queries.get_by_id(detection.id)
+    assert unchanged.validation_status == ValidationStatus.HUMAN_CONFIRMED
+    assert unchanged.confidence == 0.6
+
+
 def test_upsert_marks_low_confidence_as_pending(make_audio_clip: Callable[..., AudioClip], clips_dir: Path) -> None:
     # Default global auto-confirm bar is ANALYSIS_AUTO_CONFIRM_CONFIDENCE = 0.9.
     detection = detection_queries.upsert(_clip(make_audio_clip), _result(0.6))
@@ -254,7 +271,6 @@ def test_confirm_reassigns_species(create_detection: Callable[..., Any]) -> None
 
     updated = detection_queries.get_by_id(detection.id)
     assert updated.species.scientific_name == ROBIN
-    assert updated.confidence == 1.0
     assert updated.validation_status == ValidationStatus.HUMAN_CONFIRMED
 
 
@@ -270,7 +286,8 @@ def test_confirm_snapshots_the_original_birdnet_identification(
 
     stored = StoredDetection.objects.get(pk=detection.id)
     assert stored.original_species.scientific_name == BLACKBIRD
-    assert stored.original_confidence == 0.6
+    # The score is left alone, so it still says what BirdNET thought of the blackbird.
+    assert stored.confidence == 0.6
 
 
 def test_confirm_keeps_the_first_snapshot_when_revalidated(
@@ -290,7 +307,7 @@ def test_confirm_keeps_the_first_snapshot_when_revalidated(
     stored = StoredDetection.objects.get(pk=detection.id)
     # Still BirdNET's identification, not the robin the first reviewer chose.
     assert stored.original_species.scientific_name == BLACKBIRD
-    assert stored.original_confidence == 0.6
+    assert stored.confidence == 0.6
 
 
 def test_confirm_snapshots_original_even_without_reassignment(
@@ -302,7 +319,7 @@ def test_confirm_snapshots_original_even_without_reassignment(
 
     stored = StoredDetection.objects.get(pk=detection.id)
     assert stored.original_species.scientific_name == BLACKBIRD
-    assert stored.original_confidence == 0.6
+    assert stored.confidence == 0.6
 
 
 def test_auto_confirm_pending_above_flips_only_qualifying_rows(create_detection: Callable[..., Any]) -> None:

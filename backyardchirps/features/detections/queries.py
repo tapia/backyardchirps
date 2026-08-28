@@ -5,12 +5,16 @@ from typing import cast
 
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Case
 from django.db.models import Count
 from django.db.models import Exists
 from django.db.models import F
+from django.db.models import FloatField
 from django.db.models import Max
 from django.db.models import OuterRef
 from django.db.models import Q
+from django.db.models import Value
+from django.db.models import When
 from django.db.models.functions import Round
 
 from backyardchirps.features.detections.entity import AnalysisCandidate
@@ -106,7 +110,7 @@ def upsert(
     keeps only its most confident one, with the longest recording of it. Since the
     analysis time and the raw candidates describe the saved clip, they are rewritten
     whenever that clip is replaced. Returns None when the stored record is already the
-    better of the two.
+    better of the two, and when a person has reviewed it.
     """
     block_start = get_block_time(clip.recorded_at)
     block_end = block_start + timedelta(minutes=_detection_time_buffer_in_minutes())
@@ -131,6 +135,9 @@ def upsert(
             analysis_candidates=serialized_candidates,
         )
         return created.to_entity()
+
+    if existing.validation_status == ValidationStatus.HUMAN_CONFIRMED:
+        return None
 
     if not _is_better_record(analysis_result.confidence, clip.duration_seconds(), existing):
         return None
@@ -255,7 +262,7 @@ def get_species_recordings(
         # Sort by the confidence as the UI shows it, rounded to a whole percent. Two rows
         # displaying the same percentage then stay together, newest first, instead of
         # being separated by decimals nobody can see.
-        queryset = queryset.annotate(display_confidence=Round(F("confidence") * 100))
+        queryset = queryset.annotate(display_confidence=Round(_effective_confidence() * 100))
         primary = "display_confidence" if direction == "asc" else "-display_confidence"
         ordering = [primary, "-recorded_at"]
     else:
@@ -461,6 +468,21 @@ def _serialize_candidates(raw_candidates: list[RawCandidate] | None) -> list[dic
     if not raw_candidates:
         return None
     return [{"label": candidate.label, "confidence": candidate.confidence} for candidate in raw_candidates]
+
+
+def _effective_confidence() -> Case:
+    """
+    Confidence as the site treats it, for sorting.
+
+    A detection a person has validated counts as fully confident whatever BirdNET scored
+    it, and sorts above the rest. The stored number is left as the model reported it, so
+    this belongs in the query rather than in the row.
+    """
+    return Case(
+        When(validation_status=ValidationStatus.HUMAN_CONFIRMED, then=Value(1.0)),
+        default=F("confidence"),
+        output_field=FloatField(),
+    )
 
 
 def _is_better_record(confidence: float, duration_seconds: float | None, existing: StoredDetection) -> bool:

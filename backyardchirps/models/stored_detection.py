@@ -76,8 +76,9 @@ class StoredDetection(models.Model):
         choices=validation_status_choices,
         default=ValidationStatus.AUTO_CONFIRMED,
     )
-    # What BirdNET said, saved at the moment a human validation overwrote `species` and
-    # `confidence`. Null until someone overrules the machine.
+    # The species BirdNET named, saved at the moment a human validation overwrote
+    # `species`. Null until someone overrules the machine. `confidence` is left alone by
+    # a validation, so it is still the score the model gave to this original species.
     original_species = models.ForeignKey(
         DetectedSpecies,
         on_delete=models.SET_NULL,
@@ -85,7 +86,6 @@ class StoredDetection(models.Model):
         null=True,
         blank=True,
     )
-    original_confidence = models.FloatField(null=True, blank=True)
     # How long the model took on the clip, in milliseconds, and everything it heard
     # there: {"label", "confidence"} for each candidate above the floor that the location
     # filter let through, non-bird sounds and blacklisted species included. Both are
@@ -102,22 +102,23 @@ class StoredDetection(models.Model):
 
     def confirm(self, reassigned_species: Species | None = None) -> None:
         """
-        Confirm this detection, changing its species first if asked. Confidence becomes
-        1.0, since a human is now sure.
+        Confirm this detection, changing its species first if asked.
 
-        The original_* fields are filled the first time anyone confirms it, and never
-        touched again. They therefore always hold what BirdNET said, not what the
-        previous reviewer decided.
+        The confidence is left as BirdNET reported it. A validated detection counts as
+        fully confident wherever that matters, but writing 1.0 over the score would
+        throw away the only record of what the model actually heard.
+
+        original_species is filled the first time anyone confirms it and never touched
+        again, so it always holds what BirdNET said rather than what the previous
+        reviewer decided.
         """
-        update_fields = ["confidence", "validation_status"]
+        update_fields = ["validation_status"]
         if self.original_species_id is None:
             self.original_species_id = self.species_id
-            self.original_confidence = self.confidence
-            update_fields += ["original_species", "original_confidence"]
+            update_fields.append("original_species")
         if reassigned_species is not None:
             self.species, _ = DetectedSpecies.objects.get_or_create(scientific_name=reassigned_species.scientific_name)
             update_fields.append("species")
-        self.confidence = 1.0
         self.validation_status = ValidationStatus.HUMAN_CONFIRMED
         self.save(update_fields=update_fields)
 
@@ -144,7 +145,6 @@ class StoredDetection(models.Model):
             clip_duration_seconds=self.clip_duration_seconds,
             validation_status=ValidationStatus(self.validation_status),
             original_species=self._original_species(),
-            original_confidence=self.original_confidence,
             analysis_time_ms=self.analysis_time_ms,
             analysis_candidates=self._analysis_candidates(),
         )
