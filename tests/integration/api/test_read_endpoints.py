@@ -14,6 +14,8 @@ pytestmark = pytest.mark.django_db
 BLACKBIRD = "Turdus merula"
 BLACKBIRD_SLUG = "turdus-merula"
 ROBIN = "Erithacus rubecula"
+# Not a name upstream can ever serve, so it stays unknown to the taxonomy.
+NOT_A_SPECIES = "Not a species"
 
 
 def test_species_list(api_client: APIClient, create_detection: Callable[..., Any]) -> None:
@@ -119,7 +121,7 @@ def test_detection_detail_exposes_analysis_metadata(
         analysis_time_ms=175,
         analysis_candidates=[
             {"label": BLACKBIRD, "confidence": 0.8},
-            {"label": "Engine", "confidence": 0.2},
+            {"label": NOT_A_SPECIES, "confidence": 0.2},
         ],
     )
 
@@ -128,11 +130,11 @@ def test_detection_detail_exposes_analysis_metadata(
     assert response.status_code == 200
     assert response.data["analysis_time_ms"] == 175
     candidates = response.data["analysis_candidates"]
-    # The known species resolves to a slug and common name; the non-bird token
-    # keeps only its raw label.
+    # The known species resolves to a slug and common name; the unknown label
+    # keeps only itself.
     assert candidates[0]["scientific_name"] == BLACKBIRD
     assert candidates[0]["slug"] is not None
-    assert candidates[1]["label"] == "Engine"
+    assert candidates[1]["label"] == NOT_A_SPECIES
     assert candidates[1]["slug"] is None
 
 
@@ -144,7 +146,7 @@ def test_detections_list(api_client: APIClient, create_detection: Callable[..., 
         analysis_time_ms=140,
         analysis_candidates=[
             {"label": BLACKBIRD, "confidence": 0.82},
-            {"label": "Engine", "confidence": 0.2},
+            {"label": NOT_A_SPECIES, "confidence": 0.2},
         ],
     )
 
@@ -165,10 +167,10 @@ def test_detections_list(api_client: APIClient, create_detection: Callable[..., 
     # The frontend reads the capture time under this name.
     assert newest["recorded_at"] == datetime(2026, 1, 2, 8, 0, tzinfo=timezone.utc)
     # The full BirdNET list: a resolved species with a common name, then the
-    # non-bird token keeping only its raw label.
+    # unknown label keeping only itself.
     assert newest["candidates"][0]["scientific_name"] == BLACKBIRD
     assert newest["candidates"][0]["confidence"] == 0.82
-    assert newest["candidates"][1]["label"] == "Engine"
+    assert newest["candidates"][1]["label"] == NOT_A_SPECIES
     assert newest["candidates"][1]["slug"] is None
 
     # A detection with no stored candidates comes back with an empty list.

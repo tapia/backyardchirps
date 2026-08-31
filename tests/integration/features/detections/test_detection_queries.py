@@ -18,6 +18,8 @@ from backyardchirps.models.stored_detection import StoredDetection
 pytestmark = pytest.mark.django_db
 
 BLACKBIRD = "Turdus merula"
+# Not a name upstream can ever serve, so it stays unknown to the taxonomy.
+NOT_A_SPECIES = "Not a species"
 ROBIN = "Erithacus rubecula"
 HOUSE_SPARROW = "Passer domesticus"
 
@@ -183,15 +185,18 @@ def test_upsert_keeps_the_analysis_time_and_the_raw_candidates(
         _clip(make_audio_clip),
         _result(0.8),
         analysis_time_ms=175,
-        raw_candidates=[RawCandidate(label=BLACKBIRD, confidence=0.8), RawCandidate(label="Engine", confidence=0.2)],
+        raw_candidates=[
+            RawCandidate(label=BLACKBIRD, confidence=0.8),
+            RawCandidate(label=NOT_A_SPECIES, confidence=0.2),
+        ],
     )
 
     assert detection is not None
     assert detection.analysis_time_ms == 175
-    # The raw list keeps the non-bird token and its confidence, unresolved to a species.
+    # The raw list keeps the unknown label and its confidence, unresolved to a species.
     assert [(candidate.label, candidate.species) for candidate in detection.analysis_candidates] == [
         (BLACKBIRD, Species(BLACKBIRD)),
-        ("Engine", None),
+        (NOT_A_SPECIES, None),
     ]
 
 

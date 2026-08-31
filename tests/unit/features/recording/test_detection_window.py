@@ -14,6 +14,8 @@ _CLIP_SECONDS = 3.0
 _OVERLAP_TIME = 1.5
 
 BLACKBIRD = "Turdus merula"
+# Not a name upstream can ever serve, so it stays unknown to the taxonomy.
+NOT_A_SPECIES = "Not a species"
 ROBIN = "Erithacus rubecula"
 
 
@@ -129,13 +131,16 @@ def test_metadata_comes_from_the_highest_confidence_clip(clip: AudioClip) -> Non
     recorded = window.add(
         clip,
         [_result(BLACKBIRD, 0.70)],
-        raw_candidates=[RawCandidate(label=BLACKBIRD, confidence=0.70), RawCandidate(label="Engine", confidence=0.30)],
+        raw_candidates=[
+            RawCandidate(label=BLACKBIRD, confidence=0.70),
+            RawCandidate(label=NOT_A_SPECIES, confidence=0.30),
+        ],
         analysis_time_ms=140,
     )
 
     # The metadata comes from the second clip, where the blackbird scored highest.
     assert recorded[0].analysis_time_ms == 140
-    assert [candidate.label for candidate in recorded[0].raw_candidates] == [BLACKBIRD, "Engine"]
+    assert [candidate.label for candidate in recorded[0].raw_candidates] == [BLACKBIRD, NOT_A_SPECIES]
 
 
 def test_merging_can_be_turned_off(clip: AudioClip) -> None:
