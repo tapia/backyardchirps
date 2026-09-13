@@ -1,5 +1,5 @@
 <template>
-  <ul class="map-legend" :class="{ 'map-legend--large': large }">
+  <ul class="map-legend" :class="{ 'map-legend--overlay': overlay }">
     <li v-for="item in legendItems" :key="item.modifier" class="map-legend__item">
       <span class="map-legend__swatch" :class="`map-legend__swatch--${item.modifier}`"></span>
       <span class="map-legend__label">{{ t(item.labelKey) }}</span>
@@ -11,8 +11,9 @@
 import { useI18n } from 'vue-i18n'
 
 defineProps({
-  // Larger swatches/type for the expanded (full-screen) map.
-  large: { type: Boolean, default: false },
+  // Laid over the expanded (full-screen) map, with larger swatches and type.
+  // Without it the legend is a strip in the normal flow, under the preview.
+  overlay: { type: Boolean, default: false },
 })
 
 const { t } = useI18n()
@@ -28,32 +29,33 @@ const legendItems = [
 </script>
 
 <style scoped>
-/* Pinned to the bottom-left of the nearest positioned ancestor: the map card in
-   the preview, or the full-screen backdrop when expanded. */
 .map-legend {
-  position: absolute;
-  left: 0.5rem;
-  bottom: 0.5rem;
   margin: 0;
-  padding: 0.35rem 0.5rem;
+  padding: 0.4rem 0.6rem;
   list-style: none;
-  display: grid;
-  gap: 0.15rem;
-  background: rgba(255, 255, 255, 0.88);
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  font-size: 0.62rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.75rem;
+  border-top: 1px solid var(--border-soft);
+  font-size: 0.68rem;
   line-height: 1.2;
   color: var(--graphite);
-  /* Let clicks fall through so the map's own click handling still works. */
-  pointer-events: none;
 }
-.map-legend--large {
+/* Pinned to the bottom-left of the full-screen backdrop. Clicks fall through,
+   so a click on the legend still closes the lightbox. */
+.map-legend--overlay {
+  position: absolute;
   left: 1rem;
   bottom: 1rem;
   padding: 0.5rem 0.7rem;
+  display: grid;
   gap: 0.25rem;
+  border-top: none;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
   font-size: 0.8rem;
+  pointer-events: none;
 }
 .map-legend__item {
   display: flex;
@@ -67,7 +69,7 @@ const legendItems = [
   height: 10px;
   border-radius: 3px;
 }
-.map-legend--large .map-legend__swatch {
+.map-legend--overlay .map-legend__swatch {
   width: 13px;
   height: 13px;
 }

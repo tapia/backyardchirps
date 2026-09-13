@@ -13,6 +13,8 @@
       <i class="bi bi-zoom-in"></i>
     </span>
 
+    <!-- Under the map rather than over it: on a wide region the legend would
+         cover half the land. -->
     <MapLegend />
 
     <!-- Teleports to body, so its place in the tree doesn't affect the card;
@@ -20,7 +22,7 @@
          class (e.g. d-lg-none) is inherited by the card element. The legend is
          repeated over the expanded image so it stays visible when zoomed in. -->
     <ImageLightbox v-if="lightboxOpen" :src="mapUrl" :alt="alt" @close="lightboxOpen = false">
-      <MapLegend large />
+      <MapLegend overlay />
     </ImageLightbox>
   </div>
 </template>
@@ -52,8 +54,6 @@ const lightboxOpen = ref(false)
   background: var(--sheet);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
   cursor: zoom-in;
-  /* Always a square preview, whatever width the container gives it. */
-  aspect-ratio: 1 / 1;
   transition:
     border-color 0.12s,
     box-shadow 0.12s;
@@ -67,11 +67,13 @@ const lightboxOpen = ref(false)
   outline-offset: 2px;
 }
 
+/* The map keeps the shape of its region: a pack frames each map on its own
+   box, which can be wide (a chain of islands) or tall. Forcing a square would
+   crop the edges of the region away. */
 .map-card__img {
   display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
 }
 
 /* Subtle magnifying glass affordance in the top-right corner. */
