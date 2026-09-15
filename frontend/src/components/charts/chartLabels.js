@@ -25,9 +25,8 @@ export function timelineLabelIndexes(columnCount, granularity) {
   return indexes
 }
 
-// Wraps a species name into multiple lines for Chart.js axis tick labels.
-// Returns a plain string when it fits on one line, or an array of lines
-// (Chart.js renders array tick labels as stacked lines).
+// Breaks a species name into lines of at most maxChars, joined by "\n", for chart
+// text that does not wrap by itself. A single word longer than that keeps its line.
 export function wrapSpeciesLabel(name, maxChars = 14) {
   const words = name.split(' ')
   const lines = []
@@ -42,5 +41,5 @@ export function wrapSpeciesLabel(name, maxChars = 14) {
     }
   }
   if (current) lines.push(current)
-  return lines.length === 1 ? lines[0] : lines
+  return lines.join('\n')
 }
