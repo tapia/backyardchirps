@@ -10,9 +10,8 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Chart, ScatterController, PointElement, LinearScale, Tooltip } from 'chart.js'
-import dayjs from 'dayjs'
 import { CHART_COLORS, TOOLTIP_DEFAULTS } from '../../chartColors.js'
-import { wrapSpeciesLabel } from './chartLabels.js'
+import { formatTimelineLabel, timelineLabelIndexes, wrapSpeciesLabel } from './chartLabels.js'
 
 Chart.register(ScatterController, PointElement, LinearScale, Tooltip)
 
@@ -36,9 +35,7 @@ function hexToRgba(hex, alpha) {
 }
 
 function formatLabel(d) {
-  if (props.granularity === 'hour') return dayjs(d).format('hA')
-  if (props.granularity === 'month') return dayjs(d).format('MMM YYYY')
-  return dayjs(d).format('L')
+  return formatTimelineLabel(d, props.granularity)
 }
 
 function buildDatasets() {
@@ -170,12 +167,9 @@ function render() {
           min: -0.5,
           max: timeCount - 0.5,
           afterBuildTicks: (scale) => {
-            const maxLabels = props.granularity === 'hour' ? timeCount : 8
-            const step = Math.max(1, Math.ceil(timeCount / maxLabels))
-            const tickCount = Math.ceil(timeCount / step)
-            scale.ticks = [...Array(tickCount).keys()]
-              .map((tickIndex) => ({ value: tickIndex * step }))
-              .filter((tick) => tick.value < timeCount)
+            scale.ticks = timelineLabelIndexes(timeCount, props.granularity).map((value) => ({
+              value,
+            }))
           },
           grid: { display: false },
           border: { display: false },

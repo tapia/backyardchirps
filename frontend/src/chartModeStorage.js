@@ -1,13 +1,14 @@
 // Persisted chart selection for the all-species page. Stored in localStorage
 // so the page reopens with the chart the user last chose.
 //
-// Modes: 'timeline' (species comparison violin) | 'hourly' (species by hour of day).
+// Modes: 'timeline' (species comparison violin) | 'hourly' (species by hour of day) |
+// 'ribbon' (species ranking over time).
 export const CHART_MODE_STORAGE_KEY = 'speciesListChartMode'
 
 export function readChartMode() {
   try {
     const raw = localStorage.getItem(CHART_MODE_STORAGE_KEY)
-    return raw === 'hourly' || raw === 'timeline' ? raw : 'timeline'
+    return ['timeline', 'hourly', 'ribbon'].includes(raw) ? raw : 'timeline'
   } catch {
     return 'timeline'
   }

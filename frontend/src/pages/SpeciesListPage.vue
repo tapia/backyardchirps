@@ -31,6 +31,16 @@
             >
               <i class="bi bi-grid-3x3-gap"></i>
             </button>
+            <button
+              type="button"
+              class="btn"
+              :class="chartMode === 'ribbon' ? 'btn-primary' : 'btn-outline-primary'"
+              v-bs-tooltip="t('page.species.ribbonChart')"
+              :aria-label="t('page.species.ribbonChart')"
+              @click="setChartMode('ribbon')"
+            >
+              <i class="bi bi-bezier2"></i>
+            </button>
           </div>
           <div class="d-flex align-items-center gap-2">
             <span class="small text-warm-muted d-none d-sm-inline">{{
@@ -95,6 +105,17 @@
         <SpeciesComparisonViolinChart
           v-if="chartSeries.length"
           :series="chartSeries"
+          :granularity="chartGranularity"
+          class="mb-3"
+        />
+        <div v-else class="stat-card-warm mb-3 chart-empty-placeholder">
+          <span class="small text-warm-muted">{{ t('page.species.empty') }}</span>
+        </div>
+      </template>
+      <template v-else-if="chartMode === 'ribbon'">
+        <SpeciesRibbonChart
+          v-if="ribbonSeries.length"
+          :series="ribbonSeries"
           :granularity="chartGranularity"
           class="mb-3"
         />
@@ -187,6 +208,7 @@ import SpeciesGridCard from '../components/species/SpeciesGridCard.vue'
 import SpeciesListRow from '../components/species/SpeciesListRow.vue'
 import SpeciesComparisonViolinChart from '../components/charts/SpeciesComparisonViolinChart.vue'
 import SpeciesHourlyHeatmapChart from '../components/charts/SpeciesHourlyHeatmapChart.vue'
+import SpeciesRibbonChart from '../components/charts/SpeciesRibbonChart.vue'
 import { readChartMode, writeChartMode } from '../chartModeStorage.js'
 import { formatShortDateRange } from '../dates.js'
 
@@ -206,6 +228,18 @@ const viewMode = ref(window.innerWidth < 576 ? 'list' : 'grid')
 const selectedSlugs = ref(new Set())
 const chartSeries = ref([])
 const chartGranularity = ref('day')
+
+// The ribbon chart colours its species in the order of the list below it, so the timeline
+// series are put in that order before they reach it.
+const ribbonSeries = computed(() => {
+  const listPositions = new Map(species.value.map((entry, index) => [entry.scientific_name, index]))
+  const unlisted = species.value.length
+  return [...chartSeries.value].sort(
+    (first, second) =>
+      (listPositions.get(first.scientific_name) ?? unlisted) -
+      (listPositions.get(second.scientific_name) ?? unlisted),
+  )
+})
 
 // How many species the chart shows. Unlike the period/sort filters, this scopes
 // only the chart: it caps the selection and seeds it with the top-N species of
@@ -305,7 +339,7 @@ async function fetchSpecies() {
       end: end.value,
     })
     species.value = fresh
-    // Both charts follow this selection; the selectedSlugs watch refreshes them.
+    // Every chart follows this selection; the selectedSlugs watch refreshes them.
     selectedSlugs.value = new Set(fresh.slice(0, chartSpeciesCount.value).map((s) => s.slug))
   } finally {
     loading.value = false
@@ -372,8 +406,9 @@ watch([start, end, sort, lang], fetchSpecies)
 
 // Every input change (period, sort, language) reassigns
 // selectedSlugs in fetchSpecies, and toggling a card reassigns it too, so a
-// single watch keeps both charts in sync with the selection. The violin
-// refetches eagerly; the hourly chart is lazy and only refetches when shown.
+// single watch keeps every chart in sync with the selection. The timeline
+// data, which the violin and the ribbon chart share, is refetched eagerly;
+// the hourly chart is lazy and only refetches when shown.
 watch(selectedSlugs, () => {
   fetchChart()
   hourlyStale.value = true

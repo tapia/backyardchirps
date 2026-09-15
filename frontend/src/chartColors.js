@@ -56,6 +56,22 @@ export const CHART_COLORS = {
    */
   palette: ['#3D6B2E', '#C8861A', '#3B5F8A', '#2A8B7A', '#B85B35', '#4A4B8A', '#8B3D7A', '#C4A832'],
   /*
+   * Species ranking (ribbon) chart, assigned in the order of the species list and repeated
+   * past the tenth species.
+   */
+  ribbonPalette: [
+    '#2d6a4f',
+    '#f4a261',
+    '#264653',
+    '#2a9d8f',
+    '#e76f51',
+    '#6d597a',
+    '#b56576',
+    '#e9c46a',
+    '#8ab17d',
+    '#7f5539',
+  ],
+  /*
    * Warm→cool sequential ramp for the seasonality band:
    * pale sand (least probable) → orange → salmon → mauve → periwinkle → blue → deep blue (most probable).
    */

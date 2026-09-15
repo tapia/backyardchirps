@@ -20,11 +20,19 @@ html {
   --sand-pale: #ecdfc4;
   --danger-muted: #8b3a3a;
 
-  /* Type stacks. Newsreader is the display serif, Source Sans the interface face.
-     Canvas text in the charts cannot read a custom property, so those keep the
-     literal stack. */
+  /* Type stacks. Newsreader is the display serif, Source Sans the interface face,
+     and Space Grotesk the face of the species ranking (ribbon) chart. Canvas text in
+     the charts cannot read a custom property, so those keep the literal stack. */
   --font-serif: 'Newsreader', Georgia, serif;
   --font-sans: 'Source Sans 3', system-ui, sans-serif;
+  --font-grotesk: 'Space Grotesk', system-ui, sans-serif;
+
+  /* Species ranking (ribbon) chart on the species list. Each ribbon has a stroke in
+     the card's own colour, which is what separates one band from the next. */
+  --ribbon-paper: #f7f6f2;
+  --ribbon-ink: #1f1f1f;
+  --ribbon-muted: #6b6a66;
+  --ribbon-grid: #e6e4dd;
 
   /* Species hero stat accents: earthy jay-blue + ochre, tuned to the palette */
   --jay-blue: #3f6188;

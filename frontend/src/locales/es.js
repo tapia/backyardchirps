@@ -46,6 +46,7 @@ export default {
       empty: 'Sin detecciones aún.',
       timelineChart: 'Evolución de detecciones',
       hourlyChart: 'Actividad por hora del día',
+      ribbonChart: 'Ranking de especies a lo largo del tiempo',
       chartSpeciesCount: 'Especies',
       chartSpeciesCountHint: 'Número de especies en la gráfica',
     },
