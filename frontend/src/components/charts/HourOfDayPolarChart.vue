@@ -14,6 +14,7 @@ import { PolarComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { CHART_COLORS } from '../../chartColors.js'
+import { TOOLTIP_STYLE, axisText } from './chartStyle.js'
 import { formatHourOfDay } from './chartLabels.js'
 
 use([BarChart, CanvasRenderer, PolarComponent, TooltipComponent])
@@ -26,9 +27,6 @@ const props = defineProps({
 })
 
 const HOURS = Array.from({ length: 24 }, (unused, hour) => hour)
-
-// Canvas text cannot read CSS custom properties, so the font stack is written out.
-const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
 
 // Share of the space left by the hour labels that the circle fills.
 const RADIUS = '84%'
@@ -51,9 +49,7 @@ const option = computed(() => {
       axisTick: { show: false },
       splitLine: { show: false },
       axisLabel: {
-        color: CHART_COLORS.axis,
-        fontSize: 12,
-        fontFamily: AXIS_FONT,
+        ...axisText(12),
         margin: HOUR_LABEL_GAP,
         formatter: (hour) => formatHourOfDay(Number(hour)),
       },
@@ -68,12 +64,7 @@ const option = computed(() => {
     },
     tooltip: {
       trigger: 'item',
-      backgroundColor: CHART_COLORS.tooltip.background,
-      borderColor: CHART_COLORS.tooltip.border,
-      borderWidth: 1,
-      padding: 10,
-      textStyle: { color: CHART_COLORS.tooltip.body, fontSize: 12, fontFamily: AXIS_FONT },
-      extraCssText: 'border-radius: 2px; box-shadow: none;',
+      ...TOOLTIP_STYLE,
       formatter: tooltipHtml,
     },
     series: {

@@ -40,6 +40,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import dayjs from 'dayjs'
 import { CHART_COLORS } from '../../chartColors.js'
+import { HEADER_FONT, TOOLTIP_STYLE, axisText } from './chartStyle.js'
 
 use([BarChart, CanvasRenderer, GridComponent, MarkAreaComponent, ScatterChart, TooltipComponent])
 
@@ -55,8 +56,7 @@ const props = defineProps({
 
 const HOUR_MS = 3600000
 
-// Canvas text cannot read CSS custom properties, so the font stack is written out.
-const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+const AXIS_TEXT = axisText(13)
 
 // Plot edges inside the chart. The HTML header above uses the same insets, so its
 // legend lines up with the first bar and its navigation with the last.
@@ -64,7 +64,7 @@ const GRID_LEFT = 36
 const GRID_RIGHT = 8
 const GRID_TOP = 18
 const GRID_BOTTOM = 34
-// Bars fill this share of their hour, as Chart.js drew them.
+// Bars fill 72% of their hour.
 const BAR_GAP = '28%'
 const BAR_CORNER_RADIUS = 3
 const Y_AXIS_HEADROOM = 1.15
@@ -99,7 +99,6 @@ const option = computed(() => {
   const segments = props.hours.map(barSegments)
   const speciesHovered = Boolean(props.hoveredSpeciesName)
   const restColor = speciesHovered ? CHART_COLORS.hourlyBarDimmed : CHART_COLORS.hourlyBar
-  const axisText = { color: CHART_COLORS.axis, fontSize: 13, fontFamily: AXIS_FONT }
 
   return {
     // Updates apply at once: animating the stacked parts separately shows seams in the bars.
@@ -111,7 +110,7 @@ const option = computed(() => {
         data: props.hours.map((hour) => dayjs(hour.hour).format('hA')),
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: axisText,
+        axisLabel: AXIS_TEXT,
       },
       // Hours as a continuous scale, for day/night edges that fall inside an hour.
       { type: 'value', min: 0, max: props.hours.length, show: false },
@@ -124,18 +123,16 @@ const option = computed(() => {
       minInterval: 1,
       axisLine: { show: false },
       axisTick: { show: false },
-      axisLabel: { ...axisText, showMaxLabel: false },
+      axisLabel: { ...AXIS_TEXT, showMaxLabel: false },
       splitLine: { showMaxLine: false, lineStyle: { color: CHART_COLORS.grid } },
     },
     tooltip: {
       trigger: 'item',
       className: 'chart-tooltip',
       appendTo: 'body',
-      backgroundColor: CHART_COLORS.tooltip.background,
-      borderColor: CHART_COLORS.tooltip.border,
-      borderWidth: 1,
+      ...TOOLTIP_STYLE,
       padding: [8, 10],
-      extraCssText: 'border-radius: 2px; box-shadow: none;',
+      textStyle: { fontFamily: HEADER_FONT },
       position: tooltipPosition,
       formatter: tooltipHtml,
     },

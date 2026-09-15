@@ -40,9 +40,8 @@ import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { CHART_COLORS } from '../../chartColors.js'
 import { formatHourOfDay } from './chartLabels.js'
+import { HEADER_FONT, TOOLTIP_STYLE, axisText } from './chartStyle.js'
 import {
-  AXIS_TEXT,
-  HEADER_FONT,
   HEATMAP_TOP,
   LABEL_GAP,
   activityLegend,
@@ -78,6 +77,8 @@ const props = defineProps({
 const metric = ref('total')
 
 const HOURS = Array.from({ length: 24 }, (unused, hour) => hour)
+
+const AXIS_TEXT = axisText(12)
 
 const HEATMAP_BOTTOM = 28
 // Species names wrap to this width.
@@ -152,12 +153,10 @@ const option = computed(() => {
     tooltip: {
       trigger: 'item',
       className: 'hour-tooltip',
-      backgroundColor: CHART_COLORS.tooltip.background,
-      borderColor: CHART_COLORS.tooltip.border,
-      borderWidth: 1,
+      ...TOOLTIP_STYLE,
       padding: [8, 10],
       textStyle: { fontFamily: HEADER_FONT },
-      extraCssText: 'border-radius: 2px; box-shadow: none; max-width: calc(100vw - 24px);',
+      extraCssText: `${TOOLTIP_STYLE.extraCssText} max-width: calc(100vw - 24px);`,
       confine: true,
       position: tooltipPosition,
       formatter: tooltipHtml,

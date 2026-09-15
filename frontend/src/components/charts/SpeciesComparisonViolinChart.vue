@@ -13,6 +13,7 @@ import { GridComponent, TooltipComponent } from 'echarts/components'
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { CHART_COLORS } from '../../chartColors.js'
+import { TOOLTIP_STYLE, axisText } from './chartStyle.js'
 import { formatTimelineLabel, timelineLabelIndexes, wrapSpeciesLabel } from './chartLabels.js'
 
 use([CanvasRenderer, GridComponent, LineChart, TooltipComponent])
@@ -25,9 +26,7 @@ const props = defineProps({
   granularity: { type: String, required: true },
 })
 
-// Canvas text cannot read CSS custom properties, so the font stack is written out.
-const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
-const AXIS_TEXT = { color: CHART_COLORS.axis, fontSize: 13, fontFamily: AXIS_FONT }
+const AXIS_TEXT = axisText(13)
 
 // Room for species names, wrapped at 14 characters, which end this far from the plot.
 const LABEL_WIDTH = 90
@@ -119,12 +118,7 @@ const option = computed(() => {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'none' },
-      backgroundColor: CHART_COLORS.tooltip.background,
-      borderColor: CHART_COLORS.tooltip.border,
-      borderWidth: 1,
-      padding: 10,
-      textStyle: { color: CHART_COLORS.tooltip.body, fontSize: 12, fontFamily: AXIS_FONT },
-      extraCssText: 'border-radius: 2px; box-shadow: none;',
+      ...TOOLTIP_STYLE,
       formatter: tooltipHtml,
     },
     series: props.series.flatMap((species, row) => {

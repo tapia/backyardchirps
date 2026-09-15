@@ -16,9 +16,8 @@ import VChart from 'vue-echarts'
 import dayjs from 'dayjs'
 import { CHART_COLORS } from '../../chartColors.js'
 import { formatHourOfDay } from './chartLabels.js'
+import { TOOLTIP_STYLE, axisText } from './chartStyle.js'
 import {
-  AXIS_FONT,
-  AXIS_TEXT,
   activityLegend,
   activityLevel,
   heatmapGrid,
@@ -49,6 +48,8 @@ const props = defineProps({
 })
 
 const HOURS = Array.from({ length: 24 }, (unused, hour) => hour)
+
+const AXIS_TEXT = axisText(12)
 
 const PLOT_LEFT = 46
 const HEATMAP_BOTTOM = 28
@@ -108,12 +109,7 @@ const option = computed(() => {
     visualMap: activityLegend(t),
     tooltip: {
       trigger: 'item',
-      backgroundColor: CHART_COLORS.tooltip.background,
-      borderColor: CHART_COLORS.tooltip.border,
-      borderWidth: 1,
-      padding: 10,
-      textStyle: { color: CHART_COLORS.tooltip.body, fontSize: 12, fontFamily: AXIS_FONT },
-      extraCssText: 'border-radius: 2px; box-shadow: none;',
+      ...TOOLTIP_STYLE,
       formatter: tooltipHtml,
     },
     series: [

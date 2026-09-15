@@ -97,13 +97,3 @@ export const CHART_COLORS = {
     ],
   },
 }
-
-export const TOOLTIP_DEFAULTS = {
-  backgroundColor: CHART_COLORS.tooltip.background,
-  titleColor: CHART_COLORS.tooltip.title,
-  bodyColor: CHART_COLORS.tooltip.body,
-  borderColor: CHART_COLORS.tooltip.border,
-  borderWidth: 1,
-  padding: 10,
-  cornerRadius: 2,
-}

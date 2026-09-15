@@ -1,4 +1,5 @@
 import { CHART_COLORS } from '../../chartColors.js'
+import { HEADER_FONT, axisText } from './chartStyle.js'
 
 /*
  * ECharts option pieces shared by the two activity heatmaps. Both have a band
@@ -7,10 +8,7 @@ import { CHART_COLORS } from '../../chartColors.js'
  * corner. The totals use grid, axes and series 0; the heatmap uses index 1 of each.
  */
 
-// Canvas text cannot read CSS custom properties, so the font stacks are written out.
-export const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
-export const HEADER_FONT = "'Source Sans 3', system-ui, sans-serif"
-export const AXIS_TEXT = { color: CHART_COLORS.axis, fontSize: 12, fontFamily: AXIS_FONT }
+const AXIS_TEXT = axisText(12)
 
 // Layout from the top: the legend, the totals bars, then the heatmap.
 const LEGEND_TOP = 5

@@ -44,6 +44,7 @@ import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import dayjs from 'dayjs'
 import { CHART_COLORS } from '../../chartColors.js'
+import { TOOLTIP_STYLE, axisText } from './chartStyle.js'
 
 use([
   CalendarComponent,
@@ -59,9 +60,6 @@ const props = defineProps({
   // { 'YYYY-MM-DD': count }
   daily: { type: Object, required: true },
 })
-
-// Canvas text cannot read CSS custom properties, so the font stack is written out.
-const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
 
 // Each day is a 10px square with a 3px gap, drawn as a 13px cell outlined in the card colour.
 const CELL_PITCH = 13
@@ -119,20 +117,13 @@ const option = computed(() => {
         position: 'end',
         align: 'left',
         margin: MONTH_LABEL_GAP,
-        color: CHART_COLORS.axis,
-        fontSize: 10,
-        fontFamily: AXIS_FONT,
+        ...axisText(10),
         nameMap: Array.from({ length: 12 }, (unused, month) => dayjs().month(month).format('MMM')),
       },
     },
     tooltip: {
       trigger: 'item',
-      backgroundColor: CHART_COLORS.tooltip.background,
-      borderColor: CHART_COLORS.tooltip.border,
-      borderWidth: 1,
-      padding: 10,
-      textStyle: { color: CHART_COLORS.tooltip.body, fontSize: 12, fontFamily: AXIS_FONT },
-      extraCssText: 'border-radius: 2px; box-shadow: none;',
+      ...TOOLTIP_STYLE,
       formatter: tooltipHtml,
     },
     /*
