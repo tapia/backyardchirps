@@ -190,7 +190,8 @@ const option = computed(() => {
     series: [{ label: { show: false } }],
   }
 
-  return { baseOption, media: [{ query: { maxWidth: NARROW_WIDTH }, option: narrowOption }] }
+  // The settings at the top level, plus the narrow-chart rules applied on top of them.
+  return { ...baseOption, media: [{ query: { maxWidth: NARROW_WIDTH }, option: narrowOption }] }
 })
 
 function formatValue(count) {

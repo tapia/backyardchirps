@@ -15,7 +15,6 @@
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
     "chart.js": "^4.5.1",
-    "chartjs-chart-matrix": "^3.0.4",
     "dayjs": "^1.11.21",
     "echarts": "^6.1.0",
     "vue": "^3.5.34",

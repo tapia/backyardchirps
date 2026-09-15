@@ -5,12 +5,13 @@
     </div>
     <div class="yearly-chart-outer">
       <div class="yearly-chart-wrapper">
+        <!-- Outside the scrolling area, so the day names stay put while it scrolls. -->
         <div
           class="yearly-chart-yaxis"
           :style="{ width: Y_AXIS_WIDTH + 'px', height: chartHeight + 'px' }"
         >
           <span
-            v-for="label in yAxisLabels"
+            v-for="label in dayLabels"
             :key="label.row"
             class="yearly-chart-yaxis-label"
             :style="{ top: label.top + 'px' }"
@@ -19,12 +20,10 @@
           </span>
         </div>
         <div ref="scrollContainer" class="yearly-chart-scroll">
-          <div
-            class="yearly-chart-inner"
+          <VChart
+            :option="option"
             :style="{ width: chartWidth + 'px', height: chartHeight + 'px' }"
-          >
-            <canvas ref="canvas" />
-          </div>
+          />
         </div>
       </div>
     </div>
@@ -32,167 +31,163 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Chart, LinearScale, Tooltip } from 'chart.js'
-import { MatrixController, MatrixElement } from 'chartjs-chart-matrix'
+import { use, format } from 'echarts/core'
+import { HeatmapChart } from 'echarts/charts'
+import {
+  CalendarComponent,
+  TooltipComponent,
+  VisualMapContinuousComponent,
+} from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
 import dayjs from 'dayjs'
-import { CHART_COLORS, TOOLTIP_DEFAULTS } from '../../chartColors.js'
+import { CHART_COLORS } from '../../chartColors.js'
+
+use([
+  CalendarComponent,
+  CanvasRenderer,
+  HeatmapChart,
+  TooltipComponent,
+  VisualMapContinuousComponent,
+])
 
 const { t } = useI18n()
 
-Chart.register(LinearScale, Tooltip, MatrixController, MatrixElement)
-
 const props = defineProps({
+  // { 'YYYY-MM-DD': count }
   daily: { type: Object, required: true },
 })
 
+// Canvas text cannot read CSS custom properties, so the font stack is written out.
+const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+
+// Each day is a 10px square with a 3px gap, drawn as a 13px cell outlined in the card colour.
 const CELL_PITCH = 13
 const CELL_GAP = 3
 const Y_AXIS_WIDTH = 26
 const X_AXIS_HEIGHT = 26
+// Room for the last month's label, which starts at its first week.
 const RIGHT_PADDING = 24
+const MONTH_LABEL_GAP = 8
+// Rows that get a day name, counted from the first day of the week.
+const LABELLED_ROWS = [1, 3, 5]
+// The colour scale starts at this opacity, so a day with one detection still shows.
+const MIN_OPACITY = 0.15
+const NO_DETECTIONS = -1
 
-const canvas = ref(null)
 const scrollContainer = ref(null)
-const chartWidth = ref(0)
-const chartHeight = ref(0)
-const yAxisLabels = ref([])
-let chart = null
 
-function render() {
-  if (!canvas.value) return
-  if (chart) {
-    chart.destroy()
-    chart = null
-  }
+const today = computed(() => dayjs())
+// A full year back, starting at the beginning of that week.
+const firstDay = computed(() => today.value.subtract(364, 'day').startOf('week'))
+const weekCount = computed(() => today.value.diff(firstDay.value, 'week') + 1)
 
-  const today = dayjs()
-  const anchor = today.subtract(364, 'day').startOf('week')
-  const totalWeeks = today.diff(anchor, 'week') + 1
+const chartWidth = computed(() => weekCount.value * CELL_PITCH + RIGHT_PADDING)
+const chartHeight = 7 * CELL_PITCH + X_AXIS_HEIGHT
 
-  chartWidth.value = totalWeeks * CELL_PITCH + RIGHT_PADDING
-  chartHeight.value = X_AXIS_HEIGHT + 7 * CELL_PITCH
-  yAxisLabels.value = [1, 3, 5].map((row) => ({
+const dayLabels = computed(() =>
+  LABELLED_ROWS.map((row) => ({
     row,
-    text: dayjs().startOf('week').add(row, 'day').format('dd'),
+    text: firstDay.value.add(row, 'day').format('dd'),
     top: row * CELL_PITCH + CELL_PITCH / 2,
-  }))
+  })),
+)
 
-  let max = 1
-  Object.values(props.daily).forEach((v) => {
-    if (v > max) max = v
-  })
-
-  const gridData = []
-  const monthTicks = []
-  const seenMonths = new Set()
-
-  let current = anchor
-  while (!current.isAfter(today)) {
-    const dateStr = current.format('YYYY-MM-DD')
-    const col = current.diff(anchor, 'week')
-    const row = current.diff(current.startOf('week'), 'day')
-    gridData.push({ x: col, y: row, v: props.daily[dateStr] ?? 0, date: dateStr })
-
-    const monthKey = current.format('YYYY-MM')
-    if (!seenMonths.has(monthKey)) {
-      seenMonths.add(monthKey)
-      monthTicks.push({ value: col, label: current.format('MMM') })
-    }
-    current = current.add(1, 'day')
+const option = computed(() => {
+  const days = []
+  for (let day = firstDay.value; !day.isAfter(today.value); day = day.add(1, 'day')) {
+    days.push(day.format('YYYY-MM-DD'))
   }
+  const maximum = Math.max(1, ...Object.values(props.daily))
 
-  const monthTickMap = new Map(monthTicks.map(({ value, label }) => [value, label]))
-
-  chart = new Chart(canvas.value, {
-    type: 'matrix',
-    data: {
-      datasets: [
-        {
-          data: gridData,
-          backgroundColor(ctx) {
-            const v = ctx.dataset.data[ctx.dataIndex]?.v ?? 0
-            if (v === 0) return CHART_COLORS.yearlyEmptyCell
-            const ratio = v / max
-            return `rgba(${CHART_COLORS.densityRgb},${(0.15 + ratio * 0.85).toFixed(2)})`
-          },
-          borderWidth: 0,
-          width: CELL_PITCH - CELL_GAP,
-          height: CELL_PITCH - CELL_GAP,
-        },
-      ],
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      layout: {
-        padding: { right: RIGHT_PADDING },
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          ...TOOLTIP_DEFAULTS,
-          callbacks: {
-            title: (items) => {
-              const cell = items[0].dataset.data[items[0].dataIndex]
-              return dayjs(cell.date).format('ll')
-            },
-            label: (item) => {
-              const cell = item.dataset.data[item.dataIndex]
-              return `${cell.v} ${cell.v !== 1 ? t('chart.detections') : t('chart.detection')}`
-            },
-          },
-        },
-      },
-      scales: {
-        x: {
-          type: 'linear',
-          min: -0.5,
-          max: totalWeeks - 0.5,
-          offset: false,
-          grid: { display: false },
-          border: { display: false },
-          afterFit: (scale) => {
-            scale.height = X_AXIS_HEIGHT
-          },
-          afterBuildTicks: (axis) => {
-            axis.ticks = monthTicks.map(({ value }) => ({ value }))
-          },
-          ticks: {
-            font: { size: 10 },
-            color: CHART_COLORS.axis,
-            maxRotation: 0,
-            callback: (value) => monthTickMap.get(Math.round(value)) ?? '',
-          },
-        },
-        y: {
-          type: 'linear',
-          min: -0.5,
-          max: 6.5,
-          reverse: true,
-          offset: false,
-          grid: { display: false },
-          border: { display: false },
-          afterFit: (scale) => {
-            scale.width = 0
-          },
-          ticks: { display: false },
-        },
+  return {
+    animation: false,
+    calendar: {
+      range: [days[0], days[days.length - 1]],
+      orient: 'horizontal',
+      left: 0,
+      top: 0,
+      cellSize: CELL_PITCH,
+      firstDay: firstDay.value.day(),
+      splitLine: { show: false },
+      itemStyle: { color: 'transparent', borderWidth: 0 },
+      dayLabel: { show: false },
+      yearLabel: { show: false },
+      monthLabel: {
+        position: 'end',
+        align: 'left',
+        margin: MONTH_LABEL_GAP,
+        color: CHART_COLORS.axis,
+        fontSize: 10,
+        fontFamily: AXIS_FONT,
+        nameMap: Array.from({ length: 12 }, (unused, month) => dayjs().month(month).format('MMM')),
       },
     },
-  })
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: CHART_COLORS.tooltip.background,
+      borderColor: CHART_COLORS.tooltip.border,
+      borderWidth: 1,
+      padding: 10,
+      textStyle: { color: CHART_COLORS.tooltip.body, fontSize: 12, fontFamily: AXIS_FONT },
+      extraCssText: 'border-radius: 2px; box-shadow: none;',
+      formatter: tooltipHtml,
+    },
+    /*
+     * Busier days are more opaque, from MIN_OPACITY up to full strength at the
+     * busiest. Days without detections carry NO_DETECTIONS, below the range, and
+     * get the empty-cell colour instead.
+     */
+    visualMap: {
+      show: false,
+      type: 'continuous',
+      dimension: 2,
+      min: 0,
+      max: maximum,
+      inRange: {
+        color: [
+          `rgba(${CHART_COLORS.densityRgb}, ${MIN_OPACITY})`,
+          `rgba(${CHART_COLORS.densityRgb}, 1)`,
+        ],
+      },
+      outOfRange: { color: CHART_COLORS.yearlyEmptyCell },
+    },
+    series: {
+      type: 'heatmap',
+      coordinateSystem: 'calendar',
+      itemStyle: { borderColor: CHART_COLORS.heatmapCellGap, borderWidth: CELL_GAP },
+      emphasis: { disabled: true },
+      // [day, count, colour value]
+      data: days.map((day) => {
+        const count = props.daily[day] ?? 0
+        return [day, count, count > 0 ? count : NO_DETECTIONS]
+      }),
+    },
+  }
+})
 
+function tooltipHtml(params) {
+  const [day, count] = params.value
+  const unit = count !== 1 ? t('chart.detections') : t('chart.detection')
+  return (
+    `<div class="chart-tooltip-title" style="color: ${CHART_COLORS.tooltip.title}">` +
+    `${format.encodeHTML(dayjs(day).format('ll'))}</div>` +
+    `<span class="chart-tooltip-swatch" style="background: ${params.color}"></span>` +
+    format.encodeHTML(`${count} ${unit}`)
+  )
+}
+
+// On a narrow screen the year does not fit; open it at the most recent weeks.
+function scrollToToday() {
   nextTick(() => {
-    if (scrollContainer.value) {
-      scrollContainer.value.scrollLeft = scrollContainer.value.scrollWidth
-    }
+    if (scrollContainer.value) scrollContainer.value.scrollLeft = scrollContainer.value.scrollWidth
   })
 }
 
-onMounted(render)
-onUnmounted(() => chart?.destroy())
-watch(() => props.daily, render)
+onMounted(scrollToToday)
+watch(() => props.daily, scrollToToday)
 </script>
 
 <style scoped>
@@ -223,9 +218,5 @@ watch(() => props.daily, render)
 .yearly-chart-scroll {
   overflow-x: auto;
   overflow-y: hidden;
-}
-
-.yearly-chart-inner {
-  position: relative;
 }
 </style>

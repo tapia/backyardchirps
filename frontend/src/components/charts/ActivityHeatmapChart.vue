@@ -68,67 +68,66 @@ const option = computed(() => {
   )
 
   return {
-    baseOption: {
-      animation: false,
-      grid: [totalsGrid(PLOT_LEFT), heatmapGrid(PLOT_LEFT, HEATMAP_BOTTOM)],
-      xAxis: [
-        totalsXAxis(columns),
-        {
-          gridIndex: 1,
-          type: 'category',
-          data: columns,
-          axisLine: { show: false },
-          axisTick: { show: false },
-          // The first and last dates sit inside the plot instead of centred on their column.
-          axisLabel: { ...AXIS_TEXT, alignMinLabel: 'left', alignMaxLabel: 'right' },
-        },
-      ],
-      yAxis: [
-        totalsYAxis(t, HOUR_LABEL_GAP),
-        {
-          gridIndex: 1,
-          type: 'category',
-          inverse: true,
-          data: HOURS,
-          axisLine: { show: false },
-          axisTick: {
-            show: true,
-            interval: HOUR_LABEL_INTERVAL,
-            alignWithLabel: true,
-            length: HOUR_TICK_LENGTH,
-            lineStyle: { color: CHART_COLORS.activityHourTick },
-          },
-          axisLabel: {
-            ...AXIS_TEXT,
-            interval: HOUR_LABEL_INTERVAL,
-            margin: HOUR_LABEL_GAP,
-            formatter: (hour) => formatHourOfDay(Number(hour)),
-          },
-        },
-      ],
-      visualMap: activityLegend(t),
-      tooltip: {
-        trigger: 'item',
-        backgroundColor: CHART_COLORS.tooltip.background,
-        borderColor: CHART_COLORS.tooltip.border,
-        borderWidth: 1,
-        padding: 10,
-        textStyle: { color: CHART_COLORS.tooltip.body, fontSize: 12, fontFamily: AXIS_FONT },
-        extraCssText: 'border-radius: 2px; box-shadow: none;',
-        formatter: tooltipHtml,
+    animation: false,
+    grid: [totalsGrid(PLOT_LEFT), heatmapGrid(PLOT_LEFT, HEATMAP_BOTTOM)],
+    xAxis: [
+      totalsXAxis(columns),
+      {
+        gridIndex: 1,
+        type: 'category',
+        data: columns,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        // The first and last dates sit inside the plot instead of centred on their column.
+        axisLabel: { ...AXIS_TEXT, alignMinLabel: 'left', alignMaxLabel: 'right' },
       },
-      series: [
-        totalsSeries(totals, totals.map(String), { silent: true }),
-        heatmapSeries(
-          props.xLabels.flatMap((x, column) =>
-            HOURS.map((hour) => {
-              const count = counts.get(`${x}|${hour}`) ?? 0
-              return [column, hour, activityLevel(count, maximum), count]
-            }),
-          ),
-        ),
-      ],
+    ],
+    yAxis: [
+      totalsYAxis(t, HOUR_LABEL_GAP),
+      {
+        gridIndex: 1,
+        type: 'category',
+        inverse: true,
+        data: HOURS,
+        axisLine: { show: false },
+        axisTick: {
+          show: true,
+          interval: HOUR_LABEL_INTERVAL,
+          alignWithLabel: true,
+          length: HOUR_TICK_LENGTH,
+          lineStyle: { color: CHART_COLORS.activityHourTick },
+        },
+        axisLabel: {
+          ...AXIS_TEXT,
+          interval: HOUR_LABEL_INTERVAL,
+          margin: HOUR_LABEL_GAP,
+          formatter: (hour) => formatHourOfDay(Number(hour)),
+        },
+      },
+    ],
+    visualMap: activityLegend(t),
+    tooltip: {
+      trigger: 'item',
+      backgroundColor: CHART_COLORS.tooltip.background,
+      borderColor: CHART_COLORS.tooltip.border,
+      borderWidth: 1,
+      padding: 10,
+      textStyle: { color: CHART_COLORS.tooltip.body, fontSize: 12, fontFamily: AXIS_FONT },
+      extraCssText: 'border-radius: 2px; box-shadow: none;',
+      formatter: tooltipHtml,
     },
+    series: [
+      totalsSeries(totals, totals.map(String), { silent: true }),
+      heatmapSeries(
+        props.xLabels.flatMap((x, column) =>
+          HOURS.map((hour) => {
+            const count = counts.get(`${x}|${hour}`) ?? 0
+            return [column, hour, activityLevel(count, maximum), count]
+          }),
+        ),
+      ),
+    ],
+    // Rules for narrow charts, applied on top of the settings above.
     media: [
       {
         query: { maxWidth: narrowBarsWidth(PLOT_LEFT, columns.length) },
@@ -149,7 +148,7 @@ function tooltipHtml(params) {
   )
   const unit = count !== 1 ? t('chart.detections') : t('chart.detection')
   return (
-    `<div class="activity-tooltip__title" style="color: ${CHART_COLORS.tooltip.title}">` +
+    `<div class="chart-tooltip-title" style="color: ${CHART_COLORS.tooltip.title}">` +
     `${format.encodeHTML(period)}</div>` +
     `<span class="chart-tooltip-swatch" style="background: ${params.color}"></span>` +
     `${format.encodeHTML(`${formatHourOfDay(hour)}: ${count} ${unit}`)}`
@@ -157,14 +156,8 @@ function tooltipHtml(params) {
 }
 </script>
 
-<style>
+<style scoped>
 .activity-heatmap {
   height: 300px;
-}
-
-/* Tooltip built by tooltipHtml(); ECharts renders it outside the scoped tree. */
-.activity-tooltip__title {
-  font-weight: bold;
-  margin-bottom: 6px;
 }
 </style>

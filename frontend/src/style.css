@@ -227,6 +227,11 @@ h6,
   letter-spacing: 0.08em;
   color: var(--slate);
 }
+/* First line of a chart tooltip (a date, an hour); its colour is set inline. */
+.chart-tooltip-title {
+  font-weight: bold;
+  margin-bottom: 6px;
+}
 /* Colour square before a value in a chart tooltip; its fill is set inline. */
 .chart-tooltip-swatch {
   display: inline-block;
