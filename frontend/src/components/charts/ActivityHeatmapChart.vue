@@ -151,9 +151,8 @@ function tooltipHtml(params) {
   return (
     `<div class="activity-tooltip__title" style="color: ${CHART_COLORS.tooltip.title}">` +
     `${format.encodeHTML(period)}</div>` +
-    `<div class="activity-tooltip__row">` +
-    `<span class="activity-tooltip__swatch" style="background: ${params.color}"></span>` +
-    `${format.encodeHTML(`${formatHourOfDay(hour)}: ${count} ${unit}`)}</div>`
+    `<span class="chart-tooltip-swatch" style="background: ${params.color}"></span>` +
+    `${format.encodeHTML(`${formatHourOfDay(hour)}: ${count} ${unit}`)}`
   )
 }
 </script>
@@ -167,15 +166,5 @@ function tooltipHtml(params) {
 .activity-tooltip__title {
   font-weight: bold;
   margin-bottom: 6px;
-}
-.activity-tooltip__row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.activity-tooltip__swatch {
-  width: 10px;
-  height: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.5);
 }
 </style>
