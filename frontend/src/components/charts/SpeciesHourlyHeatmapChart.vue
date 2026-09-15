@@ -21,30 +21,36 @@
         </button>
       </div>
     </div>
-    <div :style="{ position: 'relative', height: chartHeight + 'px' }">
-      <canvas ref="canvas"></canvas>
-    </div>
+    <VChart :option="option" :style="{ height: chartHeight + 'px' }" autoresize />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Chart, LinearScale } from 'chart.js'
-import { MatrixController, MatrixElement } from 'chartjs-chart-matrix'
-import { CHART_COLORS } from '../../chartColors.js'
-import { wrapSpeciesLabel } from './chartLabels.js'
+import { use, format } from 'echarts/core'
+import { BarChart, HeatmapChart } from 'echarts/charts'
 import {
-  HEATMAP_HEADER_HEIGHT,
-  TOTALS_BAR_BASE_OFFSET,
-  TOTALS_BAR_MAX_HEIGHT,
-  createHeatmapHeaderPlugin,
-} from './heatmapHeader.js'
-import { createHourColumnTooltip } from './hourColumnTooltip.js'
+  AxisPointerComponent,
+  GridComponent,
+  TooltipComponent,
+  VisualMapPiecewiseComponent,
+} from 'echarts/components'
+import { CanvasRenderer } from 'echarts/renderers'
+import VChart from 'vue-echarts'
+import { CHART_COLORS } from '../../chartColors.js'
+
+use([
+  AxisPointerComponent,
+  BarChart,
+  CanvasRenderer,
+  GridComponent,
+  HeatmapChart,
+  TooltipComponent,
+  VisualMapPiecewiseComponent,
+])
 
 const { t } = useI18n()
-
-Chart.register(LinearScale, MatrixController, MatrixElement)
 
 const props = defineProps({
   // [{ scientific_name, common_name, image_url, total, hours: [24 ints] }]
@@ -53,33 +59,194 @@ const props = defineProps({
   days: { type: Number, required: true },
 })
 
-const canvas = ref(null)
-let chart = null
-let tooltip = null
-// Hour under the pointer, or null when it is away from the plot. Drives both
-// the column highlight and the tooltip; the chart is redrawn when it changes.
-let hoveredHour = null
-
 const metric = ref('total')
 
-// How far above the heatmap the highlight band reaches: past the bars and
-// their value labels, but clear of the legend.
-const HIGHLIGHT_TOP_OFFSET = TOTALS_BAR_BASE_OFFSET + TOTALS_BAR_MAX_HEIGHT + 18
-const HIGHLIGHT_OUTLINE_WIDTH = 1.5
+const HOURS = Array.from({ length: 24 }, (unused, hour) => hour)
+
+// Canvas text cannot read CSS custom properties, so the font stacks are written out.
+const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+const HEADER_FONT = "'Source Sans 3', system-ui, sans-serif"
+
+// Layout from the top: the legend, the totals bars, then the heatmap.
+const LEGEND_TOP = 5
+const BARS_TOP = 32
+const BARS_HEIGHT = 36
+const HEATMAP_TOP = 78
+const HEATMAP_BOTTOM = 28
+// Species names wrap to this width, this far from the heatmap.
+const LABEL_WIDTH = 100
+const LABEL_GAP = 8
+const PLOT_LEFT = LABEL_WIDTH + 2 * LABEL_GAP
+// Below this chart width the bars are too narrow to carry their values (only the
+// hovered one shows it), the hours are labelled every six, and names wrap sooner.
+const NARROW_WIDTH = 560
+const NARROW_LABEL_WIDTH = 76
+const NARROW_PLOT_LEFT = NARROW_LABEL_WIDTH + 2 * LABEL_GAP
+
+// Above this many species the tooltip list splits into two columns.
+const TWO_COLUMN_THRESHOLD = 14
+// The tooltip moves to the left edge when the pointer gets this close to it.
+const TOOLTIP_CLEARANCE = 10
 
 const chartHeight = computed(() => Math.max(220, props.species.length * 30 + 130))
 
 const columnTotals = computed(() =>
-  Array.from({ length: 24 }, (unused, hour) =>
-    props.species.reduce((sum, entry) => sum + entry.hours[hour], 0),
-  ),
+  HOURS.map((hour) => props.species.reduce((sum, entry) => sum + entry.hours[hour], 0)),
 )
 
-const headerPlugin = createHeatmapHeaderPlugin({
-  t,
-  getColumnTotals: () => columnTotals.value,
-  formatTotal: formatValue,
-  isColumnHovered: (hour) => hour === hoveredHour,
+const option = computed(() => {
+  const totalLabels = columnTotals.value.map(formatValue)
+  const axisText = { color: CHART_COLORS.axis, fontSize: 12, fontFamily: AXIS_FONT }
+  const columnHighlight = {
+    show: true,
+    type: 'shadow',
+    triggerTooltip: false,
+    label: { show: false },
+    shadowStyle: { color: CHART_COLORS.activityColumnHighlight },
+  }
+
+  const baseOption = {
+    animation: false,
+    grid: [
+      { top: BARS_TOP, height: BARS_HEIGHT, left: PLOT_LEFT, right: 0 },
+      { top: HEATMAP_TOP, bottom: HEATMAP_BOTTOM, left: PLOT_LEFT, right: 0 },
+    ],
+    xAxis: [
+      {
+        gridIndex: 0,
+        type: 'category',
+        data: HOURS,
+        axisLine: { lineStyle: { color: CHART_COLORS.activityDivider } },
+        axisTick: { show: false },
+        axisLabel: { show: false },
+        axisPointer: columnHighlight,
+      },
+      {
+        gridIndex: 1,
+        type: 'category',
+        data: HOURS,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { ...axisText, interval: 2, formatter: (hour) => hourLabel(Number(hour)) },
+        axisPointer: columnHighlight,
+      },
+    ],
+    yAxis: [
+      {
+        gridIndex: 0,
+        type: 'value',
+        max: 'dataMax',
+        axisLabel: { show: false },
+        splitLine: { show: false },
+        name: t('chart.totals'),
+        nameLocation: 'middle',
+        nameRotate: 0,
+        nameGap: LABEL_GAP,
+        nameTextStyle: { ...axisText, fontFamily: HEADER_FONT, align: 'right' },
+      },
+      {
+        gridIndex: 1,
+        type: 'category',
+        inverse: true,
+        data: props.species.map((entry) => entry.common_name),
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          ...axisText,
+          interval: 0,
+          margin: LABEL_GAP,
+          width: LABEL_WIDTH,
+          overflow: 'break',
+        },
+      },
+    ],
+    // The pointer highlights the hour in both the bars and the heatmap.
+    axisPointer: { link: [{ xAxisIndex: 'all' }] },
+    visualMap: {
+      type: 'piecewise',
+      seriesIndex: 1,
+      dimension: 2,
+      pieces: CHART_COLORS.heatmapPalette.map((color, index) => ({ value: index + 1, color })),
+      outOfRange: { color: CHART_COLORS.heatmapEmptyCell },
+      orient: 'horizontal',
+      right: 0,
+      top: LEGEND_TOP,
+      itemWidth: 7,
+      itemHeight: 7,
+      itemGap: 3,
+      itemSymbol: 'rect',
+      showLabel: false,
+      text: [t('chart.moreActivity'), t('chart.lessActivity')],
+      textGap: 6,
+      textStyle: { color: CHART_COLORS.activityLabel, fontSize: 10, fontFamily: HEADER_FONT },
+      selectedMode: false,
+      hoverLink: false,
+    },
+    tooltip: {
+      trigger: 'item',
+      className: 'hour-tooltip',
+      backgroundColor: CHART_COLORS.tooltip.background,
+      borderColor: CHART_COLORS.tooltip.border,
+      borderWidth: 1,
+      padding: [8, 10],
+      textStyle: { fontFamily: HEADER_FONT },
+      extraCssText: 'border-radius: 2px; box-shadow: none; max-width: calc(100vw - 24px);',
+      confine: true,
+      position: tooltipPosition,
+      formatter: tooltipHtml,
+    },
+    series: [
+      {
+        type: 'bar',
+        xAxisIndex: 0,
+        yAxisIndex: 0,
+        data: columnTotals.value.map((total) => total || null),
+        barCategoryGap: 1,
+        barMinHeight: 2,
+        itemStyle: { color: CHART_COLORS.activityBar, borderRadius: [4, 4, 0, 0] },
+        label: {
+          show: true,
+          position: 'top',
+          distance: 2,
+          formatter: ({ dataIndex }) => totalLabels[dataIndex],
+          color: CHART_COLORS.axis,
+          fontSize: 12,
+          fontWeight: 'bold',
+          fontFamily: HEADER_FONT,
+        },
+        emphasis: { itemStyle: { color: CHART_COLORS.activityBarStrong }, label: { show: true } },
+      },
+      {
+        type: 'heatmap',
+        xAxisIndex: 1,
+        yAxisIndex: 1,
+        // [hour, species row, colour step, count]
+        data: props.species.flatMap((entry, speciesIndex) => {
+          // Each row is shaded against its own maximum so every species' daily rhythm
+          // is visible regardless of how abundant it is; the totals bars above carry
+          // the absolute per-hour volume.
+          const rowMaximum = Math.max(...entry.hours, 1)
+          return entry.hours.map((count, hour) => [
+            hour,
+            speciesIndex,
+            count === 0 ? 0 : Math.min(4, Math.floor((count / rowMaximum) * 5)) + 1,
+            count,
+          ])
+        }),
+        itemStyle: { borderColor: CHART_COLORS.heatmapCellGap, borderWidth: 1 },
+        emphasis: { disabled: true },
+      },
+    ],
+  }
+
+  const narrowOption = {
+    grid: [{ left: NARROW_PLOT_LEFT }, { left: NARROW_PLOT_LEFT }],
+    xAxis: [{}, { axisLabel: { interval: 5 } }],
+    yAxis: [{}, { axisLabel: { width: NARROW_LABEL_WIDTH } }],
+    series: [{ label: { show: false } }],
+  }
+
+  return { baseOption, media: [{ query: { maxWidth: NARROW_WIDTH }, option: narrowOption }] }
 })
 
 function hourLabel(hour) {
@@ -113,276 +280,63 @@ function summaryLabel(total) {
 }
 
 /*
- * Rows follow the Y axis, species for species, so a name sits in the same place
- * whichever hour is hovered. Species with nothing that hour stay in the list
- * with a zero rather than closing the gap.
+ * The card for the hour under the pointer. Rows follow the Y axis, species for
+ * species, so a name sits in the same place whichever hour is hovered, and the
+ * row under the pointer is marked. Over the totals bars there is no row.
  */
-function tooltipContent(hour, speciesIndex) {
+function tooltipHtml(params) {
+  const isCell = params.seriesType === 'heatmap'
+  const hour = isCell ? params.value[0] : params.dataIndex
+  const hoveredSpecies = isCell ? params.value[1] : null
   const total = columnTotals.value[hour]
-  const rows =
-    total === 0
-      ? []
-      : props.species.map((entry, index) => ({
-          name: entry.common_name,
-          value: `${formatValue(entry.hours[hour])} ${countUnit(entry.hours[hour])}`,
-          silent: entry.hours[hour] === 0,
-          highlighted: index === speciesIndex,
-        }))
+  const header =
+    `<div class="hour-tooltip__header">` +
+    `<div class="hour-tooltip__hour" style="color: ${CHART_COLORS.tooltip.title}">` +
+    `${format.encodeHTML(`${t('chart.hour')}: ${hourLabel(hour)}`)}</div>` +
+    `<div class="hour-tooltip__total" style="color: ${CHART_COLORS.tooltip.body}">` +
+    `${format.encodeHTML(summaryLabel(total))}</div></div>`
 
-  return {
-    hourLabel: `${t('chart.hour')}: ${hourLabel(hour)}`,
-    totalLabel: summaryLabel(total),
-    rows,
-    emptyText: t('chart.noDetections'),
-  }
-}
-
-/*
- * Cell under the pointer as { hour, speciesIndex }, or null when it is outside
- * the plot. The bars sit in the layout padding above the chart area, which
- * Chart.js does not treat as hoverable, so the column is resolved from the raw
- * pointer position instead of the built-in interaction modes; over the bars
- * there is an hour but no species row, and speciesIndex is null.
- */
-function cellAtPointer(event) {
-  if (!chart) return null
-  const { left, right, top, bottom } = chart.chartArea
-  const canvasRect = chart.canvas.getBoundingClientRect()
-  const pointerX = event.clientX - canvasRect.left
-  const pointerY = event.clientY - canvasRect.top
-  if (pointerX < left || pointerX > right) return null
-  if (pointerY < top - HEATMAP_HEADER_HEIGHT || pointerY > bottom) return null
-
-  const hour = Math.round(chart.scales.x.getValueForPixel(pointerX))
-  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return null
-
-  const row = Math.round(chart.scales.y.getValueForPixel(pointerY))
-  const overRows = pointerY >= top && Number.isFinite(row) && row >= 0 && row < props.species.length
-  return { hour, speciesIndex: overRows ? row : null }
-}
-
-/*
- * Where the tooltip sits: the edges of the plot, plus where the hovered column
- * falls, so it can pick the edge that leaves that column visible. Lined up with
- * the top of the heatmap, which keeps the totals bars in view. Two resting
- * places rather than a card chasing the pointer.
- */
-function tooltipAnchor(hour) {
-  const canvasRect = chart.canvas.getBoundingClientRect()
-  const { left, right, top } = chart.chartArea
-
-  return {
-    left: canvasRect.left + left,
-    right: canvasRect.left + right,
-    top: canvasRect.top + top,
-    columnX: canvasRect.left + chart.scales.x.getPixelForValue(hour),
-  }
-}
-
-function handlePointerMove(event) {
-  const cell = cellAtPointer(event)
-  if (cell === null) {
-    handlePointerLeave()
-    return
-  }
-  if (cell.hour !== hoveredHour) {
-    hoveredHour = cell.hour
-    chart.draw()
-  }
-  tooltip.show(tooltipContent(cell.hour, cell.speciesIndex), tooltipAnchor(cell.hour))
-}
-
-function handlePointerLeave() {
-  tooltip?.hide()
-  if (hoveredHour === null) return
-  hoveredHour = null
-  chart?.draw()
-}
-
-/*
- * Pixel box of the hovered column: the heatmap rows plus the totals bar and its
- * value label above them.
- */
-function highlightBounds(ch) {
-  const { top: areaTop, bottom: areaBottom, left: areaLeft, right: areaRight } = ch.chartArea
-  const columnWidth = (areaRight - areaLeft) / 24
-  const centerX = ch.scales.x.getPixelForValue(hoveredHour)
-
-  return {
-    x: centerX - columnWidth / 2,
-    y: areaTop - HIGHLIGHT_TOP_OFFSET,
-    width: columnWidth,
-    height: areaBottom - areaTop + HIGHLIGHT_TOP_OFFSET,
-  }
-}
-
-function render() {
-  if (chart) {
-    chart.destroy()
-    chart = null
-  }
-  hoveredHour = null
-  tooltip?.hide()
-  if (!canvas.value || !props.species.length) return
-
-  const speciesCount = props.species.length
-  // Each row is shaded against its own maximum so every species' daily rhythm
-  // is visible regardless of how abundant it is; the totals bars above carry
-  // the absolute per-hour volume.
-  const rowMaxima = props.species.map((entry) => Math.max(...entry.hours, 1))
-
-  const highlightPlugin = {
-    id: 'hourColumnHighlight',
-    beforeDatasetsDraw(ch) {
-      if (hoveredHour === null) return
-      const { x, y, width, height } = highlightBounds(ch)
-      const ctx = ch.ctx
-
-      ctx.save()
-      ctx.fillStyle = CHART_COLORS.activityColumnHighlight
-      ctx.fillRect(x, y, width, height)
-      ctx.restore()
-    },
-    // Drawn last, over the cells and the totals bar: on a busy column the band
-    // behind them is invisible, the outline is not.
-    afterDraw(ch) {
-      if (hoveredHour === null) return
-      const { x, y, width, height } = highlightBounds(ch)
-      const ctx = ch.ctx
-
-      ctx.save()
-      ctx.strokeStyle = CHART_COLORS.activityColumnOutline
-      ctx.lineWidth = HIGHLIGHT_OUTLINE_WIDTH
-      const inset = HIGHLIGHT_OUTLINE_WIDTH / 2
-      ctx.strokeRect(x + inset, y + inset, width - HIGHLIGHT_OUTLINE_WIDTH, height - inset)
-      ctx.restore()
-    },
+  if (total === 0) {
+    return (
+      header +
+      `<div class="hour-tooltip__empty" style="color: ${CHART_COLORS.tooltip.body}">` +
+      `${format.encodeHTML(t('chart.noDetections'))}</div>`
+    )
   }
 
-  const gridData = props.species.flatMap((entry, speciesIndex) =>
-    entry.hours.map((count, hour) => ({ x: hour, y: speciesIndex, v: count })),
-  )
-
-  chart = new Chart(canvas.value, {
-    type: 'matrix',
-    // The highlight outline goes last so it lands on top of the totals bars.
-    plugins: [headerPlugin, highlightPlugin],
-    data: {
-      datasets: [
-        {
-          data: gridData,
-          backgroundColor(ctx) {
-            const cell = ctx.dataset.data[ctx.dataIndex]
-            if (!cell || cell.v === 0) return CHART_COLORS.heatmapEmptyCell
-            const index = Math.min(4, Math.floor((cell.v / rowMaxima[cell.y]) * 5))
-            return CHART_COLORS.heatmapPalette[index]
-          },
-          borderWidth: 0,
-          width({ chart }) {
-            const a = chart.chartArea
-            return a ? Math.max(1, (a.right - a.left) / 24 - 1) : 5
-          },
-          height({ chart }) {
-            const a = chart.chartArea
-            return a ? Math.max(1, (a.bottom - a.top) / speciesCount - 1) : 5
-          },
-        },
-      ],
-    },
-    options: {
-      maintainAspectRatio: false,
-      layout: { padding: { top: HEATMAP_HEADER_HEIGHT } },
-      plugins: {
-        legend: { display: false },
-        // The whole hour column is described by the external tooltip driven by
-        // the pointer listeners below, so no per-cell tooltip.
-        tooltip: { enabled: false },
-      },
-      scales: {
-        x: {
-          type: 'linear',
-          min: -0.5,
-          max: 23.5,
-          offset: false,
-          grid: { display: false },
-          border: { display: false },
-          afterBuildTicks: (axis) => {
-            axis.ticks = [0, 3, 6, 9, 12, 15, 18, 21].map((value) => ({ value }))
-          },
-          ticks: {
-            font: { size: 12 },
-            color: CHART_COLORS.axis,
-            callback: (value) => hourLabel(value),
-          },
-        },
-        y: {
-          type: 'linear',
-          min: -0.5,
-          max: speciesCount - 0.5,
-          reverse: true,
-          offset: false,
-          grid: { display: false },
-          border: { display: false },
-          afterBuildTicks: (axis) => {
-            axis.ticks = [...Array(speciesCount).keys()].map((value) => ({ value }))
-          },
-          ticks: {
-            // One label per species, never dropped: without autoSkip:false
-            // Chart.js thins Y ticks when rows are short and some species names
-            // would be missing.
-            autoSkip: false,
-            font: { size: 12 },
-            color: CHART_COLORS.axis,
-            padding: 8,
-            callback: (value) => {
-              if (value >= 0 && value < speciesCount) {
-                return wrapSpeciesLabel(props.species[value].common_name)
-              }
-              return ''
-            },
-          },
-        },
-      },
-    },
+  const rows = props.species.map((entry, speciesIndex) => {
+    const count = entry.hours[hour]
+    const active = speciesIndex === hoveredSpecies ? ' hour-tooltip__row--active' : ''
+    const nameColor = count === 0 ? CHART_COLORS.axis : CHART_COLORS.tooltip.body
+    const countColor = count === 0 ? CHART_COLORS.axis : CHART_COLORS.tooltip.title
+    return (
+      `<div class="hour-tooltip__row${active}">` +
+      `<span class="hour-tooltip__name" style="color: ${nameColor}">` +
+      `${format.encodeHTML(entry.common_name)}</span>` +
+      `<span class="hour-tooltip__count" style="color: ${countColor}">` +
+      `${format.encodeHTML(`${formatValue(count)} ${countUnit(count)}`)}</span></div>`
+    )
   })
+  const split = rows.length > TWO_COLUMN_THRESHOLD ? ' hour-tooltip__rows--split' : ''
+  return `${header}<div class="hour-tooltip__rows${split}">${rows.join('')}</div>`
 }
 
-onMounted(() => {
-  tooltip = createHourColumnTooltip()
-  render()
-  canvas.value?.addEventListener('pointermove', handlePointerMove)
-  canvas.value?.addEventListener('pointerleave', handlePointerLeave)
-  canvas.value?.addEventListener('pointercancel', handlePointerLeave)
-})
-
-onUnmounted(() => {
-  canvas.value?.removeEventListener('pointermove', handlePointerMove)
-  canvas.value?.removeEventListener('pointerleave', handlePointerLeave)
-  canvas.value?.removeEventListener('pointercancel', handlePointerLeave)
-  chart?.destroy()
-  tooltip?.destroy()
-})
-
-watch([() => props.species, () => props.days, metric], render, { deep: true })
+/*
+ * Pinned to the top of the heatmap instead of trailing the pointer, so the card
+ * holds still while you sweep across the hours. It rests on the right and moves
+ * to the left edge once the pointer would end up underneath it.
+ */
+function tooltipPosition(point, params, element, rect, size) {
+  const [chartWidth] = size.viewSize
+  const pinnedRight = chartWidth - size.contentSize[0]
+  const pinnedLeft = chartWidth > NARROW_WIDTH ? PLOT_LEFT : NARROW_PLOT_LEFT
+  const clearsPointer = point[0] < pinnedRight - TOOLTIP_CLEARANCE
+  return [clearsPointer ? pinnedRight : pinnedLeft, HEATMAP_TOP]
+}
 </script>
 
 <style>
-/* Tooltip card built by hourColumnTooltip.js (appended to <body>). */
-.hour-tooltip {
-  position: fixed;
-  pointer-events: none;
-  z-index: 9999;
-  border: 1px solid;
-  border-radius: 2px;
-  padding: 8px 10px;
-  max-width: calc(100vw - 24px);
-  font-family: var(--font-sans);
-  opacity: 0;
-  transition: opacity 0.12s ease;
-}
-.hour-tooltip--visible {
-  opacity: 1;
-}
+/* Tooltip card built by tooltipHtml(); ECharts renders it outside the scoped tree. */
 .hour-tooltip__header {
   margin-bottom: 6px;
 }

@@ -9,6 +9,8 @@ export const CHART_COLORS = {
   grid: 'rgba(0,0,0,0.04)',
   polarBorder: 'rgba(0,0,0,0.08)',
   heatmapEmptyCell: 'rgba(218, 214, 206, 0.45)',
+  // Same as --sheet, the card background: heatmap cells are outlined in it to leave a gap.
+  heatmapCellGap: '#fdfcfa',
   heatmapPalette: [
     'rgba(74, 89, 64, 0.14)',
     'rgba(74, 89, 64, 0.32)',
