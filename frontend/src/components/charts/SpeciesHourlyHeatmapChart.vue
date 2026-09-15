@@ -34,6 +34,12 @@ import { Chart, LinearScale } from 'chart.js'
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix'
 import { CHART_COLORS } from '../../chartColors.js'
 import { wrapSpeciesLabel } from './chartLabels.js'
+import {
+  HEATMAP_HEADER_HEIGHT,
+  TOTALS_BAR_BASE_OFFSET,
+  TOTALS_BAR_MAX_HEIGHT,
+  createHeatmapHeaderPlugin,
+} from './heatmapHeader.js'
 import { createHourColumnTooltip } from './hourColumnTooltip.js'
 
 const { t } = useI18n()
@@ -56,15 +62,10 @@ let hoveredHour = null
 
 const metric = ref('total')
 
-const PADDING_TOP = 78
-const BAR_MAX_H = 36
-const BAR_BASE_OFFSET = 10
 // How far above the heatmap the highlight band reaches: past the bars and
 // their value labels, but clear of the legend.
-const HIGHLIGHT_TOP_OFFSET = BAR_BASE_OFFSET + BAR_MAX_H + 18
+const HIGHLIGHT_TOP_OFFSET = TOTALS_BAR_BASE_OFFSET + TOTALS_BAR_MAX_HEIGHT + 18
 const HIGHLIGHT_OUTLINE_WIDTH = 1.5
-const LABEL_FONT = "10px 'Source Sans 3', system-ui, sans-serif"
-const VALUE_LABEL_FONT = "bold 12px 'Source Sans 3', system-ui, sans-serif"
 
 const chartHeight = computed(() => Math.max(220, props.species.length * 30 + 130))
 
@@ -73,6 +74,13 @@ const columnTotals = computed(() =>
     props.species.reduce((sum, entry) => sum + entry.hours[hour], 0),
   ),
 )
+
+const headerPlugin = createHeatmapHeaderPlugin({
+  t,
+  getColumnTotals: () => columnTotals.value,
+  formatTotal: formatValue,
+  isColumnHovered: (hour) => hour === hoveredHour,
+})
 
 function hourLabel(hour) {
   const period = hour < 12 ? 'AM' : 'PM'
@@ -143,7 +151,7 @@ function cellAtPointer(event) {
   const pointerX = event.clientX - canvasRect.left
   const pointerY = event.clientY - canvasRect.top
   if (pointerX < left || pointerX > right) return null
-  if (pointerY < top - PADDING_TOP || pointerY > bottom) return null
+  if (pointerY < top - HEATMAP_HEADER_HEIGHT || pointerY > bottom) return null
 
   const hour = Math.round(chart.scales.x.getValueForPixel(pointerX))
   if (!Number.isFinite(hour) || hour < 0 || hour > 23) return null
@@ -208,19 +216,6 @@ function highlightBounds(ch) {
   }
 }
 
-function topRoundedRect(ctx, x, y, w, h, r) {
-  r = Math.min(r, w / 2, h)
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.lineTo(x + w - r, y)
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r)
-  ctx.lineTo(x + w, y + h)
-  ctx.lineTo(x, y + h)
-  ctx.lineTo(x, y + r)
-  ctx.quadraticCurveTo(x, y, x + r, y)
-  ctx.closePath()
-}
-
 function render() {
   if (chart) {
     chart.destroy()
@@ -235,7 +230,6 @@ function render() {
   // is visible regardless of how abundant it is; the totals bars above carry
   // the absolute per-hour volume.
   const rowMaxima = props.species.map((entry) => Math.max(...entry.hours, 1))
-  const maxTotal = Math.max(...columnTotals.value, 1)
 
   const highlightPlugin = {
     id: 'hourColumnHighlight',
@@ -269,102 +263,10 @@ function render() {
     entry.hours.map((count, hour) => ({ x: hour, y: speciesIndex, v: count })),
   )
 
-  const barsPlugin = {
-    id: 'hourlyTotalsBars',
-    afterDraw(ch) {
-      const xScale = ch.scales.x
-      const { top: areaTop, right: areaRight, left: areaLeft } = ch.chartArea
-      const ctx = ch.ctx
-      const barWidth = Math.max(1, (areaRight - areaLeft) / 24 - 1)
-      const cornerR = Math.min(4, barWidth / 2)
-      const barBase = areaTop - BAR_BASE_OFFSET
-
-      ctx.save()
-
-      columnTotals.value.forEach((total, hour) => {
-        if (total === 0) return
-        const isHovered = hour === hoveredHour
-        const xPixel = xScale.getPixelForValue(hour)
-        const barH = Math.max(2, (total / maxTotal) * BAR_MAX_H)
-        const x = xPixel - barWidth / 2
-        const y = barBase - barH
-
-        ctx.fillStyle = isHovered ? CHART_COLORS.activityBarStrong : CHART_COLORS.activityBar
-        topRoundedRect(ctx, x, y, barWidth, barH, cornerR)
-        ctx.fill()
-
-        if (barWidth >= 18 || isHovered) {
-          ctx.fillStyle = CHART_COLORS.axis
-          ctx.font = VALUE_LABEL_FONT
-          ctx.textAlign = 'center'
-          ctx.textBaseline = 'bottom'
-          ctx.fillText(formatValue(total), xPixel, y - 2)
-        }
-      })
-
-      // Separator between bars and heatmap
-      ctx.strokeStyle = CHART_COLORS.activityDivider
-      ctx.lineWidth = 1
-      ctx.beginPath()
-      ctx.moveTo(0, areaTop - 8)
-      ctx.lineTo(areaRight, areaTop - 8)
-      ctx.stroke()
-
-      // "Totals" Y-axis label anchored to where Chart.js renders tick labels.
-      // Chart.js computes x = scale.right - (tickLength + tickPadding) for left-axis labels.
-      const yScale = ch.scales.y
-      const gridTickLength =
-        yScale.options.grid?.drawTicks !== false ? (yScale.options.grid?.tickLength ?? 8) : 0
-      const tickPadding = yScale.options.ticks?.padding ?? 3
-      const tickAnchorX =
-        yScale._labelItems?.[0]?.options?.translation?.[0] ??
-        yScale.right - gridTickLength - tickPadding
-      const barMidY = areaTop - BAR_BASE_OFFSET - BAR_MAX_H / 2
-      ctx.font = "12px 'Source Sans 3', system-ui, sans-serif"
-      ctx.fillStyle = CHART_COLORS.axis
-      ctx.textAlign = 'right'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(t('chart.totals'), tickAnchorX, barMidY)
-
-      // Legend (top-right)
-      const palette = CHART_COLORS.heatmapPalette
-      const swatchSz = 7
-      const swatchGap = 3
-      ctx.font = LABEL_FONT
-      const lessText = t('chart.lessActivity')
-      const moreText = t('chart.moreActivity')
-      const lessW = ctx.measureText(lessText).width
-      const moreW = ctx.measureText(moreText).width
-      const swatchesW = palette.length * swatchSz + (palette.length - 1) * swatchGap
-      const textGap = 6
-      const totalLegendW = lessW + textGap + swatchesW + textGap + moreW
-      let lx = areaRight - totalLegendW
-      const ly = 5
-      const swatchMidY = ly + swatchSz / 2
-
-      ctx.fillStyle = CHART_COLORS.activityLabel
-      ctx.textAlign = 'left'
-      ctx.textBaseline = 'middle'
-      ctx.fillText(lessText, lx, swatchMidY)
-      lx += lessW + textGap
-
-      palette.forEach((color) => {
-        ctx.fillStyle = color
-        ctx.fillRect(lx, ly, swatchSz, swatchSz)
-        lx += swatchSz + swatchGap
-      })
-
-      ctx.fillStyle = CHART_COLORS.activityLabel
-      ctx.fillText(moreText, lx + textGap - swatchGap, swatchMidY)
-
-      ctx.restore()
-    },
-  }
-
   chart = new Chart(canvas.value, {
     type: 'matrix',
     // The highlight outline goes last so it lands on top of the totals bars.
-    plugins: [barsPlugin, highlightPlugin],
+    plugins: [headerPlugin, highlightPlugin],
     data: {
       datasets: [
         {
@@ -389,7 +291,7 @@ function render() {
     },
     options: {
       maintainAspectRatio: false,
-      layout: { padding: { top: PADDING_TOP } },
+      layout: { padding: { top: HEATMAP_HEADER_HEIGHT } },
       plugins: {
         legend: { display: false },
         // The whole hour column is described by the external tooltip driven by
