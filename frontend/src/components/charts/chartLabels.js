@@ -8,6 +8,11 @@ export function formatTimelineLabel(isoDate, granularity) {
   return dayjs(isoDate).format('L')
 }
 
+// Hour of the day (0 to 23) as "12AM", "6AM", "3PM".
+export function formatHourOfDay(hour) {
+  return `${hour % 12 || 12}${hour < 12 ? 'AM' : 'PM'}`
+}
+
 // Which columns of a detections timeline get a label: every one when the timeline is split
 // into hours, otherwise evenly spaced ones, eight at most.
 export function timelineLabelIndexes(columnCount, granularity) {

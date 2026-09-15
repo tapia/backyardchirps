@@ -39,6 +39,22 @@ import {
 import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { CHART_COLORS } from '../../chartColors.js'
+import { formatHourOfDay } from './chartLabels.js'
+import {
+  AXIS_TEXT,
+  HEADER_FONT,
+  HEATMAP_TOP,
+  LABEL_GAP,
+  activityLegend,
+  activityLevel,
+  heatmapGrid,
+  heatmapSeries,
+  narrowBarsWidth,
+  totalsGrid,
+  totalsSeries,
+  totalsXAxis,
+  totalsYAxis,
+} from './heatmapHeader.js'
 
 use([
   AxisPointerComponent,
@@ -63,23 +79,13 @@ const metric = ref('total')
 
 const HOURS = Array.from({ length: 24 }, (unused, hour) => hour)
 
-// Canvas text cannot read CSS custom properties, so the font stacks are written out.
-const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
-const HEADER_FONT = "'Source Sans 3', system-ui, sans-serif"
-
-// Layout from the top: the legend, the totals bars, then the heatmap.
-const LEGEND_TOP = 5
-const BARS_TOP = 32
-const BARS_HEIGHT = 36
-const HEATMAP_TOP = 78
 const HEATMAP_BOTTOM = 28
-// Species names wrap to this width, this far from the heatmap.
+// Species names wrap to this width.
 const LABEL_WIDTH = 100
-const LABEL_GAP = 8
 const PLOT_LEFT = LABEL_WIDTH + 2 * LABEL_GAP
 // Below this chart width the bars are too narrow to carry their values (only the
 // hovered one shows it), the hours are labelled every six, and names wrap sooner.
-const NARROW_WIDTH = 560
+const NARROW_WIDTH = narrowBarsWidth(PLOT_LEFT, HOURS.length)
 const NARROW_LABEL_WIDTH = 76
 const NARROW_PLOT_LEFT = NARROW_LABEL_WIDTH + 2 * LABEL_GAP
 
@@ -95,8 +101,6 @@ const columnTotals = computed(() =>
 )
 
 const option = computed(() => {
-  const totalLabels = columnTotals.value.map(formatValue)
-  const axisText = { color: CHART_COLORS.axis, fontSize: 12, fontFamily: AXIS_FONT }
   const columnHighlight = {
     show: true,
     type: 'shadow',
@@ -107,43 +111,25 @@ const option = computed(() => {
 
   const baseOption = {
     animation: false,
-    grid: [
-      { top: BARS_TOP, height: BARS_HEIGHT, left: PLOT_LEFT, right: 0 },
-      { top: HEATMAP_TOP, bottom: HEATMAP_BOTTOM, left: PLOT_LEFT, right: 0 },
-    ],
+    grid: [totalsGrid(PLOT_LEFT), heatmapGrid(PLOT_LEFT, HEATMAP_BOTTOM)],
     xAxis: [
-      {
-        gridIndex: 0,
-        type: 'category',
-        data: HOURS,
-        axisLine: { lineStyle: { color: CHART_COLORS.activityDivider } },
-        axisTick: { show: false },
-        axisLabel: { show: false },
-        axisPointer: columnHighlight,
-      },
+      totalsXAxis(HOURS, { axisPointer: columnHighlight }),
       {
         gridIndex: 1,
         type: 'category',
         data: HOURS,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { ...axisText, interval: 2, formatter: (hour) => hourLabel(Number(hour)) },
+        axisLabel: {
+          ...AXIS_TEXT,
+          interval: 2,
+          formatter: (hour) => formatHourOfDay(Number(hour)),
+        },
         axisPointer: columnHighlight,
       },
     ],
     yAxis: [
-      {
-        gridIndex: 0,
-        type: 'value',
-        max: 'dataMax',
-        axisLabel: { show: false },
-        splitLine: { show: false },
-        name: t('chart.totals'),
-        nameLocation: 'middle',
-        nameRotate: 0,
-        nameGap: LABEL_GAP,
-        nameTextStyle: { ...axisText, fontFamily: HEADER_FONT, align: 'right' },
-      },
+      totalsYAxis(t),
       {
         gridIndex: 1,
         type: 'category',
@@ -152,7 +138,7 @@ const option = computed(() => {
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
-          ...axisText,
+          ...AXIS_TEXT,
           interval: 0,
           margin: LABEL_GAP,
           width: LABEL_WIDTH,
@@ -162,26 +148,7 @@ const option = computed(() => {
     ],
     // The pointer highlights the hour in both the bars and the heatmap.
     axisPointer: { link: [{ xAxisIndex: 'all' }] },
-    visualMap: {
-      type: 'piecewise',
-      seriesIndex: 1,
-      dimension: 2,
-      pieces: CHART_COLORS.heatmapPalette.map((color, index) => ({ value: index + 1, color })),
-      outOfRange: { color: CHART_COLORS.heatmapEmptyCell },
-      orient: 'horizontal',
-      right: 0,
-      top: LEGEND_TOP,
-      itemWidth: 7,
-      itemHeight: 7,
-      itemGap: 3,
-      itemSymbol: 'rect',
-      showLabel: false,
-      text: [t('chart.moreActivity'), t('chart.lessActivity')],
-      textGap: 6,
-      textStyle: { color: CHART_COLORS.activityLabel, fontSize: 10, fontFamily: HEADER_FONT },
-      selectedMode: false,
-      hoverLink: false,
-    },
+    visualMap: activityLegend(t),
     tooltip: {
       trigger: 'item',
       className: 'hour-tooltip',
@@ -196,32 +163,11 @@ const option = computed(() => {
       formatter: tooltipHtml,
     },
     series: [
-      {
-        type: 'bar',
-        xAxisIndex: 0,
-        yAxisIndex: 0,
-        data: columnTotals.value.map((total) => total || null),
-        barCategoryGap: 1,
-        barMinHeight: 2,
-        itemStyle: { color: CHART_COLORS.activityBar, borderRadius: [4, 4, 0, 0] },
-        label: {
-          show: true,
-          position: 'top',
-          distance: 2,
-          formatter: ({ dataIndex }) => totalLabels[dataIndex],
-          color: CHART_COLORS.axis,
-          fontSize: 12,
-          fontWeight: 'bold',
-          fontFamily: HEADER_FONT,
-        },
+      totalsSeries(columnTotals.value, columnTotals.value.map(formatValue), {
         emphasis: { itemStyle: { color: CHART_COLORS.activityBarStrong }, label: { show: true } },
-      },
-      {
-        type: 'heatmap',
-        xAxisIndex: 1,
-        yAxisIndex: 1,
-        // [hour, species row, colour step, count]
-        data: props.species.flatMap((entry, speciesIndex) => {
+      }),
+      heatmapSeries(
+        props.species.flatMap((entry, speciesIndex) => {
           // Each row is shaded against its own maximum so every species' daily rhythm
           // is visible regardless of how abundant it is; the totals bars above carry
           // the absolute per-hour volume.
@@ -229,13 +175,11 @@ const option = computed(() => {
           return entry.hours.map((count, hour) => [
             hour,
             speciesIndex,
-            count === 0 ? 0 : Math.min(4, Math.floor((count / rowMaximum) * 5)) + 1,
+            activityLevel(count, rowMaximum),
             count,
           ])
         }),
-        itemStyle: { borderColor: CHART_COLORS.heatmapCellGap, borderWidth: 1 },
-        emphasis: { disabled: true },
-      },
+      ),
     ],
   }
 
@@ -248,11 +192,6 @@ const option = computed(() => {
 
   return { baseOption, media: [{ query: { maxWidth: NARROW_WIDTH }, option: narrowOption }] }
 })
-
-function hourLabel(hour) {
-  const period = hour < 12 ? 'AM' : 'PM'
-  return `${hour % 12 || 12}${period}`
-}
 
 function formatValue(count) {
   if (metric.value === 'total' || count === 0) return String(count)
@@ -292,7 +231,7 @@ function tooltipHtml(params) {
   const header =
     `<div class="hour-tooltip__header">` +
     `<div class="hour-tooltip__hour" style="color: ${CHART_COLORS.tooltip.title}">` +
-    `${format.encodeHTML(`${t('chart.hour')}: ${hourLabel(hour)}`)}</div>` +
+    `${format.encodeHTML(`${t('chart.hour')}: ${formatHourOfDay(hour)}`)}</div>` +
     `<div class="hour-tooltip__total" style="color: ${CHART_COLORS.tooltip.body}">` +
     `${format.encodeHTML(summaryLabel(total))}</div></div>`
 

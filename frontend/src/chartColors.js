@@ -21,17 +21,14 @@ export const CHART_COLORS = {
   activityDivider: 'rgba(105, 101, 96, 0.45)',
   activityBar: 'rgba(74, 89, 64, 0.72)',
   /*
-   * Hovered hour in the species-by-hour heatmap: a faint slate band behind the
-   * whole column, with the totals bar of that hour at full strength. The band
-   * alone disappears under a column of dark cells, so an outline is drawn on
-   * top of everything to keep the column readable at any activity level.
+   * Hovered hour in the species-by-hour heatmap: a faint slate tint over the
+   * whole column, with the totals bar of that hour at full strength.
    */
   activityColumnHighlight: 'rgba(105, 101, 96, 0.13)',
-  activityColumnOutline: 'rgba(37, 35, 32, 0.6)',
   activityBarStrong: '#4A5940',
   activityLabel: 'rgba(105, 101, 96, 0.5)',
-  activityGridMajor: 'rgba(0,0,0,0.05)',
-  activityGridMinor: 'rgba(0,0,0,0.025)',
+  // Short ticks beside the 12AM, 6AM, 12PM and 6PM labels of the activity map.
+  activityHourTick: 'rgba(0,0,0,0.13)',
   yearlyEmptyCell: 'rgba(218, 214, 206, 0.5)',
   // Flat forest fill for the daily-activity bars (no gradient).
   hourlyBar: '#4A5940',

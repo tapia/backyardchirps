@@ -1,165 +1,137 @@
 import { CHART_COLORS } from '../../chartColors.js'
 
-// Top layout padding a heatmap using this plugin must reserve for the header.
-export const HEATMAP_HEADER_HEIGHT = 78
-export const TOTALS_BAR_MAX_HEIGHT = 36
-// Gap between the foot of the totals bars and the top of the heatmap.
-export const TOTALS_BAR_BASE_OFFSET = 10
+/*
+ * ECharts option pieces shared by the two activity heatmaps. Both have a band
+ * above the heatmap with one bar per column showing the column total, a "Totals"
+ * label lined up with the row labels, and the less/more legend in the top-right
+ * corner. The totals use grid, axes and series 0; the heatmap uses index 1 of each.
+ */
 
-// Canvas text cannot read CSS custom properties, so the font stack is written out.
-const LEGEND_FONT = "10px 'Source Sans 3', system-ui, sans-serif"
-const VALUE_LABEL_FONT = "bold 12px 'Source Sans 3', system-ui, sans-serif"
-const TOTALS_LABEL_FONT = "12px 'Source Sans 3', system-ui, sans-serif"
+// Canvas text cannot read CSS custom properties, so the font stacks are written out.
+export const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
+export const HEADER_FONT = "'Source Sans 3', system-ui, sans-serif"
+export const AXIS_TEXT = { color: CHART_COLORS.axis, fontSize: 12, fontFamily: AXIS_FONT }
 
-const BAR_MIN_HEIGHT = 2
-const BAR_MAX_CORNER_RADIUS = 4
-// A bar narrower than this shows its value only while its column is hovered.
-const BAR_MIN_LABELLED_WIDTH = 18
-const SEPARATOR_OFFSET = 8
+// Layout from the top: the legend, the totals bars, then the heatmap.
 const LEGEND_TOP = 5
-const LEGEND_SWATCH_SIZE = 7
-const LEGEND_SWATCH_GAP = 3
-const LEGEND_TEXT_GAP = 6
+const BARS_TOP = 32
+const BARS_HEIGHT = 36
+export const HEATMAP_TOP = 78
+// Row labels end this far from the heatmap.
+export const LABEL_GAP = 8
+// A bar narrower than this does not show its value.
+const MIN_LABELLED_BAR_WIDTH = 18
 
 /*
- * Chart.js plugin drawing what sits above a matrix heatmap: one bar per column
- * showing the column total, a line between the bars and the heatmap, a "Totals"
- * label lined up with the Y axis labels, and the less/more activity legend in
- * the top-right corner. The chart must set HEATMAP_HEADER_HEIGHT as its top
- * layout padding.
- *
- * Columns are placed by index on the X scale, which works for both a category
- * scale and a linear one running from -0.5 to columnCount - 0.5.
- *
- * The arguments are accessors so the plugin always reads the component's
- * current props: getColumnTotals returns one total per column (its length is
- * the column count), formatTotal turns a total into the text above its bar,
- * and isColumnHovered(column) draws that column's bar at full strength with
- * its value, however narrow the bar is.
+ * Both areas keep exactly the edges given here. By default ECharts narrows an
+ * area whose axis labels would stick out of the chart, and only the heatmap has
+ * labels, so its columns would stop lining up with the bars.
  */
-export function createHeatmapHeaderPlugin({
-  t,
-  getColumnTotals,
-  formatTotal = String,
-  isColumnHovered = () => false,
-}) {
+export function totalsGrid(plotLeft) {
+  return { top: BARS_TOP, height: BARS_HEIGHT, left: plotLeft, right: 0, outerBoundsMode: 'none' }
+}
+
+export function heatmapGrid(plotLeft, bottom) {
+  return { top: HEATMAP_TOP, bottom, left: plotLeft, right: 0, outerBoundsMode: 'none' }
+}
+
+// Its axis line is the rule between the bars and the heatmap.
+export function totalsXAxis(columns, extra = {}) {
   return {
-    id: 'heatmapHeader',
-    afterDraw(chart) {
-      const ctx = chart.ctx
-      ctx.save()
-      drawTotalsBars(chart, getColumnTotals(), formatTotal, isColumnHovered)
-      drawSeparator(chart)
-      drawTotalsLabel(chart, t('chart.totals'))
-      drawLegend(chart, t('chart.lessActivity'), t('chart.moreActivity'))
-      ctx.restore()
-    },
+    gridIndex: 0,
+    type: 'category',
+    data: columns,
+    axisLine: { lineStyle: { color: CHART_COLORS.activityDivider } },
+    axisTick: { show: false },
+    axisLabel: { show: false },
+    ...extra,
   }
 }
 
-function drawTotalsBars(chart, columnTotals, formatTotal, isColumnHovered) {
-  const { ctx } = chart
-  const xScale = chart.scales.x
-  const { top: areaTop, left: areaLeft, right: areaRight } = chart.chartArea
-  const barWidth = Math.max(1, (areaRight - areaLeft) / columnTotals.length - 1)
-  const cornerRadius = Math.min(BAR_MAX_CORNER_RADIUS, barWidth / 2)
-  const barBase = areaTop - TOTALS_BAR_BASE_OFFSET
-  const maxTotal = Math.max(...columnTotals, 1)
-
-  columnTotals.forEach((total, column) => {
-    if (total === 0) return
-    const isHovered = isColumnHovered(column)
-    const centerX = xScale.getPixelForValue(column)
-    const barHeight = Math.max(BAR_MIN_HEIGHT, (total / maxTotal) * TOTALS_BAR_MAX_HEIGHT)
-    const barTop = barBase - barHeight
-
-    ctx.fillStyle = isHovered ? CHART_COLORS.activityBarStrong : CHART_COLORS.activityBar
-    topRoundedRectPath(ctx, centerX - barWidth / 2, barTop, barWidth, barHeight, cornerRadius)
-    ctx.fill()
-
-    if (barWidth >= BAR_MIN_LABELLED_WIDTH || isHovered) {
-      ctx.fillStyle = CHART_COLORS.axis
-      ctx.font = VALUE_LABEL_FONT
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'bottom'
-      ctx.fillText(formatTotal(total), centerX, barTop - 2)
-    }
-  })
+// Carries the "Totals" label, which ends where the row labels end.
+export function totalsYAxis(t, labelGap = LABEL_GAP) {
+  return {
+    gridIndex: 0,
+    type: 'value',
+    max: 'dataMax',
+    axisLabel: { show: false },
+    splitLine: { show: false },
+    name: t('chart.totals'),
+    nameLocation: 'middle',
+    nameRotate: 0,
+    nameGap: labelGap,
+    nameTextStyle: { ...AXIS_TEXT, fontFamily: HEADER_FONT, align: 'right' },
+  }
 }
 
-function drawSeparator(chart) {
-  const { ctx } = chart
-  const { top: areaTop, right: areaRight } = chart.chartArea
-  ctx.strokeStyle = CHART_COLORS.activityDivider
-  ctx.lineWidth = 1
-  ctx.beginPath()
-  ctx.moveTo(0, areaTop - SEPARATOR_OFFSET)
-  ctx.lineTo(areaRight, areaTop - SEPARATOR_OFFSET)
-  ctx.stroke()
+export function totalsSeries(totals, totalLabels, extra = {}) {
+  return {
+    type: 'bar',
+    xAxisIndex: 0,
+    yAxisIndex: 0,
+    data: totals.map((total) => total || null),
+    barCategoryGap: 1,
+    barMinHeight: 2,
+    itemStyle: { color: CHART_COLORS.activityBar, borderRadius: [4, 4, 0, 0] },
+    label: {
+      show: true,
+      position: 'top',
+      distance: 2,
+      formatter: ({ dataIndex }) => totalLabels[dataIndex],
+      color: CHART_COLORS.axis,
+      fontSize: 12,
+      fontWeight: 'bold',
+      fontFamily: HEADER_FONT,
+    },
+    ...extra,
+  }
 }
 
-/*
- * Right-aligned where Chart.js draws the Y axis tick labels, so "Totals" reads
- * as one more row label. The position comes from yScale._labelItems, which is
- * private Chart.js API and may change between versions. When it is missing,
- * the fallback repeats Chart.js' own calculation for a left axis:
- * scale.right - (tickLength + tickPadding).
- */
-function drawTotalsLabel(chart, text) {
-  const { ctx } = chart
-  const yScale = chart.scales.y
-  const gridTickLength =
-    yScale.options.grid?.drawTicks !== false ? (yScale.options.grid?.tickLength ?? 8) : 0
-  const tickPadding = yScale.options.ticks?.padding ?? 3
-  const tickAnchorX =
-    yScale._labelItems?.[0]?.options?.translation?.[0] ??
-    yScale.right - gridTickLength - tickPadding
-  const barMiddleY = chart.chartArea.top - TOTALS_BAR_BASE_OFFSET - TOTALS_BAR_MAX_HEIGHT / 2
-
-  ctx.font = TOTALS_LABEL_FONT
-  ctx.fillStyle = CHART_COLORS.axis
-  ctx.textAlign = 'right'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(text, tickAnchorX, barMiddleY)
+// Below this chart width the bars are too narrow to carry their values.
+export function narrowBarsWidth(plotLeft, columnCount) {
+  return plotLeft + columnCount * (MIN_LABELLED_BAR_WIDTH + 1)
 }
 
-function drawLegend(chart, lessText, moreText) {
-  const { ctx } = chart
-  const palette = CHART_COLORS.heatmapPalette
-  ctx.font = LEGEND_FONT
-  const lessWidth = ctx.measureText(lessText).width
-  const moreWidth = ctx.measureText(moreText).width
-  const swatchesWidth =
-    palette.length * LEGEND_SWATCH_SIZE + (palette.length - 1) * LEGEND_SWATCH_GAP
-  const legendWidth = lessWidth + LEGEND_TEXT_GAP + swatchesWidth + LEGEND_TEXT_GAP + moreWidth
-  let cursorX = chart.chartArea.right - legendWidth
-  const swatchMiddleY = LEGEND_TOP + LEGEND_SWATCH_SIZE / 2
-
-  ctx.fillStyle = CHART_COLORS.activityLabel
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'middle'
-  ctx.fillText(lessText, cursorX, swatchMiddleY)
-  cursorX += lessWidth + LEGEND_TEXT_GAP
-
-  palette.forEach((color) => {
-    ctx.fillStyle = color
-    ctx.fillRect(cursorX, LEGEND_TOP, LEGEND_SWATCH_SIZE, LEGEND_SWATCH_SIZE)
-    cursorX += LEGEND_SWATCH_SIZE + LEGEND_SWATCH_GAP
-  })
-
-  ctx.fillStyle = CHART_COLORS.activityLabel
-  ctx.fillText(moreText, cursorX + LEGEND_TEXT_GAP - LEGEND_SWATCH_GAP, swatchMiddleY)
+// Shades cells by their third value, the colour step from activityLevel().
+export function activityLegend(t) {
+  return {
+    type: 'piecewise',
+    seriesIndex: 1,
+    dimension: 2,
+    pieces: CHART_COLORS.heatmapPalette.map((color, index) => ({ value: index + 1, color })),
+    outOfRange: { color: CHART_COLORS.heatmapEmptyCell },
+    orient: 'horizontal',
+    right: 0,
+    top: LEGEND_TOP,
+    padding: 0,
+    itemWidth: 7,
+    itemHeight: 7,
+    itemGap: 3,
+    itemSymbol: 'rect',
+    showLabel: false,
+    text: [t('chart.moreActivity'), t('chart.lessActivity')],
+    textGap: 6,
+    textStyle: { color: CHART_COLORS.activityLabel, fontSize: 10, fontFamily: HEADER_FONT },
+    selectedMode: false,
+    hoverLink: false,
+  }
 }
 
-function topRoundedRectPath(ctx, x, y, width, height, radius) {
-  radius = Math.min(radius, width / 2, height)
-  ctx.beginPath()
-  ctx.moveTo(x + radius, y)
-  ctx.lineTo(x + width - radius, y)
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
-  ctx.lineTo(x + width, y + height)
-  ctx.lineTo(x, y + height)
-  ctx.lineTo(x, y + radius)
-  ctx.quadraticCurveTo(x, y, x + radius, y)
-  ctx.closePath()
+// Colour step of a cell: 0 for none, then 1 to 5 by its share of the maximum.
+export function activityLevel(count, maximum) {
+  if (count === 0) return 0
+  return Math.min(4, Math.floor((count / maximum) * 5)) + 1
+}
+
+// data is [column, row, activityLevel, count] per cell.
+export function heatmapSeries(data) {
+  return {
+    type: 'heatmap',
+    xAxisIndex: 1,
+    yAxisIndex: 1,
+    data,
+    // Outlined in the card colour to leave a gap between cells.
+    itemStyle: { borderColor: CHART_COLORS.heatmapCellGap, borderWidth: 1 },
+    emphasis: { disabled: true },
+  }
 }
