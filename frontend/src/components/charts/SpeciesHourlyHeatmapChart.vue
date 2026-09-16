@@ -152,7 +152,7 @@ const option = computed(() => {
     visualMap: activityLegend(t),
     tooltip: {
       trigger: 'item',
-      className: 'hour-tooltip',
+      className: 'species-tooltip',
       ...TOOLTIP_STYLE,
       padding: [8, 10],
       textStyle: { fontFamily: HEADER_FONT },
@@ -229,35 +229,35 @@ function tooltipHtml(params) {
   const hoveredSpecies = isCell ? params.value[1] : null
   const total = columnTotals.value[hour]
   const header =
-    `<div class="hour-tooltip__header">` +
-    `<div class="hour-tooltip__hour" style="color: ${CHART_COLORS.tooltip.title}">` +
+    `<div class="species-tooltip__header">` +
+    `<div class="species-tooltip__title" style="color: ${CHART_COLORS.tooltip.title}">` +
     `${format.encodeHTML(`${t('chart.hour')}: ${formatHourOfDay(hour)}`)}</div>` +
-    `<div class="hour-tooltip__total" style="color: ${CHART_COLORS.tooltip.body}">` +
+    `<div class="species-tooltip__summary" style="color: ${CHART_COLORS.tooltip.body}">` +
     `${format.encodeHTML(summaryLabel(total))}</div></div>`
 
   if (total === 0) {
     return (
       header +
-      `<div class="hour-tooltip__empty" style="color: ${CHART_COLORS.tooltip.body}">` +
+      `<div class="species-tooltip__empty" style="color: ${CHART_COLORS.tooltip.body}">` +
       `${format.encodeHTML(t('chart.noDetections'))}</div>`
     )
   }
 
   const rows = props.species.map((entry, speciesIndex) => {
     const count = entry.hours[hour]
-    const active = speciesIndex === hoveredSpecies ? ' hour-tooltip__row--active' : ''
+    const active = speciesIndex === hoveredSpecies ? ' species-tooltip__row--active' : ''
     const nameColor = count === 0 ? CHART_COLORS.axis : CHART_COLORS.tooltip.body
     const countColor = count === 0 ? CHART_COLORS.axis : CHART_COLORS.tooltip.title
     return (
-      `<div class="hour-tooltip__row${active}">` +
-      `<span class="hour-tooltip__name" style="color: ${nameColor}">` +
+      `<div class="species-tooltip__row${active}">` +
+      `<span class="species-tooltip__name" style="color: ${nameColor}">` +
       `${format.encodeHTML(entry.common_name)}</span>` +
-      `<span class="hour-tooltip__count" style="color: ${countColor}">` +
+      `<span class="species-tooltip__count" style="color: ${countColor}">` +
       `${format.encodeHTML(`${formatValue(count)} ${countUnit(count)}`)}</span></div>`
     )
   })
-  const split = rows.length > TWO_COLUMN_THRESHOLD ? ' hour-tooltip__rows--split' : ''
-  return `${header}<div class="hour-tooltip__rows${split}">${rows.join('')}</div>`
+  const split = rows.length > TWO_COLUMN_THRESHOLD ? ' species-tooltip__rows--split' : ''
+  return `${header}<div class="species-tooltip__rows${split}">${rows.join('')}</div>`
 }
 
 /*
@@ -273,61 +273,3 @@ function tooltipPosition(point, params, element, rect, size) {
   return [clearsPointer ? pinnedRight : pinnedLeft, HEATMAP_TOP]
 }
 </script>
-
-<style>
-/* Tooltip card built by tooltipHtml(); ECharts renders it outside the scoped tree. */
-.hour-tooltip__header {
-  margin-bottom: 6px;
-}
-.hour-tooltip__hour {
-  font-size: 13px;
-  font-weight: 600;
-}
-.hour-tooltip__total {
-  font-size: 12px;
-}
-.hour-tooltip__empty {
-  font-size: 12px;
-}
-.hour-tooltip__rows {
-  margin: 0 -5px;
-}
-.hour-tooltip__rows--split {
-  column-count: 2;
-  column-gap: 14px;
-}
-.hour-tooltip__row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 14px;
-  break-inside: avoid;
-  padding: 2px 5px;
-  border-radius: 2px;
-}
-/* Species row the pointer is on, to find it among a long list. */
-.hour-tooltip__row--active {
-  background: rgba(255, 255, 255, 0.13);
-}
-.hour-tooltip__name {
-  font-family: var(--font-serif);
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.hour-tooltip__count {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-  flex-shrink: 0;
-}
-@media (max-width: 575.98px) {
-  .hour-tooltip__rows--split {
-    column-count: 1;
-  }
-  .hour-tooltip__name {
-    font-size: 13px;
-  }
-}
-</style>

@@ -242,6 +242,66 @@ h6,
   border: 1px solid rgba(255, 255, 255, 0.5);
 }
 
+/*
+ * Tooltip card that lists every species of one column, used by the species-by-hour
+ * heatmap and the species ranking chart. Layout only: the text colours are set
+ * inline, since they depend on whether the species was heard at all.
+ */
+.species-tooltip__header {
+  margin-bottom: 6px;
+}
+.species-tooltip__title {
+  font-size: 13px;
+  font-weight: 600;
+}
+.species-tooltip__summary {
+  font-size: 12px;
+}
+.species-tooltip__empty {
+  font-size: 12px;
+}
+.species-tooltip__rows {
+  margin: 0 -5px;
+}
+.species-tooltip__rows--split {
+  column-count: 2;
+  column-gap: 14px;
+}
+.species-tooltip__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  break-inside: avoid;
+  padding: 2px 5px;
+  border-radius: 2px;
+}
+/* Species row the pointer is on, to find it among a long list. */
+.species-tooltip__row--active {
+  background: rgba(255, 255, 255, 0.13);
+}
+.species-tooltip__name {
+  font-family: var(--font-serif);
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.species-tooltip__count {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+@media (max-width: 575.98px) {
+  .species-tooltip__rows--split {
+    column-count: 1;
+  }
+  .species-tooltip__name {
+    font-size: 13px;
+  }
+}
+
 /* ── Spinner ─────────────────────────────────────────────────────── */
 .spinner-border {
   color: var(--lichen);

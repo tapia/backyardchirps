@@ -42,6 +42,8 @@
           role="img"
           :aria-label="t('page.species.ribbonChart')"
           @click="selectedKey = null"
+          @mousemove="trackPointer"
+          @mouseleave="hideTooltip"
         >
           <line
             v-for="tick in yTicks.slice(1)"
@@ -52,24 +54,28 @@
             :y1="tick.y"
             :y2="tick.y"
           />
-          <path
+          <g
             v-for="ribbon in ribbons"
             :key="ribbon.key"
             class="ribbon"
             :class="{ 'is-dimmed': activeKey && ribbon.key !== activeKey }"
-            :fill="ribbon.color"
-            :d="ribbon.path"
+            :data-species="ribbon.key"
             @click.stop="toggleSpecies(ribbon.key)"
-          />
-          <path
+          >
+            <path :fill="ribbon.color" :d="ribbon.path" />
+            <path class="ribbon-edge" :d="ribbon.edges" />
+          </g>
+          <g
             v-for="bar in bars"
             :key="bar.key"
             class="ribbon-bar"
             :class="{ 'is-dimmed': activeKey && bar.key !== activeKey }"
-            :fill="bar.color"
-            :d="bar.path"
+            :data-species="bar.key"
             @click.stop="toggleSpecies(bar.key)"
-          />
+          >
+            <path :fill="bar.color" :d="bar.path" />
+            <path class="ribbon-edge" :d="bar.edges" />
+          </g>
           <line class="ribbon-zero-line" x1="0" :x2="plotWidth" :y1="BASELINE" :y2="BASELINE" />
           <text
             v-for="label in periodNumbers"
@@ -92,6 +98,36 @@
             {{ label.text }}
           </text>
         </svg>
+
+        <div
+          v-if="tooltip"
+          ref="tooltipCard"
+          class="ribbon-tooltip"
+          :class="{ 'is-pinned-left': tooltip.pinnedLeft }"
+        >
+          <div class="species-tooltip__header">
+            <div class="species-tooltip__title">{{ tooltip.title }}</div>
+            <div class="species-tooltip__summary">{{ tooltip.summary }}</div>
+          </div>
+          <div v-if="!tooltip.rows.length" class="species-tooltip__empty">
+            {{ t('chart.noDetections') }}
+          </div>
+          <div
+            v-else
+            class="species-tooltip__rows"
+            :class="{ 'species-tooltip__rows--split': tooltip.split }"
+          >
+            <div
+              v-for="row in tooltip.rows"
+              :key="row.key"
+              class="species-tooltip__row"
+              :class="{ 'species-tooltip__row--active': row.active, 'is-silent': row.silent }"
+            >
+              <span class="species-tooltip__name">{{ row.name }}</span>
+              <span class="species-tooltip__count">{{ row.count }}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -102,6 +138,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CHART_COLORS } from '../../chartColors.js'
 import { formatTimelineLabel, timelineLabelIndexes } from './chartLabels.js'
+import { HEADER_FONT } from './chartStyle.js'
 
 // Height of the area the stacks can grow into, and of the bands above and below it.
 const PLOT_HEIGHT = 280
@@ -131,6 +168,11 @@ const LABEL_EDGE = 30
 // About how many steps the y axis is split into.
 const Y_TICK_TARGET = 4
 
+// Above this many species the tooltip list splits into two columns, and the tooltip moves
+// to the left edge when the pointer gets this close to it.
+const TWO_COLUMN_THRESHOLD = 14
+const TOOLTIP_CLEARANCE = 10
+
 const { t } = useI18n()
 
 const props = defineProps({
@@ -139,6 +181,8 @@ const props = defineProps({
 })
 
 const selectedKey = ref(null)
+const tooltip = ref(null)
+const tooltipCard = ref(null)
 const plotWrapper = ref(null)
 const availableWidth = ref(0)
 let resizeObserver = null
@@ -224,7 +268,13 @@ const ribbons = computed(() => {
         ),
       )
     }
-    return { key: row.key, color: row.color, total: row.total, path: segments.join(' ') }
+    return {
+      key: row.key,
+      color: row.color,
+      total: row.total,
+      path: segments.map((segment) => segment.fill).join(' '),
+      edges: segments.map((segment) => segment.edges).join(' '),
+    }
   })
   return rows.sort(
     (first, second) =>
@@ -233,17 +283,23 @@ const ribbons = computed(() => {
   )
 })
 
+// A bar carries the same outline as the ribbons that meet it, on its top and bottom edges
+// only. Without it the bar would show half a pixel more colour than the ribbon beside it,
+// which reads as a small spike at every column.
 const bars = computed(() => {
   const halfBar = barWidth.value / 2
   return speciesRows.value.map((row, rowIndex) => {
-    const path = columnCenters.value
-      .map((center, columnIndex) => {
-        const { top, bottom } = stacks.value[columnIndex][rowIndex]
-        if (top === bottom) return ''
-        return `M${round(center - halfBar)},${round(top)}h${barWidth.value}V${round(bottom)}h${-barWidth.value}Z`
-      })
-      .join('')
-    return { key: row.key, color: row.color, path }
+    const fills = []
+    const edges = []
+    columnCenters.value.forEach((center, columnIndex) => {
+      const { top, bottom } = stacks.value[columnIndex][rowIndex]
+      if (top === bottom) return
+      const [left, right] = [round(center - halfBar), round(center + halfBar)]
+      const [barTop, barBottom] = [round(top), round(bottom)]
+      fills.push(`M${left},${barTop}H${right}V${barBottom}H${left}Z`)
+      edges.push(`M${left},${barTop}H${right} M${left},${barBottom}H${right}`)
+    })
+    return { key: row.key, color: row.color, path: fills.join(''), edges: edges.join(' ') }
   })
 })
 
@@ -284,6 +340,50 @@ const yTicks = computed(() => {
 
 function toggleSpecies(key) {
   selectedKey.value = activeKey.value === key ? null : key
+}
+
+/*
+ * The card for the period under the pointer, listing every species of the chart. Rows
+ * follow the legend, so a name sits in the same place whichever period is hovered, and
+ * the species the pointer is on is marked.
+ */
+function trackPointer(event) {
+  const plotRect = plotWrapper.value.getBoundingClientRect()
+  const pointerX = event.clientX - plotRect.left + plotWrapper.value.scrollLeft
+  const columnIndex = columnAt(pointerX)
+  const hoveredKey = event.target.closest('[data-species]')?.dataset.species ?? null
+  const cardWidth = tooltipCard.value?.offsetWidth ?? 0
+  tooltip.value = {
+    // The card rests on the right, and moves to the left edge once the pointer reaches it.
+    pinnedLeft: pointerX > plotWidth.value - cardWidth - TOOLTIP_CLEARANCE,
+    title: formatTimelineLabel(columns.value[columnIndex], props.granularity),
+    summary: `${t('chart.totalDetections')}: ${periodTotals.value[columnIndex]}`,
+    split: legendRows.value.length > TWO_COLUMN_THRESHOLD,
+    rows: periodTotals.value[columnIndex]
+      ? legendRows.value.map((row) => tooltipRow(row, columnIndex, hoveredKey))
+      : [],
+  }
+}
+
+function hideTooltip() {
+  tooltip.value = null
+}
+
+function columnAt(x) {
+  const columnIndex = Math.floor(x / columnWidth.value)
+  return Math.min(Math.max(columnIndex, 0), columns.value.length - 1)
+}
+
+function tooltipRow(row, columnIndex, hoveredKey) {
+  const count = row.counts[columnIndex]
+  const unit = count !== 1 ? t('chart.detections') : t('chart.detection')
+  return {
+    key: row.key,
+    name: row.name,
+    count: `${count} ${unit}`,
+    active: row.key === hoveredKey,
+    silent: count === 0,
+  }
 }
 
 function labelPosition(columnIndex) {
@@ -334,17 +434,21 @@ function stackColumn(rows, columnIndex, pixelsPerDetection) {
 
 // The band carrying one species from its bar in one column to its bar in the next. Both
 // control points of each edge sit at the horizontal midpoint, so the band leaves and meets
-// each bar flat and crosses the others in an S.
+// each bar flat and crosses the others in an S. The outline that separates it from the ribbons
+// it crosses follows only the two curves: on the straight ends it would draw a line at every
+// column.
 function ribbonSegment(fromX, toX, from, to) {
   const middle = round((fromX + toX) / 2)
   const [x0, x1] = [round(fromX), round(toX)]
   const [fromTop, fromBottom, toTop, toBottom] = [from.top, from.bottom, to.top, to.bottom].map(
     round,
   )
-  return (
-    `M${x0},${fromTop} C${middle},${fromTop} ${middle},${toTop} ${x1},${toTop} ` +
-    `L${x1},${toBottom} C${middle},${toBottom} ${middle},${fromBottom} ${x0},${fromBottom} Z`
-  )
+  const topCurve = `C${middle},${fromTop} ${middle},${toTop} ${x1},${toTop}`
+  const bottomCurve = `C${middle},${toBottom} ${middle},${fromBottom} ${x0},${fromBottom}`
+  return {
+    fill: `M${x0},${fromTop} ${topCurve} L${x1},${toBottom} ${bottomCurve} Z`,
+    edges: `M${x0},${fromTop} ${topCurve} M${x1},${toBottom} ${bottomCurve}`,
+  }
 }
 
 // A round step for the y axis: 1, 2 or 5 times a power of ten, and never below one detection.
@@ -373,6 +477,7 @@ function round(value) {
 
 <style scoped>
 .ribbon-card {
+  position: relative;
   background-color: var(--ribbon-paper);
   color: var(--ribbon-ink);
   font-family: var(--font-grotesk);
@@ -422,6 +527,7 @@ function round(value) {
 }
 
 .ribbon-plot-wrapper {
+  position: relative;
   flex: 1 1 auto;
   min-width: 0;
   overflow-x: auto;
@@ -453,10 +559,14 @@ function round(value) {
 }
 
 .ribbon {
-  stroke: var(--ribbon-paper);
-  stroke-width: 1;
   cursor: pointer;
   transition: opacity 0.15s;
+}
+
+.ribbon-edge {
+  fill: none;
+  stroke: var(--ribbon-paper);
+  stroke-width: 1;
 }
 
 .ribbon.is-dimmed {
@@ -470,5 +580,41 @@ function round(value) {
 
 .ribbon-bar.is-dimmed {
   opacity: 0.15;
+}
+
+/*
+ * The card the ECharts tooltips draw, rebuilt here: this chart has no library to draw it.
+ * Its contents use the shared .species-tooltip__ classes from style.css, which carry the
+ * layout but leave the colours to whoever draws the card.
+ */
+.ribbon-tooltip {
+  position: absolute;
+  top: v-bind('TOTALS_HEIGHT + "px"');
+  right: 0;
+  z-index: 2;
+  max-width: 100%;
+  padding: 8px 10px;
+  border: 1px solid v-bind('CHART_COLORS.tooltip.border');
+  border-radius: 2px;
+  background-color: v-bind('CHART_COLORS.tooltip.background');
+  color: v-bind('CHART_COLORS.tooltip.body');
+  font-family: v-bind('HEADER_FONT');
+  pointer-events: none;
+}
+
+.ribbon-tooltip.is-pinned-left {
+  right: auto;
+  left: 0;
+}
+
+.ribbon-tooltip .species-tooltip__title,
+.ribbon-tooltip .species-tooltip__count {
+  color: v-bind('CHART_COLORS.tooltip.title');
+}
+
+/* A species not heard in the period stays on the list, in the axis grey. */
+.ribbon-tooltip .is-silent .species-tooltip__name,
+.ribbon-tooltip .is-silent .species-tooltip__count {
+  color: v-bind('CHART_COLORS.axis');
 }
 </style>
