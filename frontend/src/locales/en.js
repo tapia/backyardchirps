@@ -44,9 +44,13 @@ export default {
     species: {
       detected: '{n} species detected',
       empty: 'No detections yet.',
+      chartMode: 'Chart',
       timelineChart: 'Detections timeline',
       hourlyChart: 'Activity by hour of day',
       ribbonChart: 'Species ranking over time',
+      timelineChartLabel: 'Timeline',
+      hourlyChartLabel: 'By hour',
+      ribbonChartLabel: 'Ranking',
       chartSpeciesCount: 'Species',
       chartSpeciesCountHint: 'Number of species in the chart',
     },

@@ -1,6 +1,73 @@
 <template>
   <div class="container pb-5">
-    <SpeciesListToolbar @period-change="onPeriodChange" />
+    <div class="d-flex align-items-end flex-wrap gap-2 gap-sm-4 mb-3 mb-sm-4">
+      <div>
+        <div class="text-warm-muted small mb-1 d-none d-sm-block">{{ t('filter.period') }}</div>
+        <PeriodPicker :initial-selection="initialPeriodSelection" @change="onPeriodChange" />
+      </div>
+      <div>
+        <div class="text-warm-muted small mb-1 d-none d-sm-block">
+          {{ t('page.species.chartMode') }}
+        </div>
+        <div class="btn-group btn-group-sm">
+          <button
+            type="button"
+            class="btn"
+            :class="chartMode === 'timeline' ? 'btn-primary' : 'btn-outline-primary'"
+            v-bs-tooltip="t('page.species.timelineChart')"
+            :aria-label="t('page.species.timelineChartLabel')"
+            @click="setChartMode('timeline')"
+          >
+            <i class="bi bi-graph-up"></i>
+            <span class="d-none d-sm-inline ms-1">{{ t('page.species.timelineChartLabel') }}</span>
+          </button>
+          <button
+            type="button"
+            class="btn"
+            :class="chartMode === 'ribbon' ? 'btn-primary' : 'btn-outline-primary'"
+            v-bs-tooltip="t('page.species.ribbonChart')"
+            :aria-label="t('page.species.ribbonChartLabel')"
+            @click="setChartMode('ribbon')"
+          >
+            <i class="bi bi-bezier2"></i>
+            <span class="d-none d-sm-inline ms-1">{{ t('page.species.ribbonChartLabel') }}</span>
+          </button>
+          <button
+            type="button"
+            class="btn"
+            :class="chartMode === 'hourly' ? 'btn-primary' : 'btn-outline-primary'"
+            v-bs-tooltip="t('page.species.hourlyChart')"
+            :aria-label="t('page.species.hourlyChartLabel')"
+            @click="setChartMode('hourly')"
+          >
+            <i class="bi bi-grid-3x3-gap"></i>
+            <span class="d-none d-sm-inline ms-1">{{ t('page.species.hourlyChartLabel') }}</span>
+          </button>
+        </div>
+      </div>
+      <div>
+        <div class="text-warm-muted small mb-1 d-none d-sm-block">
+          {{ t('page.species.chartSpeciesCount') }}
+        </div>
+        <div
+          class="btn-group btn-group-sm"
+          role="group"
+          v-bs-tooltip="t('page.species.chartSpeciesCountHint')"
+          :aria-label="t('page.species.chartSpeciesCountHint')"
+        >
+          <button
+            v-for="count in chartSpeciesCountOptions"
+            :key="count"
+            type="button"
+            class="btn"
+            :class="chartSpeciesCount === count ? 'btn-primary' : 'btn-outline-primary'"
+            @click="chartSpeciesCount = count"
+          >
+            {{ count }}
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div v-if="loading" class="text-center py-5 text-warm-muted">
       <div class="spinner-border spinner-border-sm me-2"></div>
@@ -8,65 +75,6 @@
     </div>
 
     <template v-else>
-      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
-        <div class="d-flex align-items-center flex-wrap gap-2 gap-sm-3">
-          <div class="btn-group btn-group-sm">
-            <button
-              type="button"
-              class="btn"
-              :class="chartMode === 'timeline' ? 'btn-primary' : 'btn-outline-primary'"
-              v-bs-tooltip="t('page.species.timelineChart')"
-              :aria-label="t('page.species.timelineChart')"
-              @click="setChartMode('timeline')"
-            >
-              <i class="bi bi-graph-up"></i>
-            </button>
-            <button
-              type="button"
-              class="btn"
-              :class="chartMode === 'hourly' ? 'btn-primary' : 'btn-outline-primary'"
-              v-bs-tooltip="t('page.species.hourlyChart')"
-              :aria-label="t('page.species.hourlyChart')"
-              @click="setChartMode('hourly')"
-            >
-              <i class="bi bi-grid-3x3-gap"></i>
-            </button>
-            <button
-              type="button"
-              class="btn"
-              :class="chartMode === 'ribbon' ? 'btn-primary' : 'btn-outline-primary'"
-              v-bs-tooltip="t('page.species.ribbonChart')"
-              :aria-label="t('page.species.ribbonChart')"
-              @click="setChartMode('ribbon')"
-            >
-              <i class="bi bi-bezier2"></i>
-            </button>
-          </div>
-          <div class="d-flex align-items-center gap-2">
-            <span class="small text-warm-muted d-none d-sm-inline">{{
-              t('page.species.chartSpeciesCount')
-            }}</span>
-            <div
-              class="btn-group btn-group-sm"
-              role="group"
-              v-bs-tooltip="t('page.species.chartSpeciesCountHint')"
-              :aria-label="t('page.species.chartSpeciesCountHint')"
-            >
-              <button
-                v-for="count in chartSpeciesCountOptions"
-                :key="count"
-                type="button"
-                class="btn"
-                :class="chartSpeciesCount === count ? 'btn-primary' : 'btn-outline-primary'"
-                @click="chartSpeciesCount = count"
-              >
-                {{ count }}
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
       <template v-if="chartMode === 'timeline'">
         <SpeciesComparisonViolinChart
           v-if="chartSeries.length"
@@ -169,16 +177,20 @@ import { ref, computed, inject, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as api from '../api/index.js'
 import { speciesRoute } from '../links.js'
-import SpeciesListToolbar from '../components/species/SpeciesListToolbar.vue'
+import PeriodPicker from '../components/common/PeriodPicker.vue'
 import SpeciesGridCard from '../components/species/SpeciesGridCard.vue'
 import SpeciesListRow from '../components/species/SpeciesListRow.vue'
 import SpeciesComparisonViolinChart from '../components/charts/SpeciesComparisonViolinChart.vue'
 import SpeciesHourlyHeatmapChart from '../components/charts/SpeciesHourlyHeatmapChart.vue'
 import SpeciesRibbonChart from '../components/charts/SpeciesRibbonChart.vue'
 import { readChartMode, writeChartMode } from '../chartModeStorage.js'
+import { usePeriodSelection } from '../composables/usePeriodSelection.js'
 
 const { t } = useI18n()
 const lang = inject('lang')
+// Restore the last chosen period (or default to 24h). The picker emits it on mount, so the
+// species list keeps the selection across navigation and reload.
+const initialPeriodSelection = usePeriodSelection().restoreSelection('24h')
 // Initial window is left null: the period picker emits the restored (or default)
 // selection on mount, which populates these and triggers the first fetch.
 const start = ref(null)
