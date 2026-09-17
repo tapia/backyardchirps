@@ -286,9 +286,6 @@ export default {
   filter: {
     period: 'Período',
     sortBy: 'Ordenar por',
-    mostFrequent: 'Más frecuente',
-    mostRecent: 'Más reciente',
-    alphabetical: 'Alfabético',
     byDate: 'Fecha',
     bySpecies: 'Especie',
   },

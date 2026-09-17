@@ -285,9 +285,6 @@ export default {
   filter: {
     period: 'Period',
     sortBy: 'Sort by',
-    mostFrequent: 'Most frequent',
-    mostRecent: 'Most recent',
-    alphabetical: 'Alphabetical',
     byDate: 'Date',
     bySpecies: 'Species',
   },

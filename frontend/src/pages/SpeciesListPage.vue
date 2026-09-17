@@ -1,6 +1,6 @@
 <template>
   <div class="container pb-5">
-    <SpeciesListToolbar :sort="sort" @period-change="onPeriodChange" @update:sort="sort = $event" />
+    <SpeciesListToolbar @period-change="onPeriodChange" />
 
     <div v-if="loading" class="text-center py-5 text-warm-muted">
       <div class="spinner-border spinner-border-sm me-2"></div>
@@ -184,7 +184,6 @@ const lang = inject('lang')
 const start = ref(null)
 const end = ref(null)
 const periodLabel = ref('')
-const sort = ref('most_frequent')
 const species = ref([])
 const loading = ref(false)
 const viewMode = ref(window.innerWidth < 576 ? 'list' : 'grid')
@@ -205,9 +204,9 @@ const ribbonSeries = computed(() => {
   )
 })
 
-// How many species the chart shows. Unlike the period/sort filters, this scopes
-// only the chart: it caps the selection and seeds it with the top-N species of
-// the current ordering. Manual card toggles stay allowed within this budget.
+// How many species the chart shows. Unlike the period filter, this scopes
+// only the chart: it caps the selection and seeds it with the most frequent
+// species. Manual card toggles stay allowed within this budget.
 const chartSpeciesCountOptions = [5, 10, 15, 20]
 const chartSpeciesCount = ref(10)
 
@@ -229,7 +228,7 @@ async function fetchSpecies() {
   loading.value = true
   try {
     const fresh = await api.fetchSpeciesList({
-      sort: sort.value,
+      sort: 'most_frequent',
       lang: lang.value,
       start: start.value,
       end: end.value,
@@ -289,7 +288,7 @@ function toggleChart(slug) {
 }
 
 // Changing the chart's species count re-seeds the selection with the current
-// top-N ordering, without refetching the list. The selectedSlugs watch below
+// most frequent species, without refetching the list. The selectedSlugs watch below
 // refreshes the charts.
 watch(chartSpeciesCount, (count) => {
   selectedSlugs.value = new Set(species.value.slice(0, count).map((s) => s.slug))
@@ -298,9 +297,9 @@ watch(chartSpeciesCount, (count) => {
 // The period picker emits the restored (or default) window on mount, which
 // flows through onPeriodChange and triggers the initial fetch via this watch,
 // so no separate onMounted fetch is needed.
-watch([start, end, sort, lang], fetchSpecies)
+watch([start, end, lang], fetchSpecies)
 
-// Every input change (period, sort, language) reassigns
+// Every input change (period, language) reassigns
 // selectedSlugs in fetchSpecies, and toggling a card reassigns it too, so a
 // single watch keeps every chart in sync with the selection. The timeline
 // data, which the violin and the ribbon chart share, is refetched eagerly;

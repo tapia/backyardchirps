@@ -28,7 +28,6 @@ from backyardchirps.shared.http import parse_dt
 class SpeciesListOrder(Enum):
     MOST_FREQUENT = "most_frequent"
     MOST_RECENT = "most_recent"
-    ALPHABETICAL = "alphabetical"
 
 
 @api_view(["GET"])
@@ -38,11 +37,7 @@ def species_list(request: Request) -> Response:
     start, end = parse_dt(request.GET.get("start")), parse_dt(request.GET.get("end"))
     order = _parse_species_order(request.GET.get("sort"))
 
-    db_order = order.value if order != SpeciesListOrder.ALPHABETICAL else None
-    species_counts = species_with_detection_counts(start, end, db_order)
-
-    if order == SpeciesListOrder.ALPHABETICAL:
-        species_counts.sort(key=lambda entry: entry.species.common_name(lang))
+    species_counts = species_with_detection_counts(start, end, order.value)
 
     return Response(
         {
