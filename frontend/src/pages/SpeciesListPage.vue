@@ -65,40 +65,6 @@
             </div>
           </div>
         </div>
-        <div v-if="canNavigate" class="btn-group btn-group-sm">
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            v-bs-tooltip="t('period.prevPeriod')"
-            :aria-label="t('period.prevPeriod')"
-            @click="navigatePrev"
-          >
-            <i class="bi bi-chevron-left"></i>
-          </button>
-          <span class="btn btn-outline-secondary pe-none nav-period-label">{{
-            navWindowLabel
-          }}</span>
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            :disabled="isAtPresent"
-            v-bs-tooltip="t('period.nextPeriod')"
-            :aria-label="t('period.nextPeriod')"
-            @click="navigateNext"
-          >
-            <i class="bi bi-chevron-right"></i>
-          </button>
-          <button
-            type="button"
-            class="btn btn-outline-secondary"
-            :disabled="isAtPresent"
-            v-bs-tooltip="t('period.now')"
-            :aria-label="t('period.now')"
-            @click="goToNow"
-          >
-            <i class="bi bi-chevron-double-right"></i>
-          </button>
-        </div>
       </div>
 
       <template v-if="chartMode === 'timeline'">
@@ -210,16 +176,14 @@ import SpeciesComparisonViolinChart from '../components/charts/SpeciesComparison
 import SpeciesHourlyHeatmapChart from '../components/charts/SpeciesHourlyHeatmapChart.vue'
 import SpeciesRibbonChart from '../components/charts/SpeciesRibbonChart.vue'
 import { readChartMode, writeChartMode } from '../chartModeStorage.js'
-import { formatShortDateRange } from '../dates.js'
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const lang = inject('lang')
 // Initial window is left null: the period picker emits the restored (or default)
 // selection on mount, which populates these and triggers the first fetch.
 const start = ref(null)
 const end = ref(null)
 const periodLabel = ref('')
-const currentPreset = ref('24h')
 const sort = ref('most_frequent')
 const species = ref([])
 const loading = ref(false)
@@ -255,78 +219,10 @@ const hourlyDays = ref(1)
 // switching to it triggers a fetch.
 const hourlyStale = ref(true)
 
-// Navigation state
-const navOffset = ref(0)
-const navAnchor = ref(null)
-const stepMs = ref(24 * 60 * 60 * 1000)
-const floorDay = ref(false)
-const liveStart = ref(null)
-const liveEnd = ref(null)
-const livePeriodLabel = ref('')
-
-const canNavigate = computed(() => !!stepMs.value)
-const isAtPresent = computed(() => navOffset.value === 0)
-
-const navWindowLabel = computed(() => {
-  if (!start.value) return ''
-  const windowStart = new Date(start.value)
-  const windowEnd = end.value ? new Date(end.value) : new Date()
-  return formatShortDateRange(windowStart, windowEnd, locale.value)
-})
-
-function onPeriodChange({ preset, start: s, end: e, label, stepMs: sMs, floorDay: fd }) {
-  navOffset.value = 0
-  navAnchor.value = null
-  currentPreset.value = preset
-  stepMs.value = sMs ?? 0
-  floorDay.value = fd ?? false
-  start.value = s || null
-  end.value = e || null
+function onPeriodChange({ start: windowStart, end: windowEnd, label }) {
+  start.value = windowStart
+  end.value = windowEnd
   periodLabel.value = label
-  liveStart.value = s || null
-  liveEnd.value = e || null
-  livePeriodLabel.value = label
-}
-
-function updateNavWindow() {
-  const anchor = navAnchor.value
-  const stepMsValue = stepMs.value
-  const windowEnd = new Date(anchor.getTime() - (navOffset.value - 1) * stepMsValue)
-  const windowStart = new Date(anchor.getTime() - navOffset.value * stepMsValue)
-  if (floorDay.value) {
-    windowEnd.setHours(0, 0, 0, 0)
-    windowStart.setHours(0, 0, 0, 0)
-  }
-  start.value = windowStart.toISOString()
-  end.value = windowEnd.toISOString()
-  periodLabel.value = formatShortDateRange(windowStart, windowEnd, locale.value)
-}
-
-function navigatePrev() {
-  if (!canNavigate.value) return
-  if (navOffset.value === 0) {
-    navAnchor.value = new Date(start.value)
-  }
-  navOffset.value++
-  updateNavWindow()
-}
-
-function navigateNext() {
-  if (!canNavigate.value || navOffset.value === 0) return
-  navOffset.value--
-  if (navOffset.value === 0) {
-    goToNow()
-    return
-  }
-  updateNavWindow()
-}
-
-function goToNow() {
-  navOffset.value = 0
-  navAnchor.value = null
-  start.value = liveStart.value
-  end.value = liveEnd.value
-  periodLabel.value = livePeriodLabel.value
 }
 
 async function fetchSpecies() {
@@ -420,12 +316,6 @@ watch(selectedSlugs, () => {
 .nav-period-btn {
   padding: 1px 6px;
   line-height: 1.4;
-}
-
-.nav-period-label {
-  min-width: 100px;
-  text-align: center;
-  font-size: 0.78rem;
 }
 
 .chart-empty-placeholder {

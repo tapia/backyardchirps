@@ -20,14 +20,14 @@
             <!-- Presets: sidebar on desktop, chip row on mobile -->
             <div class="prp-presets">
               <button
-                v-for="preset in rangePresets"
+                v-for="preset in PERIOD_PRESETS"
                 :key="preset.key"
                 type="button"
                 class="prp-preset"
-                :class="{ 'prp-preset--active': activePresetKey === preset.key }"
-                @click="applyPreset(preset)"
+                :class="{ 'prp-preset--active': highlightedPreset === preset.key }"
+                @click="emit('preset', preset.key)"
               >
-                {{ preset.label }}
+                {{ t(preset.labelKey) }}
               </button>
             </div>
 
@@ -148,6 +148,7 @@
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import dayjs from 'dayjs'
+import { PERIOD_PRESETS } from '../../periodPresets.js'
 
 const { t, locale } = useI18n()
 
@@ -155,10 +156,14 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   anchor: { type: Object, default: null },
   initialRange: { type: Array, default: null },
+  // Key of the shortcut that produced the current window, highlighted until the draft
+  // changes. It is passed in because "Last 24 hours" cannot be recognised from days alone.
+  activePreset: { type: String, default: null },
   maxDate: { type: Date, default: () => new Date() },
 })
 
-const emit = defineEmits(['apply', 'close'])
+// `preset` sends a shortcut key: shortcuts apply straight away, without the Apply button.
+const emit = defineEmits(['apply', 'preset', 'close'])
 
 const mediaQuery = window.matchMedia('(min-width: 576px)')
 const isWide = ref(mediaQuery.matches)
@@ -186,25 +191,14 @@ const anchorMonth = ref(dayjs().startOf('month'))
 
 const maxDay = computed(() => dayjs(props.maxDate).endOf('day'))
 
-const rangePresets = computed(() => {
-  const end = dayjs().startOf('day')
-  return [
-    { key: 'last7d', label: t('period.last7d'), start: end.subtract(6, 'day'), end },
-    { key: 'last14d', label: t('period.last14d'), start: end.subtract(13, 'day'), end },
-    { key: 'last30d', label: t('period.last30d'), start: end.subtract(29, 'day'), end },
-    { key: 'last3m', label: t('period.last3m'), start: end.subtract(89, 'day'), end },
-    { key: 'last6m', label: t('period.last6m'), start: end.subtract(179, 'day'), end },
-    { key: 'thisYear', label: t('period.thisYear'), start: dayjs().startOf('year'), end },
-  ]
-})
-
-const activePresetKey = computed(() => {
-  if (!draftStart.value || !draftEnd.value) return null
-  const match = rangePresets.value.find(
-    (preset) =>
-      preset.start.isSame(draftStart.value, 'day') && preset.end.isSame(draftEnd.value, 'day'),
+const highlightedPreset = computed(() => {
+  const initial = props.initialRange
+  const draftUnchanged = Boolean(
+    initial &&
+    draftStart.value?.isSame(initial[0], 'day') &&
+    draftEnd.value?.isSame(initial[1], 'day'),
   )
-  return match ? match.key : null
+  return draftUnchanged ? props.activePreset : null
 })
 
 const months = computed(() => {
@@ -287,13 +281,6 @@ function pickDay(cell) {
     draftEnd.value = day
     selecting.value = null
   }
-}
-
-function applyPreset(preset) {
-  draftStart.value = preset.start.startOf('day')
-  draftEnd.value = preset.end.startOf('day')
-  selecting.value = null
-  anchorMonth.value = draftStart.value.startOf('month')
 }
 
 function navigate(delta) {

@@ -142,6 +142,8 @@ h6,
   --bs-btn-active-bg: #3d4c35;
   --bs-btn-active-border-color: #3d4c35;
   --bs-btn-active-color: #fdfcfa;
+  --bs-btn-disabled-color: #4a5940;
+  --bs-btn-disabled-border-color: #4a5940;
 }
 
 .btn-secondary {

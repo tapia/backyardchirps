@@ -22,7 +22,11 @@ export const bsTooltip = {
     })
   },
   updated(el, { value }) {
-    Tooltip.getInstance(el)?.setContent({ '.tooltip-inner': value })
+    const tooltip = Tooltip.getInstance(el)
+    tooltip?.setContent({ '.tooltip-inner': value })
+    // A disabled button gets no mouseleave, so a tooltip shown when a click disabled it
+    // would stay on screen.
+    if (el.disabled) tooltip?.hide()
   },
   unmounted(el) {
     Tooltip.getInstance(el)?.dispose()

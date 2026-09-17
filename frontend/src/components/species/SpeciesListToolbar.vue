@@ -3,7 +3,6 @@
     <div>
       <div class="text-warm-muted small mb-1 d-none d-sm-block">{{ t('filter.period') }}</div>
       <PeriodPicker
-        mobile-dropdown
         :initial-selection="initialSelection"
         @change="$emit('period-change', $event)"
       />

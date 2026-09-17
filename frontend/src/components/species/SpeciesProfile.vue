@@ -63,19 +63,21 @@
         </li>
       </ul>
 
-      <template v-if="activeTab === 'detections'">
-        <!-- Period filter -->
-        <div class="period-bar d-flex align-items-center flex-wrap gap-2 gap-sm-3 mb-4">
-          <span class="stat-label d-none d-sm-inline">{{ t('filter.period') }}</span>
-          <PeriodPicker
-            variant="primary"
-            mobile-dropdown
-            :default-preset="pickerDefaultPreset"
-            :initial-range="pickerInitialRange"
-            @change="onPeriodChange"
-          />
-        </div>
+      <!-- Period filter. Hidden rather than removed on the other tabs, so the picker keeps
+           a period moved back in time when you return. -->
+      <div
+        v-show="activeTab === 'detections'"
+        class="period-bar d-flex align-items-center flex-wrap gap-2 gap-sm-3 mb-4"
+      >
+        <span class="stat-label d-none d-sm-inline">{{ t('filter.period') }}</span>
+        <PeriodPicker
+          :initial-selection="selection"
+          :emit-on-mount="false"
+          @change="onPeriodChange"
+        />
+      </div>
 
+      <template v-if="activeTab === 'detections'">
         <!-- Charts -->
         <template v-if="chartData">
           <div class="row g-3 mb-3">
@@ -147,28 +149,18 @@ import SpeciesKpiCards from './SpeciesKpiCards.vue'
 import SpeciesPresence from './SpeciesPresence.vue'
 import SpeciesRecordingsTab from './SpeciesRecordingsTab.vue'
 import { formatShortDateRange } from '../../dates.js'
+import {
+  findPreset,
+  normalizeSelection,
+  presetWindow,
+  selectionWindow,
+} from '../../periodPresets.js'
 
 const props = defineProps({
   speciesSlug: { type: String, required: true },
   // Time-range selection to start from: { preset } or { preset: 'custom', range }.
   initialSelection: { type: Object, default: () => ({ preset: '7d' }) },
 })
-
-const PRESET_DAYS = { '24h': 1, '7d': 7, '30d': 30, '1y': 365 }
-const PRESET_PERIOD_LABEL_KEYS = {
-  '24h': 'period.last24h',
-  '7d': 'period.last7d',
-  '30d': 'period.last30d',
-  '1y': 'period.last1y',
-}
-
-function presetStartDate(preset) {
-  const days = PRESET_DAYS[preset]
-  if (!days) return null
-  const date = new Date(Date.now() - (days - 1) * 24 * 60 * 60 * 1000)
-  if (preset !== '24h') date.setHours(0, 0, 0, 0)
-  return date.toISOString()
-}
 
 const { t, locale } = useI18n()
 const lang = inject('lang')
@@ -182,37 +174,38 @@ const species = ref(null)
 const chartData = ref(null)
 const highlightsHourly = ref(null)
 const loading = ref(false)
-// When the initial selection is a custom range, hand it to the picker so it
-// highlights the custom window (and shows its dates) instead of a preset.
-const initialCustomRange =
-  props.initialSelection.preset === 'custom' && props.initialSelection.range?.length === 2
-    ? props.initialSelection.range
-    : null
-const start = ref(
-  initialCustomRange ? initialCustomRange[0] : presetStartDate(props.initialSelection.preset),
-)
-const end = ref(initialCustomRange ? initialCustomRange[1] : null)
-const pickerDefaultPreset = ref(props.initialSelection.preset)
-const pickerInitialRange = initialCustomRange
-const currentPreset = ref(props.initialSelection.preset)
+// The first data load happens before the picker exists (it is part of the loaded
+// profile), so the starting window is worked out here and the picker does not emit it.
+// `selection` follows what the user picks, so the picker rebuilt for another species
+// starts from it.
+const selection = ref(normalizeSelection(props.initialSelection, '7d'))
+const start = ref(null)
+const end = ref(null)
+const currentPreset = ref(null)
+showSelectionWindow()
 const activeTab = ref('detections')
 const recordingsSort = ref('newest')
 
-function onPeriodChange({ preset, start: newStart, end: newEnd }) {
+function onPeriodChange({ preset, start: newStart, end: newEnd, selection: newSelection }) {
   currentPreset.value = preset
-  start.value = newStart || null
-  end.value = newEnd || null
+  start.value = newStart
+  end.value = newEnd
+  selection.value = newSelection
+}
+
+function showSelectionWindow() {
+  const selectedWindow = selectionWindow(selection.value)
+  currentPreset.value = selection.value.preset
+  start.value = selectedWindow.start.toISOString()
+  end.value = selectedWindow.end ? selectedWindow.end.toISOString() : null
 }
 
 // Human-readable label for the active period, shown under the detections
 // hero stat so the count is not mistaken for an all-time total.
 const heroPeriodLabel = computed(() => {
-  const labelKey = PRESET_PERIOD_LABEL_KEYS[currentPreset.value]
-  if (labelKey) return t(labelKey)
-  if (start.value && end.value) {
-    return formatShortDateRange(start.value, end.value, locale.value)
-  }
-  return t('period.allTime')
+  const preset = findPreset(currentPreset.value)
+  if (preset) return t(preset.labelKey)
+  return formatShortDateRange(start.value, end.value, locale.value)
 })
 
 // Hero highlights are period-independent: derived from the last year of data
@@ -225,18 +218,24 @@ const highlights = computed(() =>
 )
 
 async function _fetchHighlightsHourly() {
-  return api.fetchDetectionsPerHourOfDay(props.speciesSlug, { start: presetStartDate('1y') })
+  const lastYear = presetWindow(findPreset('1y'), 0)
+  return api.fetchDetectionsPerHourOfDay(props.speciesSlug, { start: lastYear.start.toISOString() })
 }
 
-watch([start, end, locale], reloadSpeciesAndCharts)
+// While load() runs it already fetches with the current window, so a window change it
+// caused (see the species watch below) must not start a second fetch.
+watch([start, end, locale], () => {
+  if (!loading.value) reloadSpeciesAndCharts()
+})
 
 watch(
   () => props.speciesSlug,
   () => {
-    // Keep the currently selected period when switching species; only reset the
-    // per-species view state and reload data for the new species.
+    // Keep the selected period when switching species, but not a period moved back in
+    // time: the picker is rebuilt with the new profile and starts from the selection.
     activeTab.value = 'detections'
     recordingsSort.value = 'newest'
+    showSelectionWindow()
     load()
   },
 )
