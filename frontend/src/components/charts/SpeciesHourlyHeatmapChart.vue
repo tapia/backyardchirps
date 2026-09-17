@@ -28,7 +28,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { use, format } from 'echarts/core'
+import { use } from 'echarts/core'
 import { BarChart, HeatmapChart } from 'echarts/charts'
 import {
   AxisPointerComponent,
@@ -40,7 +40,8 @@ import { CanvasRenderer } from 'echarts/renderers'
 import VChart from 'vue-echarts'
 import { CHART_COLORS } from '../../chartColors.js'
 import { formatHourOfDay } from './chartLabels.js'
-import { HEADER_FONT, TOOLTIP_STYLE, axisText } from './chartStyle.js'
+import { axisText } from './chartStyle.js'
+import { SPECIES_TOOLTIP, speciesTooltipHtml } from './speciesTooltip.js'
 import {
   HEATMAP_TOP,
   LABEL_GAP,
@@ -90,8 +91,6 @@ const NARROW_WIDTH = narrowBarsWidth(PLOT_LEFT, HOURS.length)
 const NARROW_LABEL_WIDTH = 76
 const NARROW_PLOT_LEFT = NARROW_LABEL_WIDTH + 2 * LABEL_GAP
 
-// Above this many species the tooltip list splits into two columns.
-const TWO_COLUMN_THRESHOLD = 14
 // The tooltip moves to the left edge when the pointer gets this close to it.
 const TOOLTIP_CLEARANCE = 10
 
@@ -152,12 +151,7 @@ const option = computed(() => {
     visualMap: activityLegend(t),
     tooltip: {
       trigger: 'item',
-      className: 'species-tooltip',
-      ...TOOLTIP_STYLE,
-      padding: [8, 10],
-      textStyle: { fontFamily: HEADER_FONT },
-      extraCssText: `${TOOLTIP_STYLE.extraCssText} max-width: calc(100vw - 24px);`,
-      confine: true,
+      ...SPECIES_TOOLTIP,
       position: tooltipPosition,
       formatter: tooltipHtml,
     },
@@ -228,36 +222,19 @@ function tooltipHtml(params) {
   const hour = isCell ? params.value[0] : params.dataIndex
   const hoveredSpecies = isCell ? params.value[1] : null
   const total = columnTotals.value[hour]
-  const header =
-    `<div class="species-tooltip__header">` +
-    `<div class="species-tooltip__title" style="color: ${CHART_COLORS.tooltip.title}">` +
-    `${format.encodeHTML(`${t('chart.hour')}: ${formatHourOfDay(hour)}`)}</div>` +
-    `<div class="species-tooltip__summary" style="color: ${CHART_COLORS.tooltip.body}">` +
-    `${format.encodeHTML(summaryLabel(total))}</div></div>`
-
-  if (total === 0) {
-    return (
-      header +
-      `<div class="species-tooltip__empty" style="color: ${CHART_COLORS.tooltip.body}">` +
-      `${format.encodeHTML(t('chart.noDetections'))}</div>`
-    )
-  }
-
-  const rows = props.species.map((entry, speciesIndex) => {
-    const count = entry.hours[hour]
-    const active = speciesIndex === hoveredSpecies ? ' species-tooltip__row--active' : ''
-    const nameColor = count === 0 ? CHART_COLORS.axis : CHART_COLORS.tooltip.body
-    const countColor = count === 0 ? CHART_COLORS.axis : CHART_COLORS.tooltip.title
-    return (
-      `<div class="species-tooltip__row${active}">` +
-      `<span class="species-tooltip__name" style="color: ${nameColor}">` +
-      `${format.encodeHTML(entry.common_name)}</span>` +
-      `<span class="species-tooltip__count" style="color: ${countColor}">` +
-      `${format.encodeHTML(`${formatValue(count)} ${countUnit(count)}`)}</span></div>`
-    )
+  return speciesTooltipHtml({
+    title: `${t('chart.hour')}: ${formatHourOfDay(hour)}`,
+    summary: summaryLabel(total),
+    rows: total
+      ? props.species.map((entry, speciesIndex) => ({
+          name: entry.common_name,
+          count: `${formatValue(entry.hours[hour])} ${countUnit(entry.hours[hour])}`,
+          active: speciesIndex === hoveredSpecies,
+          silent: entry.hours[hour] === 0,
+        }))
+      : [],
+    emptyText: t('chart.noDetections'),
   })
-  const split = rows.length > TWO_COLUMN_THRESHOLD ? ' species-tooltip__rows--split' : ''
-  return `${header}<div class="species-tooltip__rows${split}">${rows.join('')}</div>`
 }
 
 /*

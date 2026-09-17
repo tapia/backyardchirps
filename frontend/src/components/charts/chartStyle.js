@@ -11,6 +11,8 @@ export const AXIS_FONT = "'Helvetica Neue', 'Helvetica', 'Arial', sans-serif"
 // The site's --font-sans, for chart text that belongs with the page: legends,
 // totals, and the HTML tooltip cards.
 export const HEADER_FONT = "'Source Sans 3', system-ui, sans-serif"
+// The site's --font-grotesk, the face of the species ranking chart.
+export const RIBBON_FONT = "'Space Grotesk', system-ui, sans-serif"
 
 export function axisText(fontSize) {
   return { color: CHART_COLORS.axis, fontSize, fontFamily: AXIS_FONT }

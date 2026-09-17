@@ -16,13 +16,18 @@ export function formatHourOfDay(hour) {
 // Which columns of a detections timeline get a label: every one when the timeline is split
 // into hours, otherwise evenly spaced ones, eight at most.
 export function timelineLabelIndexes(columnCount, granularity) {
-  const maxLabels = granularity === 'hour' ? columnCount : 8
-  const step = Math.max(1, Math.ceil(columnCount / maxLabels))
+  const step = timelineLabelStep(columnCount, granularity)
   const indexes = []
   for (let columnIndex = 0; columnIndex < columnCount; columnIndex += step) {
     indexes.push(columnIndex)
   }
   return indexes
+}
+
+// Every how many columns a detections timeline gets a label, following the same rule.
+export function timelineLabelStep(columnCount, granularity) {
+  const maxLabels = granularity === 'hour' ? columnCount : 8
+  return Math.max(1, Math.ceil(columnCount / maxLabels))
 }
 
 // Breaks a species name into lines of at most maxChars, joined by "\n", for chart

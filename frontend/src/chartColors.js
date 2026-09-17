@@ -58,6 +58,16 @@ export const CHART_COLORS = {
    * Species ranking (ribbon) chart, assigned in the order of the species list and repeated
    * past the tenth species.
    */
+  /*
+   * The rest of the species ranking chart. paper and ink are the same as --ribbon-paper and
+   * --ribbon-ink, which the card and its species buttons use.
+   */
+  ribbon: {
+    paper: '#f7f6f2',
+    ink: '#1f1f1f',
+    muted: '#6b6a66',
+    grid: '#e6e4dd',
+  },
   ribbonPalette: [
     '#2d6a4f',
     '#f4a261',
