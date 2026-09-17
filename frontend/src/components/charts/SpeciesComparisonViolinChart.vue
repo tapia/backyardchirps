@@ -34,7 +34,7 @@ const LABEL_GAP = 16
 const PLOT_LEFT = LABEL_WIDTH + LABEL_GAP + 8
 const PLOT_TOP = 16
 const PLOT_BOTTOM = 30
-// Room for the end of the last date label, which is centred on its column.
+// Space between the end of the ridges and the edge of the card.
 const PLOT_RIGHT = 16
 // Date labels start this far below the plot.
 const DATE_LABEL_GAP = 11
@@ -77,6 +77,10 @@ const option = computed(() => {
         gridIndex: row,
         type: 'category',
         data: dates,
+        // The first and last columns sit on the edges of the plot. With the default gap the
+        // ridges would stop half a column short and leave a bare baseline that looks like a
+        // stretch with no detections.
+        boundaryGap: false,
         axisLine: { onZero: true, lineStyle: { color: speciesColor(row), width: BASELINE_WIDTH } },
         axisTick: { show: false },
         axisLabel: { show: false },
@@ -86,6 +90,7 @@ const option = computed(() => {
         gridIndex: lastRow,
         type: 'category',
         data: dates,
+        boundaryGap: false,
         position: 'bottom',
         axisLine: { show: false, onZero: false },
         axisTick: { show: false },
@@ -94,6 +99,7 @@ const option = computed(() => {
           ...AXIS_TEXT,
           margin: DATE_LABEL_GAP,
           hideOverlap: true,
+          alignMinLabel: 'left',
           alignMaxLabel: 'right',
           interval: (index) => labelledDates.has(index),
         },
